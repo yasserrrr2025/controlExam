@@ -11,18 +11,36 @@ const handleError = (error: any, context: string) => {
   if (error) {
     console.error(`Supabase Error [${context}]:`, error);
     
-    // الحل البرمجي لخطأ القيود (Check Constraint Error)
-    if (error.code === '23514') {
-      const sqlCommand = `ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('ADMIN', 'CONTROL_MANAGER', 'PROCTOR', 'CONTROL', 'ASSISTANT_CONTROL', 'COUNSELOR'));`;
-      
-      throw new Error(`⚠️ الرتبة الجديدة غير مفعلة في قاعدة البيانات. 
-الرجاء نسخ هذا الكود وتشغيله في SQL Editor في Supabase:
-${sqlCommand}`);
+    let errorDetail = '';
+    if (typeof error === 'string') {
+      errorDetail = error;
+    } else if (error.message) {
+      errorDetail = error.message;
+    } else if (error.details) {
+      errorDetail = error.details;
+    } else {
+      errorDetail = JSON.stringify(error);
     }
 
-    let errorMsg = error.message || "خطأ غير معروف في قاعدة البيانات";
-    throw new Error(`${context}: ${errorMsg}`);
+    // خطأ RLS: violates row-level security policy
+    if (errorDetail.includes('row-level security policy') || error.code === '42501') {
+       throw new Error(`⚠️ خطأ في صلاحيات قاعدة البيانات (RLS Error).
+يجب تفعيل سياسة الوصول للجداول في Supabase.
+الرجاء الانتقال إلى إعدادات النظام في التطبيق ونسخ كود "إصلاح صلاحيات الاستلام (SQL)" وتشغيله في Supabase SQL Editor.`);
+    }
+    
+    // خطأ 42P10: يعني غياب Unique Constraint المطلوب لعملية Upsert
+    if (error.code === '42P10') {
+      throw new Error(`⚠️ خطأ في هيكلة قاعدة البيانات (Constraint Error).
+الرجاء الانتقال إلى إعدادات النظام ونسخ كود "تحديث الغياب (SQL)" وتشغيله في Supabase SQL Editor.`);
+    }
+
+    if (error.code === '23514') {
+      throw new Error(`⚠️ الرتبة الجديدة غير مفعلة في قاعدة البيانات. 
+الرجاء الانتقال إلى إعدادات النظام ونسخ كود "صيانة الرتب (SQL)" وتشغيله في Supabase SQL Editor.`);
+    }
+
+    throw new Error(`${context}: ${errorDetail}`);
   }
 };
 
@@ -79,9 +97,9 @@ export const db = {
       handleError(error, "absences.getAll");
       return (data || []) as Absence[];
     },
-    insert: async (absence: Partial<Absence>) => {
-      const { error } = await supabase.from('absences').insert([absence]);
-      handleError(error, "absences.insert");
+    upsert: async (absence: Partial<Absence>) => {
+      const { error } = await supabase.from('absences').upsert([absence], { onConflict: 'student_id' });
+      handleError(error, "absences.upsert");
     },
     delete: async (studentId: string) => {
       const { error } = await supabase.from('absences').delete().eq('student_id', studentId);
@@ -136,9 +154,9 @@ export const db = {
       handleError(error, "deliveryLogs.getAll");
       return (data || []) as DeliveryLog[];
     },
-    insert: async (log: Partial<DeliveryLog>) => {
-      const { error } = await supabase.from('delivery_logs').insert([log]);
-      handleError(error, "deliveryLogs.insert");
+    upsert: async (log: Partial<DeliveryLog>) => {
+      const { error } = await supabase.from('delivery_logs').upsert([log], { onConflict: 'id' });
+      handleError(error, "deliveryLogs.upsert");
     }
   },
 
@@ -151,7 +169,7 @@ export const db = {
       } catch (e) { return null; }
     },
     upsert: async (config: Partial<SystemConfig>) => {
-      const { error } = await supabase.from('system_config').upsert([{ ...config, id: 'main_config' }]);
+      const { error } = await supabase.from('system_config').upsert([{ ...config, id: 'main_config' }], { onConflict: 'id' });
       handleError(error, "config.upsert");
     }
   },

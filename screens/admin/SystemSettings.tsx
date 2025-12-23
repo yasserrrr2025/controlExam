@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Trash2, ShieldAlert, RefreshCcw, AlertTriangle, Database, Users2, History, Clock, Save, Code, Copy, Check } from 'lucide-react';
+import { Trash2, ShieldAlert, RefreshCcw, AlertTriangle, Database, Users2, History, Clock, Save, Code, Copy, Check, ShieldCheck } from 'lucide-react';
 import { SystemConfig } from '../../types';
 
 interface Props {
@@ -18,15 +18,30 @@ const AdminSystemSettings: React.FC<Props> = ({ systemConfig, setSystemConfig, r
   const [confirming, setConfirming] = useState<string | null>(null);
   const [tempStartTime, setTempStartTime] = useState(systemConfig.exam_start_time || '08:00');
   const [isSavingCfg, setIsSavingCfg] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
-  const sqlFix = `ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+  const sqlRoleFix = `ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('ADMIN', 'CONTROL_MANAGER', 'PROCTOR', 'CONTROL', 'ASSISTANT_CONTROL', 'COUNSELOR'));`;
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(sqlFix);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const sqlAbsenceFix = `-- إصلاح قيد التحديث لجدول الغياب (حل مشكلة تكرار السجلات)
+ALTER TABLE absences DROP CONSTRAINT IF EXISTS absences_student_id_key;
+ALTER TABLE absences ADD CONSTRAINT absences_student_id_key UNIQUE (student_id);`;
+
+  const sqlRLSFix = `-- إصلاح سياسات الأمان لجدول سجلات التسليم (حل مشكلة RLS violates)
+-- السماح للجميع بالوصول الكامل (مناسب للمشاريع المفتوحة أو خلال التطوير)
+ALTER TABLE delivery_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow full access for all" ON delivery_logs;
+CREATE POLICY "Allow full access for all" ON delivery_logs FOR ALL USING (true) WITH CHECK (true);
+
+-- تأكد أيضاً من صلاحيات الجداول الأخرى
+ALTER TABLE control_requests ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all for requests" ON control_requests;
+CREATE POLICY "Allow all for requests" ON control_requests FOR ALL USING (true) WITH CHECK (true);`;
+
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   const handleAction = (id: string, action: () => void) => {
@@ -102,25 +117,53 @@ ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('ADMIN', 'CONT
         </div>
       </div>
 
-      {/* SQL Maintenance Section */}
-      <div className="bg-slate-900 p-10 rounded-[3rem] text-white shadow-2xl space-y-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 blur-[100px] rounded-full"></div>
-        <div className="relative z-10">
-          <h3 className="text-2xl font-black flex items-center gap-4 mb-4">
-             <Code className="text-blue-400" /> صيانة هيكلة البيانات (SQL)
-          </h3>
-          <p className="text-slate-400 font-bold mb-6">إذا ظهر لك خطأ "violates check constraint" عند تغيير رتبة مستخدم، انسخ الكود التالي وتشغيله في SQL Editor في لوحة تحكم Supabase:</p>
-          
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* SQL Fix: Roles */}
+        <div className="bg-slate-900 p-8 rounded-[3rem] text-white shadow-2xl space-y-6 relative overflow-hidden">
+          <h3 className="text-xl font-black flex items-center gap-4"><Code className="text-blue-400" /> صيانة الرتب</h3>
           <div className="relative group">
-            <pre className="bg-black/50 p-6 rounded-2xl font-mono text-xs text-blue-300 border border-white/10 overflow-x-auto text-left dir-ltr">
-              {sqlFix}
+            <pre className="bg-black/50 p-6 rounded-2xl font-mono text-[9px] text-blue-300 border border-white/10 overflow-x-auto text-left dir-ltr">
+              {sqlRoleFix}
             </pre>
             <button 
-              onClick={handleCopy}
+              onClick={() => handleCopy(sqlRoleFix, 'role')}
               className="absolute top-4 left-4 bg-white/10 hover:bg-white/20 p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-bold"
             >
-              {copied ? <Check size={14} className="text-emerald-400"/> : <Copy size={14} />}
-              {copied ? 'تم النسخ' : 'نسخ الكود'}
+              {copied === 'role' ? <Check size={14} className="text-emerald-400"/> : <Copy size={14} />}
+            </button>
+          </div>
+        </div>
+
+        {/* SQL Fix: Absences */}
+        <div className="bg-slate-900 p-8 rounded-[3rem] text-white shadow-2xl space-y-6 relative overflow-hidden">
+          <h3 className="text-xl font-black flex items-center gap-4 text-amber-400"><Database className="text-amber-400" /> تحديث الغياب</h3>
+          <div className="relative group">
+            <pre className="bg-black/50 p-6 rounded-2xl font-mono text-[9px] text-amber-200 border border-white/10 overflow-x-auto text-left dir-ltr">
+              {sqlAbsenceFix}
+            </pre>
+            <button 
+              onClick={() => handleCopy(sqlAbsenceFix, 'absence')}
+              className="absolute top-4 left-4 bg-white/10 hover:bg-white/20 p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-bold"
+            >
+              {copied === 'absence' ? <Check size={14} className="text-emerald-400"/> : <Copy size={14} />}
+            </button>
+          </div>
+        </div>
+
+        {/* SQL Fix: RLS Issues */}
+        <div className="bg-slate-900 p-8 rounded-[3rem] text-white shadow-2xl space-y-6 relative overflow-hidden border-t-4 border-emerald-500">
+          <h3 className="text-xl font-black flex items-center gap-4 text-emerald-400"><ShieldCheck className="text-emerald-400" /> إصلاح صلاحيات الاستلام (RLS)</h3>
+          <p className="text-[10px] text-slate-400 font-bold leading-relaxed">حل مشكلة "new row violates row-level security policy" عند إغلاق اللجان أو توثيق الاستلام:</p>
+          <div className="relative group">
+            <pre className="bg-black/50 p-6 rounded-2xl font-mono text-[9px] text-emerald-200 border border-white/10 overflow-x-auto text-left dir-ltr">
+              {sqlRLSFix}
+            </pre>
+            <button 
+              onClick={() => handleCopy(sqlRLSFix, 'rls')}
+              className="absolute top-4 left-4 bg-white/10 hover:bg-white/20 p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-bold"
+            >
+              {copied === 'rls' ? <Check size={14} className="text-emerald-400"/> : <Copy size={14} />}
+              {copied === 'rls' ? 'تم النسخ' : 'نسخ'}
             </button>
           </div>
         </div>
@@ -152,7 +195,7 @@ ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('ADMIN', 'CONT
       </div>
 
       <div className="grid grid-cols-1 gap-6">
-        <ActionCard id="ops" title="تصفير العمليات اليومية" description="حذف سجلات الاستلام والتسليم، البلاغات العاجلة، وحالات الغياب المرصودة لهذا اليوم." icon={History} colorClass="bg-slate-900" action={resetFunctions.operations} />
+        <ActionCard id="ops" title="تصفير العمليات اليومية" description="حذف سجلات الاستلام والتسليم، البلاغات عاجلة، وحالات الغياب المرصودة لهذا اليوم." icon={History} colorClass="bg-slate-900" action={resetFunctions.operations} />
         <ActionCard id="students" title="حذف الطلاب واللجان" description="مسح كافة قوائم الطلاب، الصفوف، أرقام الجلوس، وتوزيع اللجان الحالي." icon={Database} colorClass="bg-slate-900" action={resetFunctions.students} />
         <ActionCard id="teachers" title="حذف الهيئة التعليمية" description="إزالة جميع المعلمين والمراقبين المسجلين (سيتم الحفاظ على حساب مدير النظام فقط)." icon={Users2} colorClass="bg-slate-900" action={resetFunctions.teachers} />
       </div>
