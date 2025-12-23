@@ -20,7 +20,8 @@ import { db, supabase } from './supabase';
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // للجوال
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // للديسك توب
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   
   const [users, setUsers] = useState<User[]>([]);
@@ -32,7 +33,6 @@ const App: React.FC = () => {
   const [deliveryLogs, setDeliveryLogs] = useState<DeliveryLog[]>([]);
 
   const addNotification = (text: any, type?: 'broadcast') => {
-    // نضمن أن النص دائماً string لتجنب [object Object] في الواجهة
     const safeText = typeof text === 'string' ? text : (text?.message || JSON.stringify(text));
     const id = Math.random().toString(36).substr(2, 9);
     setNotifications(prev => [{ id, text: safeText, type }, ...prev]);
@@ -49,50 +49,23 @@ const App: React.FC = () => {
         db.controlRequests.getAll(),
         db.deliveryLogs.getAll()
       ]);
-      setUsers(u);
-      setStudents(s);
-      setSupervisions(sv);
-      setAbsences(ab);
-      setControlRequests(cr);
-      setDeliveryLogs(dl);
+      setUsers(u || []);
+      setStudents(s || []);
+      setSupervisions(sv || []);
+      setAbsences(ab || []);
+      setControlRequests(cr || []);
+      setDeliveryLogs(dl || []);
     } catch (err: any) {
-      // استخراج الرسالة بدقة
       const errorMsg = err?.message || "حدث خطأ غير معروف في الاتصال";
-      console.error("Fetch Error Detail:", err);
-      
-      if (errorMsg.includes('JWT') || errorMsg.includes('API key')) {
-        addNotification('خطأ في الصلاحيات: تأكد من مفتاح Supabase');
-      } else if (errorMsg.includes('relation') && errorMsg.includes('does not exist')) {
-        addNotification('خطأ: الجداول غير موجودة في قاعدة البيانات. يرجى إنشاء الجداول أولاً.');
-      } else {
-        addNotification(`خطأ في جلب البيانات: ${errorMsg}`);
-      }
+      addNotification(`خطأ في جلب البيانات: ${errorMsg}`);
     }
   };
 
   useEffect(() => {
     fetchData();
-
-    const absencesSub = supabase.channel('realtime_absences')
-      .on('postgres_changes', { event: '*', table: 'absences', schema: 'public' }, () => fetchData())
-      .subscribe();
-
-    const requestsSub = supabase.channel('realtime_requests')
-      .on('postgres_changes', { event: '*', table: 'control_requests', schema: 'public' }, (payload) => {
-        fetchData();
-        if (payload.eventType === 'INSERT') {
-          const comNum = payload.new.committee_number || payload.new.committee || 'غير معروفة';
-          addNotification(`بلاغ جديد من لجنة ${comNum}`);
-        }
-      })
-      .subscribe();
-
-    const notificationsSub = supabase.channel('realtime_notifications')
-      .on('postgres_changes', { event: 'INSERT', table: 'notifications', schema: 'public' }, (payload) => {
-        addNotification(payload.new.text, 'broadcast');
-      })
-      .subscribe();
-
+    const absencesSub = supabase.channel('realtime_absences').on('postgres_changes', { event: '*', table: 'absences', schema: 'public' }, () => fetchData()).subscribe();
+    const requestsSub = supabase.channel('realtime_requests').on('postgres_changes', { event: '*', table: 'control_requests', schema: 'public' }, () => fetchData()).subscribe();
+    const notificationsSub = supabase.channel('realtime_notifications').on('postgres_changes', { event: 'INSERT', table: 'notifications', schema: 'public' }, (payload) => addNotification(payload.new.text, 'broadcast')).subscribe();
     return () => {
       supabase.removeChannel(absencesSub);
       supabase.removeChannel(requestsSub);
@@ -100,24 +73,33 @@ const App: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    });
-  }, []);
-
-  const handleInstall = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    setInstallPrompt(null);
-  };
-
   const handleBroadcast = async (msg: string, target: any) => {
     try {
       await db.notifications.broadcast(msg, target, currentUser?.full_name || 'مدير');
     } catch (err) {
       addNotification('فشل إرسال البث الجماعي');
+    }
+  };
+
+  const deleteUser = async (id: string) => {
+    try {
+      if (!confirm('هل أنت متأكد من حذف هذا المعلم؟')) return;
+      await db.users.delete(id);
+      fetchData();
+      addNotification('تم حذف المعلم بنجاح');
+    } catch (e) {
+      addNotification(e);
+    }
+  };
+
+  const deleteStudent = async (id: string) => {
+    try {
+      if (!confirm('هل أنت متأكد من حذف هذا الطالب؟')) return;
+      await db.students.delete(id);
+      fetchData();
+      addNotification('تم حذف الطالب بنجاح');
+    } catch (e) {
+      addNotification(e);
     }
   };
 
@@ -139,9 +121,9 @@ const App: React.FC = () => {
           />
         );
       case 'teachers':
-        return <AdminUsersManager users={users} setUsers={async (u: any) => { try { await db.users.upsert(typeof u === 'function' ? u(users) : u); fetchData(); } catch(e) { addNotification(e); } }} students={students} {...commonProps} />;
+        return <AdminUsersManager users={users} setUsers={async (u: any) => { try { await db.users.upsert(typeof u === 'function' ? u(users) : u); fetchData(); } catch(e) { addNotification(e); } }} students={students} onDeleteUser={deleteUser} {...commonProps} />;
       case 'students':
-        return <AdminStudentsManager students={students} setStudents={async (s: any) => { try { await db.students.upsert(typeof s === 'function' ? s(students) : s); fetchData(); } catch(e) { addNotification(e); } }} {...commonProps} />;
+        return <AdminStudentsManager students={students} setStudents={async (s: any) => { try { await db.students.upsert(typeof s === 'function' ? s(students) : s); fetchData(); } catch(e) { addNotification(e); } }} onDeleteStudent={deleteStudent} {...commonProps} />;
       case 'committees':
         return <AdminSupervisionMonitor supervisions={supervisions} users={users} students={students} absences={absences} deliveryLogs={deliveryLogs} />;
       case 'official-forms':
@@ -200,33 +182,42 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] font-['Tajawal'] overflow-x-hidden selection:bg-blue-600 selection:text-white">
-      <header className="fixed top-0 right-0 left-0 bg-white/80 backdrop-blur-md z-[90] lg:hidden border-b px-6 py-4 flex justify-between items-center no-print">
-         <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 rounded-xl">
-           <Menu size={24} className="text-slate-700" />
-         </button>
-         <h1 className="font-black text-slate-900">كنترول الاختبارات</h1>
-         {installPrompt && (
-           <button onClick={handleInstall} className="p-2 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-600/20">
-             <Download size={20} />
-           </button>
-         )}
-      </header>
-
-      <Sidebar role={currentUser?.role || 'PROCTOR'} onLogout={() => setCurrentUser(null)} activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+      {currentUser && (
+        <>
+          <header className="fixed top-0 right-0 left-0 bg-white/80 backdrop-blur-md z-[90] lg:hidden border-b px-6 py-4 flex justify-between items-center no-print">
+             <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 rounded-xl">
+               <Menu size={24} className="text-slate-700" />
+             </button>
+             <h1 className="font-black text-slate-900">كنترول الاختبارات</h1>
+             {installPrompt && (
+               <button onClick={() => installPrompt.prompt()} className="p-2 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-600/20">
+                 <Download size={20} />
+               </button>
+             )}
+          </header>
+          <Sidebar 
+            role={currentUser?.role || 'PROCTOR'} 
+            onLogout={() => setCurrentUser(null)} 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab} 
+            isOpen={isSidebarOpen} 
+            setIsOpen={setIsSidebarOpen} 
+            isCollapsed={isSidebarCollapsed}
+            setIsCollapsed={setIsSidebarCollapsed}
+          />
+        </>
+      )}
 
       <div className="fixed top-4 left-4 z-[200] flex flex-col gap-3 w-80 max-w-[calc(100vw-2rem)] no-print">
         {notifications.map(n => (
-          <div key={n.id} className={`
-            ${n.type === 'broadcast' ? 'bg-blue-600 text-white border-white' : 'bg-slate-900 text-white border-blue-400'} 
-            border-r-4 shadow-2xl px-6 py-4 rounded-2xl flex items-center gap-4 animate-slide-up
-          `}>
+          <div key={n.id} className={`${n.type === 'broadcast' ? 'bg-blue-600 text-white border-white' : 'bg-slate-900 text-white border-blue-400'} border-r-4 shadow-2xl px-6 py-4 rounded-2xl flex items-center gap-4 animate-slide-up`}>
              {n.type === 'broadcast' ? <Volume2 size={24} className="animate-bounce shrink-0" /> : <Bell size={20} className="text-blue-400 shrink-0" />}
              <span className="font-bold text-[13px]">{n.text}</span>
           </div>
         ))}
       </div>
 
-      <main className={`transition-all duration-300 min-h-screen lg:mr-72 p-6 lg:p-10 pt-24 lg:pt-10`}>
+      <main className={`transition-all duration-300 min-h-screen ${currentUser ? (isSidebarCollapsed ? 'lg:mr-20' : 'lg:mr-72') : ''} ${currentUser ? 'p-6 lg:p-10 pt-24 lg:pt-10' : ''}`}>
         {currentUser ? renderContent() : <Login users={users} onLogin={setCurrentUser} />}
       </main>
     </div>

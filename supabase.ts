@@ -11,7 +11,6 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 const handleError = (error: any) => {
   if (error) {
     console.error("Supabase Trace:", error);
-    // نضمن دائماً رمي نص وليس كائن
     throw new Error(error.message || error.details || JSON.stringify(error));
   }
 };
@@ -25,12 +24,15 @@ export const db = {
     },
     getById: async (nationalId: string) => {
       const { data, error } = await supabase.from('users').select('*').eq('national_id', nationalId).single();
-      if (error && error.code !== 'PGRST116') handleError(error); // PGRST116 تعني لم يتم العثور على سجل
+      if (error && error.code !== 'PGRST116') handleError(error);
       return data as User;
     },
     upsert: async (users: any[]) => {
-      // نحدد أن التعارض يجب حله بناءً على national_id
       const { error } = await supabase.from('users').upsert(users, { onConflict: 'national_id' });
+      handleError(error);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('users').delete().eq('id', id);
       handleError(error);
     }
   },
@@ -42,8 +44,11 @@ export const db = {
       return (data || []) as Student[];
     },
     upsert: async (students: any[]) => {
-      // نحدد أن التعارض يجب حله بناءً على national_id
       const { error } = await supabase.from('students').upsert(students, { onConflict: 'national_id' });
+      handleError(error);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('students').delete().eq('id', id);
       handleError(error);
     }
   },
@@ -82,9 +87,7 @@ export const db = {
         .from('control_requests')
         .select('*')
         .order('created_at', { ascending: false });
-      
       handleError(error);
-      
       return (data || []).map((d: any) => ({
         id: d.id,
         from: d.from_user_name,

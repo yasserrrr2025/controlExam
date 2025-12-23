@@ -3,20 +3,68 @@ import React, { useState, useMemo } from 'react';
 import { User, UserRole, Student } from '../../types';
 import { ROLES_ARABIC, APP_CONFIG } from '../../constants';
 import { parseExcel } from '../../services/excelService';
-import { Upload, Search, Trash2, Layers, Check, Plus } from 'lucide-react';
+import { Upload, Search, Trash2, Layers, Check, Plus, Edit2, UserPlus, X } from 'lucide-react';
 
 interface Props {
   users: User[];
   setUsers: any;
   onAlert: any;
   students: Student[];
+  onDeleteUser: (id: string) => void;
 }
 
-const AdminUsersManager: React.FC<Props> = ({ users, setUsers, onAlert, students }) => {
+const AdminUsersManager: React.FC<Props> = ({ users, setUsers, onAlert, students, onDeleteUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   
+  // Form State
+  const [formData, setFormData] = useState<Partial<User>>({
+    national_id: '',
+    full_name: '',
+    phone: '',
+    role: 'PROCTOR'
+  });
+
   const availableGrades = useMemo(() => Array.from(new Set(students.map(s => s.grade))).filter(Boolean).sort(), [students]);
   const availableCommittees = useMemo(() => Array.from(new Set(students.map(s => s.committee_number))).filter(Boolean).sort((a,b) => Number(a)-Number(b)), [students]);
+
+  const openModal = (user: User | null = null) => {
+    if (user) {
+      setEditingUser(user);
+      setFormData(user);
+    } else {
+      setEditingUser(null);
+      setFormData({ national_id: '', full_name: '', phone: '', role: 'PROCTOR' });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.national_id || !formData.full_name) {
+      onAlert('يرجى إكمال البيانات الأساسية');
+      return;
+    }
+
+    const userData: User = {
+      id: editingUser?.id || crypto.randomUUID(),
+      national_id: formData.national_id!,
+      full_name: formData.full_name!,
+      phone: formData.phone || '',
+      role: formData.role as UserRole || 'PROCTOR',
+      assigned_committees: editingUser?.assigned_committees || [],
+      assigned_grades: editingUser?.assigned_grades || []
+    };
+
+    setUsers((prev: User[]) => {
+      if (editingUser) return prev.map(u => u.id === editingUser.id ? userData : u);
+      return [...prev, userData];
+    });
+
+    onAlert(editingUser ? 'تم تحديث البيانات' : 'تمت الإضافة بنجاح');
+    setIsModalOpen(false);
+  };
 
   const updateRole = (userId: string, role: UserRole) => {
     setUsers((prev: User[]) => prev.map(u => u.id === userId ? { ...u, role } : u));
@@ -28,14 +76,10 @@ const AdminUsersManager: React.FC<Props> = ({ users, setUsers, onAlert, students
     if (file) {
       try {
         const data = await parseExcel(file);
-        
         const processedUsers: User[] = data.map((row: any) => {
           const nId = String(row['رقم الهوية'] || row['الهوية'] || row['السجل المدني'] || '').trim();
-          // البحث عن المعلم في القائمة الحالية لمنع التكرار
           const existingUser = users.find(u => u.national_id === nId);
-          
           return {
-            // استخدام المعرف القديم إذا وجد، أو إنشاء واحد جديد
             id: existingUser?.id || crypto.randomUUID(),
             national_id: nId,
             full_name: String(row['الاسم'] || row['اسم المعلم'] || row['الاسم الكامل'] || '').trim(),
@@ -45,17 +89,12 @@ const AdminUsersManager: React.FC<Props> = ({ users, setUsers, onAlert, students
             assigned_grades: row['الصفوف'] ? String(row['الصفوف']).split(',') : (existingUser?.assigned_grades || []),
           };
         });
-
-        // تصفية السجلات الفارغة من الهوية
         const validUsers = processedUsers.filter(u => u.national_id.length > 5);
-        
         if (validUsers.length > 0) {
           setUsers(validUsers);
           onAlert(`تم استيراد وتحديث بيانات ${validUsers.length} من الهيئة التعليمية بنجاح.`);
         }
-      } catch (err: any) { 
-        onAlert(err); 
-      }
+      } catch (err: any) { onAlert(err); }
     }
     e.target.value = '';
   };
@@ -88,10 +127,13 @@ const AdminUsersManager: React.FC<Props> = ({ users, setUsers, onAlert, students
     <div className="space-y-10 animate-fade-in text-right pb-20">
       <div className="flex flex-col md:flex-row justify-between items-center gap-6">
         <h2 className="text-3xl font-black text-slate-800 tracking-tight">إدارة الهيئة التعليمية والصلاحيات</h2>
-        <div className="flex items-center gap-4 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+          <button onClick={() => openModal()} className="bg-blue-600 text-white px-6 py-4 rounded-2xl flex items-center gap-3 shadow-xl hover:bg-blue-700 transition-all font-black text-sm">
+            <UserPlus size={20}/> إضافة يدوية
+          </button>
           <label className="bg-slate-900 text-white px-6 py-4 rounded-2xl cursor-pointer flex items-center gap-3 shadow-xl hover:bg-black transition-all">
             <Upload size={20}/> 
-            <span className="font-black text-sm">رفع الهيئة التعليمية (Excel)</span>
+            <span className="font-black text-sm">رفع Excel</span>
             <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleStaffUpload} />
           </label>
           <div className="relative w-full md:w-80">
@@ -100,9 +142,10 @@ const AdminUsersManager: React.FC<Props> = ({ users, setUsers, onAlert, students
           </div>
         </div>
       </div>
+
       <div className="grid grid-cols-1 gap-8">
         {filtered.map((u: User) => (
-          <div key={u.id} className="bg-white p-10 rounded-[3rem] shadow-2xl border-2 border-slate-50 flex flex-col items-stretch gap-10 transition-all">
+          <div key={u.id} className="bg-white p-10 rounded-[3rem] shadow-2xl border-2 border-slate-50 flex flex-col items-stretch gap-10 transition-all group">
             <div className="flex flex-col lg:flex-row justify-between items-center gap-10">
               <div className="flex items-center gap-8 text-right flex-1">
                 <div className="w-20 h-20 bg-slate-900 text-white rounded-[1.5rem] flex items-center justify-center shadow-xl shrink-0">
@@ -121,7 +164,14 @@ const AdminUsersManager: React.FC<Props> = ({ users, setUsers, onAlert, students
                   <button key={role} onClick={() => updateRole(u.id, role as UserRole)} className={`px-4 py-2.5 rounded-xl font-black text-[10px] transition-all ${u.role === role ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-400 hover:bg-blue-50'}`}>{ROLES_ARABIC[role]}</button>
                 ))}
               </div>
-              <button onClick={() => setUsers((p:any) => p.filter((x:any)=>x.id!==u.id))} className="text-red-200 hover:text-red-600 transition-all p-4 hover:scale-110 shrink-0"><Trash2 size={24}/></button>
+              <div className="flex gap-2">
+                <button onClick={() => openModal(u)} className="p-4 bg-slate-100 text-slate-600 rounded-2xl hover:bg-blue-600 hover:text-white transition-all">
+                  <Edit2 size={20}/>
+                </button>
+                <button onClick={() => onDeleteUser(u.id)} className="p-4 bg-slate-100 text-red-400 rounded-2xl hover:bg-red-600 hover:text-white transition-all">
+                  <Trash2 size={20}/>
+                </button>
+              </div>
             </div>
             {(u.role === 'ASSISTANT_CONTROL' || u.role === 'CONTROL') && (
               <div className="bg-blue-50/30 p-8 rounded-[2.5rem] border border-blue-100/50">
@@ -144,6 +194,44 @@ const AdminUsersManager: React.FC<Props> = ({ users, setUsers, onAlert, students
           </div>
         ))}
       </div>
+
+      {/* Manual Add/Edit Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 no-print">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
+          <div className="bg-white w-full max-w-xl rounded-[3rem] shadow-2xl relative z-10 overflow-hidden animate-slide-up">
+            <div className="bg-slate-900 p-8 text-white flex justify-between items-center">
+              <h3 className="text-2xl font-black">{editingUser ? 'تعديل بيانات معلم' : 'إضافة معلم جديد'}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-all"><X size={24}/></button>
+            </div>
+            <form onSubmit={handleManualSubmit} className="p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-400 mr-2 uppercase">رقم الهوية</label>
+                  <input type="text" value={formData.national_id} onChange={e => setFormData({...formData, national_id: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-blue-600" required />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-400 mr-2 uppercase">الاسم الكامل</label>
+                  <input type="text" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-blue-600" required />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-400 mr-2 uppercase">رقم الجوال</label>
+                  <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-blue-600" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-400 mr-2 uppercase">الدور الوظيفي</label>
+                  <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-blue-600 appearance-none">
+                    {Object.entries(ROLES_ARABIC).map(([key, val]) => <option key={key} value={key}>{val}</option>)}
+                  </select>
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-black text-lg shadow-xl hover:bg-black transition-all">
+                {editingUser ? 'حفظ التعديلات' : 'إضافة المعلم للنظام'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
