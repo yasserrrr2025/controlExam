@@ -12,6 +12,7 @@ export const APP_CONFIG = {
 
 export const ROLES_ARABIC: Record<string, string> = {
   ADMIN: 'مدير النظام',
+  CONTROL_MANAGER: 'رئيس الكنترول',
   PROCTOR: 'مراقب',
   CONTROL: 'كنترول استلام',
   ASSISTANT_CONTROL: 'مساعد الكنترول',

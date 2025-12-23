@@ -1,17 +1,28 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { User, Student, Absence, Supervision, ControlRequest, DeliveryLog } from './types';
+import { User, Student, Absence, Supervision, ControlRequest, DeliveryLog, SystemConfig } from './types';
 
-// بيانات المشروع الحقيقية
 const supabaseUrl = 'https://upfavagxyuwnqmjgiibo.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwZmF2YWd4eXV3bnFtamdpaWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0MDQ0OTYsImV4cCI6MjA4MTk4MDQ5Nn0.AxsPO_Vw04aVuoa2KkFS_63OX1lz1yYthzBLLIkotuw';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-const handleError = (error: any) => {
+const handleError = (error: any, context: string) => {
   if (error) {
-    console.error("Supabase Trace:", error);
-    throw new Error(error.message || error.details || JSON.stringify(error));
+    console.error(`Supabase Error [${context}]:`, error);
+    
+    // الحل البرمجي لخطأ القيود (Check Constraint Error)
+    if (error.code === '23514') {
+      const sqlCommand = `ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('ADMIN', 'CONTROL_MANAGER', 'PROCTOR', 'CONTROL', 'ASSISTANT_CONTROL', 'COUNSELOR'));`;
+      
+      throw new Error(`⚠️ الرتبة الجديدة غير مفعلة في قاعدة البيانات. 
+الرجاء نسخ هذا الكود وتشغيله في SQL Editor في Supabase:
+${sqlCommand}`);
+    }
+
+    let errorMsg = error.message || "خطأ غير معروف في قاعدة البيانات";
+    throw new Error(`${context}: ${errorMsg}`);
   }
 };
 
@@ -19,75 +30,85 @@ export const db = {
   users: {
     getAll: async () => {
       const { data, error } = await supabase.from('users').select('*');
-      handleError(error);
+      handleError(error, "users.getAll");
       return (data || []) as User[];
     },
     getById: async (nationalId: string) => {
       const { data, error } = await supabase.from('users').select('*').eq('national_id', nationalId).single();
-      if (error && error.code !== 'PGRST116') handleError(error);
+      if (error && error.code !== 'PGRST116') handleError(error, "users.getById");
       return data as User;
     },
     upsert: async (users: any[]) => {
-      const { error } = await supabase.from('users').upsert(users, { onConflict: 'national_id' });
-      handleError(error);
+      const cleanUsers = users.map(u => ({
+        id: u.id || crypto.randomUUID(),
+        national_id: String(u.national_id).trim(),
+        full_name: String(u.full_name).trim(),
+        role: u.role,
+        phone: u.phone || '',
+        assigned_committees: u.assigned_committees || [],
+        assigned_grades: u.assigned_grades || []
+      }));
+      const { error } = await supabase.from('users').upsert(cleanUsers, { onConflict: 'national_id' });
+      handleError(error, "users.upsert");
     },
     delete: async (id: string) => {
       const { error } = await supabase.from('users').delete().eq('id', id);
-      handleError(error);
+      handleError(error, "users.delete");
     }
   },
 
   students: {
     getAll: async () => {
       const { data, error } = await supabase.from('students').select('*');
-      handleError(error);
+      handleError(error, "students.getAll");
       return (data || []) as Student[];
     },
     upsert: async (students: any[]) => {
       const { error } = await supabase.from('students').upsert(students, { onConflict: 'national_id' });
-      handleError(error);
+      handleError(error, "students.upsert");
     },
     delete: async (id: string) => {
       const { error } = await supabase.from('students').delete().eq('id', id);
-      handleError(error);
+      handleError(error, "students.delete");
     }
   },
 
   absences: {
     getAll: async () => {
       const { data, error } = await supabase.from('absences').select('*');
-      handleError(error);
+      handleError(error, "absences.getAll");
       return (data || []) as Absence[];
     },
     insert: async (absence: Partial<Absence>) => {
       const { error } = await supabase.from('absences').insert([absence]);
-      handleError(error);
+      handleError(error, "absences.insert");
     },
     delete: async (studentId: string) => {
       const { error } = await supabase.from('absences').delete().eq('student_id', studentId);
-      handleError(error);
+      handleError(error, "absences.delete");
     }
   },
 
   supervision: {
     getAll: async () => {
       const { data, error } = await supabase.from('supervision').select('*');
-      handleError(error);
+      handleError(error, "supervision.getAll");
       return (data || []) as Supervision[];
     },
-    upsert: async (sv: Partial<Supervision>) => {
-      const { error } = await supabase.from('supervision').upsert([sv]);
-      handleError(error);
+    insert: async (sv: Partial<Supervision>) => {
+      const { error } = await supabase.from('supervision').insert([sv]);
+      handleError(error, "supervision.insert");
+    },
+    deleteByTeacherId: async (teacherId: string) => {
+      const { error } = await supabase.from('supervision').delete().eq('teacher_id', teacherId);
+      handleError(error, "supervision.delete");
     }
   },
 
   controlRequests: {
     getAll: async () => {
-      const { data, error } = await supabase
-        .from('control_requests')
-        .select('*')
-        .order('created_at', { ascending: false });
-      handleError(error);
+      const { data, error } = await supabase.from('control_requests').select('*').order('id', { ascending: false });
+      handleError(error, "controlRequests.getAll");
       return (data || []).map((d: any) => ({
         id: d.id,
         from: d.from_user_name,
@@ -98,34 +119,47 @@ export const db = {
       })) as ControlRequest[];
     },
     insert: async (req: Partial<ControlRequest>) => {
-      const dbPayload = {
+      const { error } = await supabase.from('control_requests').insert([{
         from_user_name: req.from,
         committee_number: req.committee,
         text: req.text,
         time: req.time,
         status: req.status || 'PENDING'
-      };
-      const { error } = await supabase.from('control_requests').insert([dbPayload]);
-      handleError(error);
+      }]);
+      handleError(error, "controlRequests.insert");
     }
   },
 
   deliveryLogs: {
     getAll: async () => {
       const { data, error } = await supabase.from('delivery_logs').select('*');
-      handleError(error);
+      handleError(error, "deliveryLogs.getAll");
       return (data || []) as DeliveryLog[];
     },
     insert: async (log: Partial<DeliveryLog>) => {
       const { error } = await supabase.from('delivery_logs').insert([log]);
-      handleError(error);
+      handleError(error, "deliveryLogs.insert");
+    }
+  },
+
+  config: {
+    get: async () => {
+      try {
+        const { data, error } = await supabase.from('system_config').select('*').single();
+        if (error && error.code !== 'PGRST116') handleError(error, "config.get");
+        return data as SystemConfig;
+      } catch (e) { return null; }
+    },
+    upsert: async (config: Partial<SystemConfig>) => {
+      const { error } = await supabase.from('system_config').upsert([{ ...config, id: 'main_config' }]);
+      handleError(error, "config.upsert");
     }
   },
 
   notifications: {
     broadcast: async (text: string, targetRole: string, sender: string) => {
       const { error } = await supabase.from('notifications').insert([{ text, target_role: targetRole, sender_name: sender }]);
-      handleError(error);
+      handleError(error, "notifications.broadcast");
     }
   }
 };

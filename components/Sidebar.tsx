@@ -1,25 +1,15 @@
 
 import React from 'react';
 import { 
-  LayoutDashboard, 
-  Users, 
-  GraduationCap, 
-  ClipboardList, 
-  LogOut,
-  ShieldAlert,
-  Inbox,
-  Contact2,
-  FileText,
-  Settings,
-  X,
-  ChevronRight,
-  ChevronLeft
+  LayoutDashboard, Users, GraduationCap, ClipboardList, LogOut,
+  ShieldAlert, Inbox, FileText, Settings, X, ChevronRight, ChevronLeft,
+  History, IdCard, UserCircle, ShieldCheck, ShieldHalf
 } from 'lucide-react';
-import { UserRole } from '../types';
-import { APP_CONFIG } from '../constants';
+import { UserRole, User } from '../types';
+import { APP_CONFIG, ROLES_ARABIC } from '../constants';
 
 interface SidebarProps {
-  role: UserRole;
+  user: User;
   onLogout: () => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -30,17 +20,13 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
-  role, 
-  onLogout, 
-  activeTab, 
-  setActiveTab, 
-  isOpen, 
-  setIsOpen,
-  isCollapsed,
-  setIsCollapsed
+  user, onLogout, activeTab, setActiveTab, isOpen, setIsOpen, isCollapsed, setIsCollapsed
 }) => {
+  const role = user?.role || 'PROCTOR';
+  
   const adminLinks = [
     { id: 'dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
+    { id: 'control-manager', label: 'مركز قيادة الكنترول', icon: ShieldHalf },
     { id: 'teachers', label: 'الصلاحيات', icon: Users },
     { id: 'students', label: 'الطلاب', icon: GraduationCap },
     { id: 'committees', label: 'المراقبة', icon: ClipboardList },
@@ -48,24 +34,36 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'settings', label: 'إعدادات النظام', icon: Settings },
   ];
 
+  const controlManagerLinks = [
+    { id: 'control-manager', label: 'مركز قيادة الكنترول', icon: ShieldHalf },
+    { id: 'paper-logs', label: 'استلام المظاريف', icon: Inbox },
+    { id: 'receipt-history', label: 'سجل العمليات', icon: History },
+    { id: 'digital-id', label: 'البطاقة الرقمية', icon: IdCard },
+  ];
+
   const proctorLinks = [
     { id: 'my-tasks', label: 'رصد اللجنة', icon: ClipboardList },
-    { id: 'digital-id', label: 'البطاقة الرقمية', icon: Contact2 },
+    { id: 'digital-id', label: 'البطاقة الرقمية', icon: IdCard },
   ];
 
   const counselorLinks = [
     { id: 'student-absences', label: 'متابعة الغياب', icon: Users },
+    { id: 'digital-id', label: 'بطاقتي الرقمية', icon: IdCard },
   ];
 
   const controlLinks = [
-    { id: 'paper-logs', label: 'الاستلام', icon: Inbox },
+    { id: 'paper-logs', label: 'استلام المظاريف', icon: Inbox },
+    { id: 'receipt-history', label: 'سجل العمليات', icon: History },
+    { id: 'digital-id', label: 'البطاقة الرقمية', icon: IdCard },
   ];
 
   const assistantControlLinks = [
     { id: 'assigned-requests', label: 'طلباتي', icon: ShieldAlert },
+    { id: 'digital-id', label: 'البطاقة الرقمية', icon: IdCard },
   ];
 
   const links = role === 'ADMIN' ? adminLinks : 
+                role === 'CONTROL_MANAGER' ? controlManagerLinks :
                 role === 'PROCTOR' ? proctorLinks : 
                 role === 'COUNSELOR' ? counselorLinks : 
                 role === 'ASSISTANT_CONTROL' ? assistantControlLinks :
@@ -73,40 +71,24 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Backdrop */}
       {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden transition-opacity"
-          onClick={() => setIsOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden" onClick={() => setIsOpen(false)}/>
       )}
 
-      {/* Sidebar Drawer */}
-      <div className={`
-        fixed right-0 top-0 h-full bg-slate-900 text-white shadow-2xl z-[110] flex flex-col
-        transition-all duration-300 ease-in-out no-print
-        ${isOpen ? 'translate-x-0 w-72' : 'translate-x-full lg:translate-x-0'}
-        ${!isOpen && isCollapsed ? 'lg:w-20' : 'lg:w-72'}
-      `}>
-        <div className={`p-6 flex items-center border-b border-slate-800 transition-all ${isCollapsed && !isOpen ? 'justify-center' : 'justify-between'}`}>
-          <div className="text-right flex items-center gap-3 overflow-hidden">
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center p-1 overflow-hidden shrink-0">
+      <div className={`fixed right-0 top-0 h-full bg-slate-950 text-white shadow-2xl z-[110] flex flex-col transition-all duration-300 ${isOpen ? 'translate-x-0 w-80' : 'translate-x-full lg:translate-x-0'} ${!isOpen && isCollapsed ? 'lg:w-24' : 'lg:w-80'}`}>
+        <div className="p-6 border-b border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1 shrink-0">
                <img src={APP_CONFIG.LOGO_URL} alt="Logo" className="w-full h-full object-contain" />
             </div>
             {(!isCollapsed || isOpen) && (
-              <div className="animate-fade-in whitespace-nowrap">
+              <div className="animate-fade-in whitespace-nowrap text-right">
                 <h1 className="text-lg font-black text-blue-400 leading-none">كنترول الاختبارات</h1>
-                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">{role}</p>
+                <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">النظام الذكي</p>
               </div>
             )}
           </div>
-          <button onClick={() => setIsOpen(false)} className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors">
-            <X size={24} />
-          </button>
-          <button 
-            onClick={() => setIsCollapsed(!isCollapsed)} 
-            className="hidden lg:flex p-2 bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all"
-          >
+          <button onClick={() => setIsCollapsed(!isCollapsed)} className="hidden lg:flex p-2 bg-white/5 text-slate-400 hover:text-white rounded-xl transition-all">
             {isCollapsed ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
           </button>
         </div>
@@ -115,45 +97,44 @@ const Sidebar: React.FC<SidebarProps> = ({
           {links.map((link) => (
             <button
               key={link.id}
-              onClick={() => {
-                setActiveTab(link.id);
-                setIsOpen(false);
-              }}
-              className={`w-full flex items-center px-4 py-4 rounded-2xl transition-all duration-200 group relative ${
-                isCollapsed && !isOpen ? 'justify-center' : 'gap-4'
-              } ${
-                activeTab === link.id 
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`}
+              onClick={() => { setActiveTab(link.id); setIsOpen(false); }}
+              className={`w-full flex items-center px-4 py-4 rounded-2xl transition-all group ${isCollapsed && !isOpen ? 'justify-center' : 'gap-4 flex-row-reverse'} ${activeTab === link.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
             >
-              <link.icon size={22} className={activeTab === link.id ? 'animate-pulse' : ''} />
-              {(!isCollapsed || isOpen) && (
-                <span className="font-bold text-sm whitespace-nowrap animate-fade-in">{link.label}</span>
-              )}
-              {isCollapsed && !isOpen && (
-                <div className="absolute right-full mr-4 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap shadow-xl z-50">
-                  {link.label}
-                </div>
-              )}
+              <link.icon size={22} className={activeTab === link.id ? 'animate-pulse' : 'shrink-0'} />
+              {(!isCollapsed || isOpen) && <span className="font-bold text-sm flex-1 text-right">{link.label}</span>}
             </button>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-800 space-y-4">
-           <button
-            onClick={onLogout}
-            className={`w-full flex items-center px-4 py-4 text-red-400 hover:bg-red-500/10 rounded-2xl transition-colors font-bold text-sm group relative ${
-              isCollapsed && !isOpen ? 'justify-center' : 'gap-4'
-            }`}
-          >
-            <LogOut size={20} />
-            {(!isCollapsed || isOpen) && <span className="animate-fade-in">تسجيل الخروج</span>}
-            {isCollapsed && !isOpen && (
-              <div className="absolute right-full mr-4 px-3 py-2 bg-red-600 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap shadow-xl z-50">
-                تسجيل الخروج
+        {(!isCollapsed || isOpen) && (
+          <div className="px-6 py-8 mt-auto">
+            <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-white/10 rounded-[2.5rem] p-6 relative overflow-hidden group/badge shadow-2xl">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-600"></div>
+              <div className="flex flex-col items-center gap-4 text-center">
+                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-2 shadow-2xl border-2 border-white/5">
+                  <img src={APP_CONFIG.LOGO_URL} className="w-full h-full object-contain" alt="User" />
+                </div>
+                <div className="w-full">
+                  <h4 className="font-black text-sm text-white leading-tight mb-2 px-2 break-words">
+                    {user?.full_name || 'موظف النظام'}
+                  </h4>
+                  <div className="inline-block bg-blue-600/20 text-blue-400 px-4 py-1 rounded-full text-[10px] font-black border border-blue-500/20">
+                    {ROLES_ARABIC[role] || role}
+                  </div>
+                </div>
               </div>
-            )}
+              <div className="flex items-center justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest border-t border-white/5 pt-4 mt-4">
+                <span className="flex items-center gap-1"><ShieldCheck size={10} className="text-emerald-500"/> حساب مؤمن</span>
+                <span>ID: {user?.national_id?.slice(-4) || '----'}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="p-4 border-t border-white/5">
+          <button onClick={onLogout} className={`w-full flex items-center px-4 py-4 text-red-400 hover:bg-red-500/10 rounded-2xl transition-all font-bold text-sm ${isCollapsed && !isOpen ? 'justify-center' : 'gap-4 flex-row-reverse'}`}>
+            <LogOut size={20} className="shrink-0" />
+            {(!isCollapsed || isOpen) && <span className="flex-1 text-right">تسجيل الخروج</span>}
           </button>
         </div>
       </div>

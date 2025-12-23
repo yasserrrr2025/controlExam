@@ -1,5 +1,5 @@
 
-export type UserRole = 'ADMIN' | 'PROCTOR' | 'CONTROL' | 'ASSISTANT_CONTROL' | 'COUNSELOR';
+export type UserRole = 'ADMIN' | 'CONTROL_MANAGER' | 'PROCTOR' | 'CONTROL' | 'ASSISTANT_CONTROL' | 'COUNSELOR';
 
 export interface User {
   id: string;
@@ -71,4 +71,10 @@ export interface BroadcastMessage {
   targetRole: UserRole | 'ALL';
   sender: string;
   time: string;
+}
+
+export interface SystemConfig {
+  id: string;
+  exam_start_time: string; 
+  exam_date: string;
 }

@@ -1,8 +1,11 @@
 
 import React, { useState } from 'react';
-import { Trash2, ShieldAlert, RefreshCcw, AlertTriangle, Database, Users2, History } from 'lucide-react';
+import { Trash2, ShieldAlert, RefreshCcw, AlertTriangle, Database, Users2, History, Clock, Save, Code, Copy, Check } from 'lucide-react';
+import { SystemConfig } from '../../types';
 
 interface Props {
+  systemConfig: SystemConfig;
+  setSystemConfig: (cfg: Partial<SystemConfig>) => Promise<void>;
   resetFunctions: {
     students: () => void;
     teachers: () => void;
@@ -11,8 +14,20 @@ interface Props {
   };
 }
 
-const AdminSystemSettings: React.FC<Props> = ({ resetFunctions }) => {
+const AdminSystemSettings: React.FC<Props> = ({ systemConfig, setSystemConfig, resetFunctions }) => {
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [tempStartTime, setTempStartTime] = useState(systemConfig.exam_start_time || '08:00');
+  const [isSavingCfg, setIsSavingCfg] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const sqlFix = `ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('ADMIN', 'CONTROL_MANAGER', 'PROCTOR', 'CONTROL', 'ASSISTANT_CONTROL', 'COUNSELOR'));`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(sqlFix);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleAction = (id: string, action: () => void) => {
     if (confirming === id) {
@@ -20,8 +35,18 @@ const AdminSystemSettings: React.FC<Props> = ({ resetFunctions }) => {
       setConfirming(null);
     } else {
       setConfirming(id);
-      // تلقائياً نلغي حالة التأكيد بعد 5 ثواني
       setTimeout(() => setConfirming(null), 5000);
+    }
+  };
+
+  const handleSaveConfig = async () => {
+    setIsSavingCfg(true);
+    try {
+      await setSystemConfig({ exam_start_time: tempStartTime });
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setIsSavingCfg(false);
     }
   };
 
@@ -64,12 +89,6 @@ const AdminSystemSettings: React.FC<Props> = ({ resetFunctions }) => {
             {isConfirming ? 'اضغط مرة أخرى للتأكيد النهائي' : 'بدء الحذف'}
           </button>
         </div>
-        
-        {isConfirming && (
-          <div className="absolute top-2 left-2 px-3 py-1 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-tighter">
-            تنبيه: لا يمكن التراجع!
-          </div>
-        )}
       </div>
     );
   };
@@ -81,70 +100,61 @@ const AdminSystemSettings: React.FC<Props> = ({ resetFunctions }) => {
           <h2 className="text-4xl font-black text-slate-800 tracking-tighter">إعدادات وتهيئة النظام</h2>
           <p className="text-slate-400 font-bold italic mt-1">إدارة قواعد البيانات وبدء المواسم الجديدة</p>
         </div>
-        <div className="bg-amber-50 border-2 border-amber-200 px-6 py-4 rounded-2xl flex items-center gap-4 text-amber-700">
-           <AlertTriangle size={24} className="shrink-0" />
-           <p className="text-xs font-black leading-relaxed">تحذير: هذه الإجراءات ستقوم بحذف بيانات دائمة من قاعدة البيانات. <br/> يرجى التأكد من تصدير التقارير قبل البدء.</p>
+      </div>
+
+      {/* SQL Maintenance Section */}
+      <div className="bg-slate-900 p-10 rounded-[3rem] text-white shadow-2xl space-y-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 blur-[100px] rounded-full"></div>
+        <div className="relative z-10">
+          <h3 className="text-2xl font-black flex items-center gap-4 mb-4">
+             <Code className="text-blue-400" /> صيانة هيكلة البيانات (SQL)
+          </h3>
+          <p className="text-slate-400 font-bold mb-6">إذا ظهر لك خطأ "violates check constraint" عند تغيير رتبة مستخدم، انسخ الكود التالي وتشغيله في SQL Editor في لوحة تحكم Supabase:</p>
+          
+          <div className="relative group">
+            <pre className="bg-black/50 p-6 rounded-2xl font-mono text-xs text-blue-300 border border-white/10 overflow-x-auto text-left dir-ltr">
+              {sqlFix}
+            </pre>
+            <button 
+              onClick={handleCopy}
+              className="absolute top-4 left-4 bg-white/10 hover:bg-white/20 p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-bold"
+            >
+              {copied ? <Check size={14} className="text-emerald-400"/> : <Copy size={14} />}
+              {copied ? 'تم النسخ' : 'نسخ الكود'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-50 space-y-8">
+        <h3 className="text-2xl font-black text-slate-900 flex items-center gap-4">
+           <Clock className="text-blue-600" /> إعدادات الاختبار الحالية
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
+          <div className="space-y-3">
+             <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">وقت بداية الاختبار</label>
+             <input 
+               type="time" 
+               value={tempStartTime}
+               onChange={(e) => setTempStartTime(e.target.value)}
+               className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] p-5 font-black text-3xl text-slate-800 outline-none focus:border-blue-600 shadow-inner"
+             />
+          </div>
+          <button 
+            onClick={handleSaveConfig}
+            disabled={isSavingCfg}
+            className="bg-blue-600 text-white py-6 rounded-[1.5rem] font-black text-xl shadow-xl shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-4"
+          >
+            {isSavingCfg ? <RefreshCcw className="animate-spin" /> : <Save size={28} />}
+            حفظ إعدادات التوقيت
+          </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6">
-        <ActionCard 
-          id="ops"
-          title="تصفير العمليات اليومية" 
-          description="حذف سجلات الاستلام والتسليم، البلاغات العاجلة، وحالات الغياب المرصودة لهذا اليوم."
-          icon={History}
-          colorClass="bg-slate-900"
-          action={resetFunctions.operations}
-        />
-
-        <ActionCard 
-          id="students"
-          title="حذف الطلاب واللجان" 
-          description="مسح كافة قوائم الطلاب، الصفوف، أرقام الجلوس، وتوزيع اللجان الحالي."
-          icon={Database}
-          colorClass="bg-slate-900"
-          action={resetFunctions.students}
-        />
-
-        <ActionCard 
-          id="teachers"
-          title="حذف الهيئة التعليمية" 
-          description="إزالة جميع المعلمين والمراقبين المسجلين (سيتم الحفاظ على حساب مدير النظام فقط)."
-          icon={Users2}
-          colorClass="bg-slate-900"
-          action={resetFunctions.teachers}
-        />
-
-        <div className="mt-10 p-1 bg-red-50 rounded-[3.5rem] border-4 border-dashed border-red-200 overflow-hidden">
-           <div className={`
-             p-12 rounded-[3rem] transition-all flex flex-col items-center text-center gap-8
-             ${confirming === 'full' ? 'bg-red-600 text-white' : 'bg-white'}
-           `}>
-              <div className={`w-24 h-24 rounded-[2rem] flex items-center justify-center shadow-2xl ${confirming === 'full' ? 'bg-white/20' : 'bg-red-50 text-red-600'}`}>
-                 <RefreshCcw size={48} className={confirming === 'full' ? 'animate-spin' : ''} />
-              </div>
-              <div>
-                 <h3 className={`text-3xl font-black mb-2 ${confirming === 'full' ? 'text-white' : 'text-slate-900'}`}>تهيئة النظام الشاملة (Factory Reset)</h3>
-                 <p className={`font-bold max-w-xl mx-auto ${confirming === 'full' ? 'text-white/80' : 'text-slate-400'}`}>
-                   سيتم مسح "كل شيء" حرفياً وإعادة النظام إلى الحالة الافتراضية. سيتم حذف الطلاب، المعلمين، اللجان، والعمليات. 
-                   استخدم هذا الخيار فقط في بداية العام الدراسي الجديد.
-                 </p>
-              </div>
-              <button 
-                onClick={() => handleAction('full', resetFunctions.fullReset)}
-                className={`
-                  px-16 py-6 rounded-[2rem] font-black text-xl transition-all shadow-2xl
-                  ${confirming === 'full' ? 'bg-white text-red-600' : 'bg-red-600 text-white hover:bg-red-700'}
-                `}
-              >
-                {confirming === 'full' ? 'أنا متأكد تماماً، ابدأ المسح الكلي' : 'تهيئة النظام بالكامل'}
-              </button>
-           </div>
-        </div>
-      </div>
-      
-      <div className="text-center text-[10px] text-slate-300 font-black uppercase tracking-[0.2em]">
-         System Management Console v5.2 • Security Level 4
+        <ActionCard id="ops" title="تصفير العمليات اليومية" description="حذف سجلات الاستلام والتسليم، البلاغات العاجلة، وحالات الغياب المرصودة لهذا اليوم." icon={History} colorClass="bg-slate-900" action={resetFunctions.operations} />
+        <ActionCard id="students" title="حذف الطلاب واللجان" description="مسح كافة قوائم الطلاب، الصفوف، أرقام الجلوس، وتوزيع اللجان الحالي." icon={Database} colorClass="bg-slate-900" action={resetFunctions.students} />
+        <ActionCard id="teachers" title="حذف الهيئة التعليمية" description="إزالة جميع المعلمين والمراقبين المسجلين (سيتم الحفاظ على حساب مدير النظام فقط)." icon={Users2} colorClass="bg-slate-900" action={resetFunctions.teachers} />
       </div>
     </div>
   );
