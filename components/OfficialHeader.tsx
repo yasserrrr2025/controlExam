@@ -4,28 +4,24 @@ import { APP_CONFIG } from '../constants';
 
 const OfficialHeader: React.FC = () => {
   return (
-    <div className="w-full flex flex-col items-center mb-6 border-b-2 border-slate-900 pb-4">
-      <div className="w-full grid grid-cols-3 gap-4 px-4 items-center">
-        {/* الجزء الأيمن: البيانات الرسمية */}
-        <div className="text-[11px] font-black text-right leading-tight">
-          <p className="mb-1">{APP_CONFIG.MINISTRY_NAME}</p>
-          <p className="mb-1">{APP_CONFIG.ADMINISTRATION_NAME}</p>
-          <p className="mb-1">{APP_CONFIG.SCHOOL_NAME}</p>
-          <p className="text-[9px] text-slate-600 mt-1">الرقم الإداري: {APP_CONFIG.MINISTRY_ID}</p>
+    <div className="w-full mb-8">
+      <div className="flex justify-between items-start text-[12px] font-bold leading-relaxed">
+        {/* الجزء الأيمن: بيانات الوزارة */}
+        <div className="text-right">
+          <p className="font-black text-[14px]">{APP_CONFIG.MINISTRY_NAME}</p>
+          <p>{APP_CONFIG.ADMINISTRATION_NAME}</p>
+          <p>{APP_CONFIG.SCHOOL_NAME}</p>
+          <p className="text-[10px] mt-1 italic">الرقم الإداري: {APP_CONFIG.MINISTRY_ID}</p>
         </div>
         
-        {/* الجزء الأوسط: مفرغ بناء على طلب المستخدم (تم حذف الشعار) */}
-        <div className="flex flex-col items-center">
-          {/* تم إزالة الشعار الكبير من هنا */}
-        </div>
-
-        {/* الجزء الأيسر: التاريخ والمرفقات */}
-        <div className="text-[11px] font-bold text-left leading-tight">
-          <p className="mb-1">التاريخ: {new Date().toLocaleDateString('ar-SA')}</p>
-          <p className="mb-1">المرفقات: .................</p>
-          <p>رقم التقرير: {Math.floor(Math.random() * 100000)}</p>
+        {/* الجزء الأيسر: بيانات التقرير */}
+        <div className="text-left space-y-0.5">
+          <p>التاريخ: {new Date().toLocaleDateString('ar-SA')}</p>
+          <p>المرفقات: .................</p>
+          <p>رقم التقرير: {Math.floor(Math.random() * 90000) + 10000}</p>
         </div>
       </div>
+      <div className="w-full h-0.5 bg-slate-900 mt-4"></div>
     </div>
   );
 };
