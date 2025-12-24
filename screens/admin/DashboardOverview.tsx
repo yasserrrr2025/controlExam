@@ -86,7 +86,7 @@ const AdminDashboardOverview = ({ stats, absences, supervisions, users, delivery
     <div className="space-y-8 animate-slide-up text-right">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter">مركز القيادة الملكي</h2>
+          <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter">مركز القيادة </h2>
           <p className="text-slate-400 font-bold text-sm italic mt-2 flex items-center gap-2">
             <Activity size={16} className="text-blue-600 animate-pulse"/> إدارة اللجان والتوثيق المركزي
           </p>
