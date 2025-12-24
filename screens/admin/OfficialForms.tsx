@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Absence, Student } from '../../types';
 import { Printer, FileText, Calendar, ListChecks, History, Clock } from 'lucide-react';
 import OfficialHeader from '../../components/OfficialHeader';
@@ -27,7 +27,7 @@ const AdminOfficialForms: React.FC<Props> = ({ absences, students }) => {
     const date = new Date(absence.date).toLocaleDateString('ar-SA');
 
     return (
-      <div key={absence.id} className="bg-white p-8 font-['Tajawal'] text-slate-900 m-0 print-form-container page-break-after-always">
+      <div key={absence.id} className="bg-white p-8 font-['Tajawal'] text-slate-900 m-0 print-form-container page-break-after-always block">
         <OfficialHeader />
         
         <div className="text-center mb-6">
@@ -35,7 +35,6 @@ const AdminOfficialForms: React.FC<Props> = ({ absences, students }) => {
           <h2 className="text-2xl font-black mb-2">محضر غياب طالب عن الاختبار</h2>
         </div>
 
-        {/* الجدول الرئيسي للبيانات */}
         <div className="w-full border-[1.5px] border-slate-900 mb-6 text-sm">
            <div className="grid grid-cols-2 border-b border-slate-900">
               <div className="p-2 border-l border-slate-900 flex justify-between">
@@ -83,7 +82,6 @@ const AdminOfficialForms: React.FC<Props> = ({ absences, students }) => {
            </div>
         </div>
 
-        {/* مصادقة لجنة الإشراف والملاحظة */}
         <div className="mb-6">
           <div className="bg-slate-100 p-2 border-[1.5px] border-slate-900 text-center font-black text-sm">
             مصادقة لجنة الإشراف والملاحظة
@@ -120,7 +118,6 @@ const AdminOfficialForms: React.FC<Props> = ({ absences, students }) => {
           </table>
         </div>
 
-        {/* التوقيع والملاحظات */}
         <div className="flex justify-between items-start mt-12 px-10">
            <div className="text-center">
               <p className="text-xl font-black mb-12">مدير المدرسة:</p>
@@ -142,7 +139,7 @@ const AdminOfficialForms: React.FC<Props> = ({ absences, students }) => {
     const date = new Date(absence.date).toLocaleDateString('ar-SA');
 
     return (
-      <div key={absence.id} className="bg-white p-8 font-['Tajawal'] text-slate-900 m-0 print-form-container page-break-after-always">
+      <div key={absence.id} className="bg-white p-8 font-['Tajawal'] text-slate-900 m-0 print-form-container page-break-after-always block">
         <OfficialHeader />
         
         <div className="text-center mb-6">
@@ -233,7 +230,7 @@ const AdminOfficialForms: React.FC<Props> = ({ absences, students }) => {
 
   const renderComprehensiveRegister = (list: Absence[], title: string) => {
     return (
-      <div className="bg-white p-4 font-['Tajawal'] text-slate-900 border-[1.5px] border-slate-900 m-0 print-form-container">
+      <div className="bg-white p-4 font-['Tajawal'] text-slate-900 border-[1.5px] border-slate-900 m-0 print-form-container block">
         <OfficialHeader />
         <h2 className="text-center text-[12px] font-black mb-6 underline">سجل {title} الشامل لكافة اللجان</h2>
         <table className="w-full text-center border-[1.5px] border-slate-900 border-collapse text-[9px]">
@@ -270,12 +267,16 @@ const AdminOfficialForms: React.FC<Props> = ({ absences, students }) => {
   };
 
   const handlePrint = (type: any, id?: string) => {
+    // 1. تحديد النموذج المطلوب وإظهار حاوية الطباعة
     setSelectedForm({ type, absenceId: id });
     setIsPrinting(true);
+    
+    // 2. استخدام setTimeout لضمان اكتمال الرندر (Rendering)
     setTimeout(() => {
       window.print();
+      // 3. إعادة الحالة لوضعها الطبيعي بعد انتهاء الطباعة
       setIsPrinting(false);
-    }, 1000);
+    }, 800);
   };
 
   return (
@@ -370,8 +371,9 @@ const AdminOfficialForms: React.FC<Props> = ({ absences, students }) => {
         )}
       </div>
 
+      {/* منطقة الطباعة المخفية (تظهر فقط عند تفعيل isPrinting) */}
       {isPrinting && (
-        <div className="print-visible-block print:block hidden">
+        <div className="fixed inset-0 z-[9999] bg-white print:static print:block">
            {selectedForm?.type === 'ABSENCE_REGISTER_ALL' && renderComprehensiveRegister(allAbsences, 'الغياب')}
            {selectedForm?.type === 'DELAY_REGISTER_ALL' && renderComprehensiveRegister(allDelays, 'التأخير')}
            
@@ -387,11 +389,15 @@ const AdminOfficialForms: React.FC<Props> = ({ absences, students }) => {
       <style>{`
         @media print {
           @page { margin: 0.8cm; size: A4 portrait; }
-          body { background: white !important; margin: 0; padding: 0; }
+          body { visibility: hidden; }
+          .fixed.inset-0.z-\[9999\] { 
+            visibility: visible !important; 
+            position: absolute !important; 
+            left: 0 !important; 
+            top: 0 !important;
+            width: 100% !important;
+          }
           .no-print { display: none !important; }
-          .print-visible-block { display: block !important; visibility: visible !important; }
-          .print-form-container { width: 100% !important; box-shadow: none !important; border: none !important; margin: 0 !important; }
-          .page-break-after-always { page-break-after: always; }
           table { width: 100%; border-collapse: collapse; }
           thead { display: table-header-group; }
           tr { page-break-inside: avoid; }
