@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { GraduationCap, UserCheck, AlertCircle, Users, ArrowUpRight, Send, Radio, Activity, Search, ShieldAlert, Timer, UserX, Clock, UserCircle, CheckCircle2, AlertTriangle, PackageCheck, Bookmark } from 'lucide-react';
+import { GraduationCap, UserCheck, AlertCircle, Users, ArrowUpRight, Send, Radio, Activity, Search, ShieldAlert, Timer, UserX, Clock, UserCircle, CheckCircle2, AlertTriangle, PackageCheck, Bookmark, Info, ShieldCheck, Map } from 'lucide-react';
 import { Supervision, Absence, DeliveryLog, User, Student, UserRole, SystemConfig } from '../../types';
 import { ROLES_ARABIC } from '../../constants';
 
@@ -115,47 +115,104 @@ const AdminDashboardOverview = ({ stats, absences, supervisions, users, delivery
                 <input type="text" placeholder="رقم اللجنة أو المراقب..." className="w-full pr-10 py-3 bg-slate-50 border rounded-2xl font-bold text-xs outline-none focus:border-blue-500" value={liveSearch} onChange={e => setLiveSearch(e.target.value)} />
               </div>
            </div>
+
+           {/* خريطة حالات اللجان (Legend) */}
+           <div className="bg-slate-50 p-6 rounded-[2.5rem] border-2 border-slate-100 flex flex-wrap gap-6 justify-center shadow-inner">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-emerald-500 shadow-lg shadow-emerald-200"></div>
+                <span className="text-[10px] font-black text-slate-600">مكتملة (تم التسليم)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-blue-600 shadow-lg shadow-blue-200"></div>
+                <span className="text-[10px] font-black text-slate-600">نشطة (قيد المراقبة)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-rose-500 shadow-lg shadow-rose-200"></div>
+                <span className="text-[10px] font-black text-slate-600">رصد (غياب أو تأخر)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-slate-200 border border-slate-300"></div>
+                <span className="text-[10px] font-black text-slate-600">غير نشطة (لم تبدأ)</span>
+              </div>
+              <div className="flex items-center gap-2 animate-pulse">
+                <div className="w-4 h-4 rounded-full bg-red-600 shadow-lg shadow-red-300 ring-2 ring-red-100"></div>
+                <span className="text-[10px] font-black text-red-600 uppercase">خطر (لجنة بدون مراقب)</span>
+              </div>
+           </div>
            
            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredCommittees.map(committee => (
-                <div key={committee.num} className={`p-6 rounded-[3rem] border-2 transition-all flex flex-col gap-4 relative overflow-hidden min-h-[320px] shadow-xl ${committee.isAnomaly ? 'bg-red-50 border-red-500 animate-pulse' : committee.status === 'DONE' ? 'bg-white border-emerald-500' : 'bg-white border-slate-100'}`}>
-                   <div className="flex justify-between items-start">
-                     <div className="flex flex-col">
-                        <span className="text-4xl font-black text-slate-950 tracking-tighter">{committee.num}</span>
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">رقم اللجنة</span>
-                     </div>
-                     <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${committee.status === 'DONE' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                        {committee.status === 'DONE' ? 'تم التسليم' : 'قيد العمل'}
-                     </div>
-                   </div>
+              {filteredCommittees.map(committee => {
+                let cardStyle = "bg-white border-slate-100";
+                let statusLabel = "قيد العمل";
+                let statusIcon = <Timer size={14} className="animate-spin-slow" />;
+                let statusColor = "bg-slate-100 text-slate-500";
 
-                   <div className="bg-slate-900 text-white p-4 rounded-2xl space-y-1 border-b-4 border-blue-500">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2"><UserCircle size={10} className="text-blue-400"/> المراقب المسؤول:</p>
-                      <p className="text-[11px] font-black leading-tight break-words">{committee.proctor?.full_name || 'بانتظار المراقب...'}</p>
-                   </div>
+                if (committee.isAnomaly) {
+                  cardStyle = "bg-red-50 border-red-500 animate-pulse shadow-red-100";
+                  statusLabel = "خطر: لا يوجد مراقب";
+                  statusIcon = <AlertTriangle size={14} />;
+                  statusColor = "bg-red-600 text-white";
+                } else if (committee.status === 'DONE') {
+                  cardStyle = "bg-emerald-50/30 border-emerald-500 shadow-emerald-100";
+                  statusLabel = "تم التسليم للكنترول";
+                  statusIcon = <ShieldCheck size={14} />;
+                  statusColor = "bg-emerald-500 text-white";
+                } else if (committee.status === 'PROBLEM') {
+                  cardStyle = "bg-rose-50/50 border-rose-400 shadow-rose-100";
+                  statusLabel = "تنبيه: رصد حالات";
+                  statusIcon = <AlertCircle size={14} />;
+                  statusColor = "bg-rose-500 text-white";
+                } else if (committee.status === 'ACTIVE') {
+                  cardStyle = "bg-blue-50/30 border-blue-600 shadow-blue-100";
+                  statusLabel = "قيد المراقبة";
+                  statusIcon = <UserCheck size={14} />;
+                  statusColor = "bg-blue-600 text-white";
+                }
 
-                   {committee.receivedGrades.length > 0 ? (
-                     <div className="space-y-2 flex-1">
-                        <p className="text-[8px] font-black text-slate-400 uppercase mb-2 border-b pb-1">بيان الاستلام بالكنترول:</p>
-                        {committee.receivedGrades.map((rg, idx) => (
-                          <div key={idx} className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-100 flex items-center gap-3">
-                             <PackageCheck size={14} className="text-emerald-600 shrink-0" />
-                             <div className="min-w-0 flex-1">
-                                <p className="text-[10px] font-black text-emerald-800 leading-none">{rg.grade}</p>
-                                <p className="text-[9px] font-bold text-slate-500 mt-1 truncate">مستلم: {rg.receiver}</p>
-                             </div>
-                          </div>
-                        ))}
-                     </div>
-                   ) : (
-                     <div className="grid grid-cols-3 gap-2 flex-1 items-end">
-                        <div className="bg-slate-50 p-3 rounded-2xl text-center"><p className="text-[8px] font-black text-slate-400 uppercase mb-1">طلاب</p><p className="text-lg font-black">{committee.totalStudents}</p></div>
-                        <div className="bg-red-50 p-3 rounded-2xl text-center"><p className="text-[8px] font-black text-red-400 uppercase mb-1">غياب</p><p className="text-lg font-black text-red-600">{committee.absences}</p></div>
-                        <div className="bg-amber-50 p-3 rounded-2xl text-center"><p className="text-[8px] font-black text-amber-400 uppercase mb-1">تأخر</p><p className="text-lg font-black text-amber-600">{committee.lates}</p></div>
-                     </div>
-                   )}
-                </div>
-              ))}
+                return (
+                  <div key={committee.num} className={`p-6 rounded-[3rem] border-2 transition-all flex flex-col gap-4 relative overflow-hidden min-h-[340px] shadow-xl hover:scale-[1.02] ${cardStyle}`}>
+                    {/* خلفية جمالية للحالة */}
+                    <div className={`absolute -top-10 -right-10 w-32 h-32 blur-[60px] opacity-20 ${committee.status === 'DONE' ? 'bg-emerald-500' : committee.status === 'PROBLEM' ? 'bg-rose-500' : 'bg-blue-600'}`}></div>
+
+                    <div className="flex justify-between items-start relative z-10">
+                      <div className="flex flex-col">
+                          <span className="text-4xl font-black text-slate-950 tracking-tighter">{committee.num}</span>
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">رقم اللجنة</span>
+                      </div>
+                      <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${statusColor}`}>
+                          {statusIcon}
+                          {statusLabel}
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-900 text-white p-4 rounded-2xl space-y-1 border-b-4 border-blue-500 relative z-10">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2"><UserCircle size={10} className="text-blue-400"/> المراقب المسؤول:</p>
+                        <p className="text-[11px] font-black leading-tight break-words">{committee.proctor?.full_name || (committee.isAnomaly ? '--- لا يوجد ---' : 'بانتظار المراقب...')}</p>
+                    </div>
+
+                    {committee.receivedGrades.length > 0 ? (
+                      <div className="space-y-2 flex-1 relative z-10">
+                          <p className="text-[8px] font-black text-slate-400 uppercase mb-2 border-b pb-1">بيان الاستلام بالكنترول:</p>
+                          {committee.receivedGrades.map((rg, idx) => (
+                            <div key={idx} className="bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20 flex items-center gap-3">
+                                <PackageCheck size={14} className="text-emerald-600 shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[10px] font-black text-emerald-800 leading-none">{rg.grade}</p>
+                                  <p className="text-[9px] font-bold text-slate-500 mt-1 truncate">مستلم: {rg.receiver}</p>
+                                </div>
+                            </div>
+                          ))}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2 flex-1 items-end relative z-10">
+                          <div className="bg-white/50 backdrop-blur-sm p-3 rounded-2xl text-center border"><p className="text-[8px] font-black text-slate-400 uppercase mb-1">طلاب</p><p className="text-lg font-black">{committee.totalStudents}</p></div>
+                          <div className={`p-3 rounded-2xl text-center border ${committee.absences > 0 ? 'bg-red-500 text-white' : 'bg-white/50 text-slate-400'}`}><p className="text-[8px] font-black uppercase mb-1">غياب</p><p className="text-lg font-black">{committee.absences}</p></div>
+                          <div className={`p-3 rounded-2xl text-center border ${committee.lates > 0 ? 'bg-amber-500 text-white' : 'bg-white/50 text-slate-400'}`}><p className="text-[8px] font-black uppercase mb-1">تأخر</p><p className="text-lg font-black">{committee.lates}</p></div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
            </div>
         </div>
 
@@ -174,6 +231,15 @@ const AdminDashboardOverview = ({ stats, absences, supervisions, users, delivery
            </div>
         </div>
       </div>
+      <style>{`
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+          animation: spin-slow 4s linear infinite;
+        }
+      `}</style>
     </div>
   );
 };

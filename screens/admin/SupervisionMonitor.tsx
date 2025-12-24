@@ -52,7 +52,7 @@ const AdminSupervisionMonitor: React.FC<Props> = ({ supervisions, users, student
 
   return (
     <div className="space-y-8 animate-fade-in text-right pb-20">
-      <div className="bg-slate-900 p-8 md:p-12 rounded-[3.5rem] shadow-2xl text-white no-print relative overflow-hidden">
+      <div className="bg-slate-900 p-8 md:p-12 rounded-[3.5rem] shadow-2xl text-white no-print relative overflow-hidden border-b-[8px] border-blue-600">
         <div className="absolute top-0 left-0 w-64 h-64 bg-blue-600/10 blur-[100px] rounded-full -ml-32 -mt-32"></div>
         <div className="relative z-10 space-y-6">
            <h3 className="text-3xl font-black flex items-center gap-4"><Printer className="text-blue-400" /> مسير المراقبة والاستلام الرسمي</h3>
@@ -79,32 +79,28 @@ const AdminSupervisionMonitor: React.FC<Props> = ({ supervisions, users, student
                  <tr>
                    <th className="p-6">اللجنة</th>
                    <th className="p-6">المراقب</th>
-                   <th className="p-6">توقيع المراقب</th>
                    <th className="p-6">الصف</th>
                    <th className="p-6 text-center">الطلاب</th>
                    <th className="p-6 text-center">الحاضرون</th>
                    <th className="p-6 text-center">الغياب</th>
                    <th className="p-6 text-center">مستلم الكنترول</th>
-                   <th className="p-6 text-center">توقيع المستلم</th>
                    <th className="p-6 text-center">الحالة</th>
                  </tr>
                </thead>
-               <tbody className="divide-y divide-slate-100 font-bold">
+               <tbody className="divide-y divide-slate-100 font-bold text-slate-700">
                   {detailedStats.map((stat, idx) => (
                     <tr key={idx} className={`hover:bg-slate-50/50 ${stat.isDone ? 'bg-emerald-50/20' : ''}`}>
                        <td className="p-6 font-black">لجنة {stat.committee_number}</td>
-                       <td className="p-6 text-sm font-black text-slate-700 max-w-[150px] leading-tight">{stat.proctor_name}</td>
-                       <td className="p-6 text-center"><PenTool size={14} className="text-slate-200 mx-auto" /></td>
+                       <td className="p-6 text-sm font-black max-w-[150px] leading-tight">{stat.proctor_name}</td>
                        <td className="p-6 text-xs text-blue-600 font-black">{stat.grade}</td>
-                       <td className="p-6 text-center font-black text-slate-900">{stat.total}</td>
+                       <td className="p-6 text-center font-black">{stat.total}</td>
                        <td className="p-6 text-center font-black text-emerald-600 bg-emerald-50/20">{stat.present}</td>
                        <td className="p-6 text-center">
                           <span className={`px-3 py-1 rounded-full text-xs ${stat.absent > 0 ? 'bg-red-100 text-red-700' : 'text-slate-300'}`}>{stat.absent}</span>
                        </td>
                        <td className="p-6 text-center">
-                          <span className="text-[11px] font-black text-slate-700">{stat.receiver}</span>
+                          <span className="text-[11px] font-black">{stat.receiver}</span>
                        </td>
-                       <td className="p-6 text-center"><PenTool size={14} className="text-slate-200 mx-auto" /></td>
                        <td className="p-6 text-center">
                           {stat.isDone ? <CheckCircle2 size={18} className="text-emerald-500 mx-auto" /> : <div className="w-2 h-2 rounded-full bg-slate-200 mx-auto"></div>}
                        </td>
@@ -115,12 +111,12 @@ const AdminSupervisionMonitor: React.FC<Props> = ({ supervisions, users, student
          </div>
       </div>
 
-      {/* تصميم الطباعة الرسمي (A4) مع تكرار الترويسة */}
+      {/* تصميم الطباعة الرسمي (A4) - تكرار الترويسة وبدون الكليشة الضخمة */}
       <div className="print-only w-full">
         <table className="w-full text-center border-collapse">
           <thead className="table-header-group">
             <tr>
-              <th colSpan={11} className="border-none p-0">
+              <th colSpan={10} className="border-none p-0">
                 <OfficialHeader />
                 <div className="text-center mb-4">
                   <h2 className="text-xl font-black border-b-2 border-slate-900 pb-1 inline-block px-12 uppercase tracking-tighter">مسير المراقبة واستلام المظاريف النهائي</h2>
@@ -133,16 +129,15 @@ const AdminSupervisionMonitor: React.FC<Props> = ({ supervisions, users, student
             </tr>
             <tr className="bg-slate-100 font-black text-[9px]">
               <th className="border-[1.5px] border-slate-900 p-2 w-8">م</th>
-              <th className="border-[1.5px] border-slate-900 p-2 w-12">اللجنة</th>
+              <th className="border-[1.5px] border-slate-900 p-2 w-10">اللجنة</th>
               <th className="border-[1.5px] border-slate-900 p-2 text-right">المراقب (المعلم)</th>
-              <th className="border-[1.5px] border-slate-900 p-2 w-24">توقيع المراقب</th>
-              <th className="border-[1.5px] border-slate-900 p-2 w-16">الصف</th>
-              <th className="border-[1.5px] border-slate-900 p-2 w-10">طلاب</th>
-              <th className="border-[1.5px] border-slate-900 p-2 w-10">حاضر</th>
-              <th className="border-[1.5px] border-slate-900 p-2 w-10">غائب</th>
+              <th className="border-[1.5px] border-slate-900 p-2 w-28">توقيع المراقب</th>
+              <th className="border-[1.5px] border-slate-900 p-2 w-14">الصف</th>
+              <th className="border-[1.5px] border-slate-900 p-2 w-8">طلاب</th>
+              <th className="border-[1.5px] border-slate-900 p-2 w-8">حاضر</th>
+              <th className="border-[1.5px] border-slate-900 p-2 w-8">غائب</th>
               <th className="border-[1.5px] border-slate-900 p-2 text-right">المستلم (الكنترول)</th>
-              <th className="border-[1.5px] border-slate-900 p-2 w-24">توقيع المستلم</th>
-              <th className="border-[1.5px] border-slate-900 p-2 w-12">ملاحظات</th>
+              <th className="border-[1.5px] border-slate-900 p-2 w-28">توقيع المستلم</th>
             </tr>
           </thead>
           <tbody>
@@ -158,23 +153,20 @@ const AdminSupervisionMonitor: React.FC<Props> = ({ supervisions, users, student
                 <td className="border-[1.5px] border-slate-900 p-2 text-red-700 font-bold">{stat.absent}</td>
                 <td className="border-[1.5px] border-slate-900 p-2 text-right font-black leading-tight max-w-[120px] break-words">{stat.isDone ? stat.receiver : ''}</td>
                 <td className="border-[1.5px] border-slate-900 p-2 h-10"></td>
-                <td className="border-[1.5px] border-slate-900 p-2"></td>
               </tr>
             ))}
           </tbody>
           <tfoot className="table-footer-group">
             <tr>
-              <td colSpan={11} className="border-none pt-10 px-10">
+              <td colSpan={10} className="border-none pt-10 px-10">
                 <div className="grid grid-cols-2 text-[11px] font-black">
-                   <div className="text-center space-y-12">
+                   <div className="text-center space-y-8">
                       <p>رئيس لجنة الكنترول والضبط</p>
-                      <p>الاسم: .......................................</p>
-                      <p>التوقيع: .......................................</p>
+                      <p>.......................................</p>
                    </div>
-                   <div className="text-center space-y-12">
+                   <div className="text-center space-y-8">
                       <p>مدير المدرسة / رئيس اللجنة</p>
-                      <p>الاسم: .......................................</p>
-                      <p>التوقيع: .......................................</p>
+                      <p>.......................................</p>
                    </div>
                 </div>
               </td>
@@ -186,8 +178,8 @@ const AdminSupervisionMonitor: React.FC<Props> = ({ supervisions, users, student
       <style>{`
         @media print {
           @page { 
-            size: A4 landscape; 
-            margin: 0.8cm; 
+            size: A4 portrait; 
+            margin: 0.5cm; 
           }
           body { 
             background: white !important; 
