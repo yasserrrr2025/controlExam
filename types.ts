@@ -50,7 +50,8 @@ export interface ControlRequest {
   committee: string;
   text: string;
   time: string;
-  status: 'PENDING' | 'DONE' | 'REJECTED';
+  status: 'PENDING' | 'IN_PROGRESS' | 'DONE' | 'REJECTED';
+  assistant_name?: string;
 }
 
 export interface DeliveryLog {
@@ -65,16 +66,21 @@ export interface DeliveryLog {
   status?: 'CONFIRMED' | 'PENDING';
 }
 
-export interface BroadcastMessage {
+export interface CommitteeReport {
   id: string;
-  text: string;
-  targetRole: UserRole | 'ALL';
-  sender: string;
-  time: string;
+  committee_number: string;
+  proctor_id: string;
+  proctor_name: string;
+  date: string;
+  observations: string;
+  issues: string;
+  resolutions: string;
 }
 
 export interface SystemConfig {
   id: string;
   exam_start_time: string; 
   exam_date: string;
+  active_exam_date?: string;
+  allow_manual_join?: boolean;
 }

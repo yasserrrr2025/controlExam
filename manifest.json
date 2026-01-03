@@ -1,24 +1,37 @@
 
 {
-  "name": "كنترول الاختبارات",
+  "name": "كنترول الاختبارات المطور",
   "short_name": "الكنترول",
-  "description": "النظام الشامل لإدارة اللجان والمراقبة",
-  "start_url": "/",
+  "description": "النظام الشامل لإدارة اللجان والمراقبة الميدانية",
+  "id": "com.exam.control.v7",
+  "start_url": ".",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0f172a",
+  "background_color": "#020617",
+  "theme_color": "#2563eb",
   "orientation": "portrait-primary",
   "icons": [
     {
       "src": "https://www.raed.net/img?id=1488645",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "https://www.raed.net/img?id=1488645",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "https://www.raed.net/img?id=1488645",
       "sizes": "512x512",
       "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "رصد اللجنة",
+      "url": "/?tab=my-tasks"
     }
   ]
 }

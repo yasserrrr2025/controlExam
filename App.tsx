@@ -1,178 +1,239 @@
 
-import React, { useState, useEffect } from 'react';
-import { User, Student, Absence, Supervision, ControlRequest, DeliveryLog, UserRole, SystemConfig } from './types';
+import React, { useState, useEffect, useCallback } from 'react';
+import { User, Student, Absence, Supervision, ControlRequest, DeliveryLog, SystemConfig, CommitteeReport } from './types';
 import Sidebar from './components/Sidebar';
 import Login from './screens/Login';
 import AdminDashboardOverview from './screens/admin/DashboardOverview';
 import AdminUsersManager from './screens/admin/UsersManager';
 import AdminStudentsManager from './screens/admin/StudentsManager';
 import AdminSupervisionMonitor from './screens/admin/SupervisionMonitor';
+import AdminDailyReports from './screens/admin/DailyReports';
 import AdminOfficialForms from './screens/admin/OfficialForms';
 import AdminSystemSettings from './screens/admin/SystemSettings';
+import AdminProctorPerformance from './screens/admin/ProctorPerformance';
+import CommitteeLabelsPrint from './screens/admin/CommitteeLabelsPrint';
+import ControlHeadDashboard from './screens/admin/ControlHeadDashboard';
 import ControlManager from './screens/admin/ControlManager';
+import ControlRoomMonitor from './screens/admin/ControlRoomMonitor';
 import ProctorDailyAssignmentFlow from './screens/proctor/DailyAssignmentFlow';
+import ProctorAlertsHistory from './screens/proctor/ProctorAlertsHistory';
 import TeacherBadgeView from './screens/proctor/TeacherBadgeView';
 import CounselorAbsenceMonitor from './screens/counselor/AbsenceMonitor';
 import ControlReceiptView from './screens/control/ReceiptView';
 import ReceiptLogsView from './screens/control/ReceiptLogsView';
 import AssistantControlView from './screens/control/AssistantControlView';
-import { Bell, Menu, Download } from 'lucide-react';
+import { BellRing, Menu, X, CheckCircle2, AlertCircle, Info, AlertTriangle, Loader2 } from 'lucide-react';
 import { db, supabase } from './supabase';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState<string>(localStorage.getItem('activeTab') || '');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(window.innerWidth < 1024);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   
   const [users, setUsers] = useState<User[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [supervisions, setSupervisions] = useState<Supervision[]>([]);
   const [absences, setAbsences] = useState<Absence[]>([]);
-  const [notifications, setNotifications] = useState<{id: string, text: string, type?: 'broadcast'}[]>([]);
+  const [notifications, setNotifications] = useState<{id: string, text: string, type: 'success' | 'error' | 'info' | 'warning'}[]>([]);
   const [controlRequests, setControlRequests] = useState<ControlRequest[]>([]);
   const [deliveryLogs, setDeliveryLogs] = useState<DeliveryLog[]>([]);
-  const [systemConfig, setSystemConfig] = useState<SystemConfig>({ id: 'main_config', exam_start_time: '08:00', exam_date: '' });
+  const [committeeReports, setCommitteeReports] = useState<CommitteeReport[]>([]);
+  const [systemConfig, setSystemConfig] = useState<SystemConfig>({ 
+    id: 'main_config', 
+    exam_start_time: '08:00', 
+    exam_date: '',
+    active_exam_date: new Date().toISOString().split('T')[0],
+    allow_manual_join: false
+  });
 
-  const addNotification = (input: any, type?: 'broadcast') => {
-    let msg = "حدث خطأ غير متوقع";
-    
-    if (typeof input === 'string') {
-      msg = input;
-    } else if (input instanceof Error) {
-      msg = input.message;
-    } else if (input && typeof input === 'object') {
-      msg = input.message || input.error || input.details || JSON.stringify(input);
-    }
-
+  const addLocalNotification = (input: any, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
     const id = Math.random().toString(36).substr(2, 9);
+    const msg = typeof input === 'string' ? input : (input?.message || "تنبيه جديد من النظام");
     setNotifications(prev => [{ id, text: msg, type }, ...prev]);
-    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 10000);
+    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 5000);
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const [u, s, sv, ab, cr, dl, cfg] = await Promise.all([
-        db.users.getAll().catch(e => []),
-        db.students.getAll().catch(e => []),
-        db.supervision.getAll().catch(e => []),
-        db.absences.getAll().catch(e => []),
-        db.controlRequests.getAll().catch(e => []),
-        db.deliveryLogs.getAll().catch(e => []),
-        db.config.get().catch(e => null)
+      const cfg = await db.config.get();
+      let filterDate = systemConfig.active_exam_date;
+      if (cfg) {
+        setSystemConfig(prev => ({ ...prev, ...cfg }));
+        filterDate = cfg.active_exam_date || filterDate;
+      }
+      const [u, s, sv, ab, cr, dl, reports] = await Promise.all([
+        db.users.getAll(),
+        db.students.getAll(),
+        db.supervision.getAll(),
+        db.absences.getAll(),
+        db.controlRequests.getAll(),
+        db.deliveryLogs.getAll(),
+        db.committeeReports.getAll(),
       ]);
       setUsers(u);
       setStudents(s);
-      setSupervisions(sv);
-      setAbsences(ab);
-      setControlRequests(cr);
-      setDeliveryLogs(dl);
-      if (cfg) setSystemConfig(cfg);
+      
+      if (filterDate) {
+        setSupervisions(sv.filter(i => i.date && i.date.startsWith(filterDate))); 
+        setAbsences(ab.filter(i => i.date && i.date.startsWith(filterDate))); 
+        setDeliveryLogs(dl.filter(i => i.time && i.time.startsWith(filterDate)));
+        setControlRequests(cr.filter(i => i.time && i.time.startsWith(filterDate)));
+        setCommitteeReports(reports.filter(r => r.date && r.date.startsWith(filterDate)));
+      }
     } catch (err: any) {
-      addNotification(err);
+      console.warn("Sync Warning:", err.message);
+    } finally {
+      setIsInitialLoading(false);
     }
-  };
+  }, [systemConfig.active_exam_date]);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
-      try { setCurrentUser(JSON.parse(savedUser)); } catch (e) { localStorage.removeItem('currentUser'); }
+      try { 
+        const user = JSON.parse(savedUser);
+        setCurrentUser(user);
+        if (!activeTab) {
+          const defaultTab = user.role === 'ADMIN' ? 'dashboard' : 
+                           user.role === 'CONTROL_MANAGER' ? 'head-dash' : 
+                           user.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' : 'my-tasks';
+          setActiveTab(defaultTab);
+        }
+      } catch (e) { 
+        localStorage.removeItem('currentUser'); 
+      }
     }
     fetchData();
-  }, []);
-
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    localStorage.setItem('currentUser', JSON.stringify(user));
-    switch (user.role) {
-      case 'ADMIN': setActiveTab('dashboard'); break;
-      case 'CONTROL_MANAGER': setActiveTab('control-manager'); break;
-      case 'PROCTOR': setActiveTab('my-tasks'); break;
-      case 'COUNSELOR': setActiveTab('student-absences'); break;
-      case 'CONTROL': setActiveTab('paper-logs'); break;
-      case 'ASSISTANT_CONTROL': setActiveTab('assigned-requests'); break;
-      default: setActiveTab('dashboard');
-    }
-  };
+    const interval = setInterval(fetchData, 10000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('activeTab');
+    setActiveTab('');
+  };
+
+  const handleLoginSuccess = (u: User) => {
+    setCurrentUser(u);
+    localStorage.setItem('currentUser', JSON.stringify(u));
+    const defaultTab = u.role === 'ADMIN' ? 'dashboard' : 
+                     u.role === 'CONTROL_MANAGER' ? 'head-dash' : 
+                     u.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' : 'my-tasks';
+    setActiveTab(defaultTab);
+    localStorage.setItem('activeTab', defaultTab);
   };
 
   const renderContent = () => {
     if (!currentUser) return null;
-    const commonProps = { onAlert: addNotification };
+    
+    const tabToRender = activeTab || (
+      currentUser.role === 'ADMIN' ? 'dashboard' : 
+      currentUser.role === 'CONTROL_MANAGER' ? 'head-dash' : 
+      currentUser.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' : 'my-tasks'
+    );
 
-    switch (activeTab) {
-      case 'dashboard':
-        return <AdminDashboardOverview stats={{ students: students.length, users: users.length, activeSupervisions: supervisions.length }} absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} studentsList={students} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} systemConfig={systemConfig} />;
-      case 'control-manager':
-        return <ControlManager users={users} deliveryLogs={deliveryLogs} students={students} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} onUpdateUserGrades={async (userId, grades) => {
-          const user = users.find(u => u.id === userId);
-          if (user) {
-            try { await db.users.upsert([{ ...user, assigned_grades: grades }]); fetchData(); } catch (e: any) { addNotification(e); }
-          }
-        }} />;
-      case 'teachers':
-        return <AdminUsersManager users={users} setUsers={async (u: any) => { 
-          try { await db.users.upsert(typeof u === 'function' ? u(users) : u); fetchData(); } catch (e: any) { addNotification(e); }
-        }} students={students} onDeleteUser={async (id) => { if(confirm('حذف؟')){ await db.users.delete(id); fetchData(); } }} {...commonProps} />;
-      case 'students':
-        return <AdminStudentsManager students={students} setStudents={async (s: any) => { try { await db.students.upsert(typeof s === 'function' ? s(students) : s); fetchData(); } catch(e:any){addNotification(e);} }} onDeleteStudent={async (id) => { if(confirm('حذف؟')){ await db.students.delete(id); fetchData(); } }} {...commonProps} />;
-      case 'committees':
-        return <AdminSupervisionMonitor supervisions={supervisions} users={users} students={students} absences={absences} deliveryLogs={deliveryLogs} />;
-      case 'official-forms':
-        return <AdminOfficialForms absences={absences} students={students} />;
-      case 'settings':
-        return <AdminSystemSettings systemConfig={systemConfig} setSystemConfig={async (cfg) => { try { await db.config.upsert(cfg); fetchData(); } catch(e:any){addNotification(e);} }} resetFunctions={{
-          students: async () => { await supabase.from('students').delete().neq('id', '0000'); fetchData(); },
-          teachers: async () => { await supabase.from('users').delete().neq('role', 'ADMIN'); fetchData(); },
-          operations: async () => { await supabase.from('absences').delete().neq('id', '0000'); await supabase.from('delivery_logs').delete().neq('id', '0000'); fetchData(); },
-          fullReset: () => alert('يرجى استخدام SQL Editor')
-        }} />;
-      case 'assigned-requests':
-        return <AssistantControlView user={currentUser} requests={controlRequests} setRequests={fetchData} {...commonProps} />;
-      case 'paper-logs':
-        return <ControlReceiptView user={currentUser} students={students} absences={absences} deliveryLogs={deliveryLogs} setDeliveryLogs={async (log: DeliveryLog) => { try { await db.deliveryLogs.upsert(log); fetchData(); } catch(e:any){addNotification(e);} }} supervisions={supervisions} users={users} controlRequests={controlRequests} setControlRequests={fetchData} {...commonProps} />;
-      case 'receipt-history':
-        return <ReceiptLogsView deliveryLogs={deliveryLogs} users={users} />;
-      case 'digital-id':
-        return <TeacherBadgeView user={currentUser} />;
-      case 'student-absences':
-        return <CounselorAbsenceMonitor absences={absences} students={students} supervisions={supervisions} users={users} />;
-      case 'my-tasks':
-        return <ProctorDailyAssignmentFlow user={currentUser} supervisions={supervisions} setSupervisions={async (svPayload: any) => { try { const updatedSVs = typeof svPayload === 'function' ? svPayload(supervisions) : svPayload; const newSV = Array.isArray(updatedSVs) ? updatedSVs[updatedSVs.length - 1] : updatedSVs; if (newSV) { await db.supervision.deleteByTeacherId(currentUser.id); await db.supervision.insert(newSV); } fetchData(); } catch (err: any) { addNotification(err); } }} students={students} absences={absences} setAbsences={async (ab: any) => { try { const currentAbs = typeof ab === 'function' ? ab(absences) : ab; if (absences.length > currentAbs.length) { const removed = absences.find(a => !currentAbs.some((ca:any) => ca.student_id === a.student_id)); if (removed) await db.absences.delete(removed.student_id); } else { 
-          await db.absences.upsert(currentAbs[currentAbs.length - 1]); } fetchData(); } catch (err: any) { addNotification(err); } }} deliveryLogs={deliveryLogs} setDeliveryLogs={async (log: Partial<DeliveryLog>) => { try { await db.deliveryLogs.upsert(log); fetchData(); } catch (err: any) { addNotification(err); } }} sendRequest={async (txt: string, committee: string) => { try { await db.controlRequests.insert({ from: currentUser.full_name, committee, text: txt, time: new Date().toLocaleTimeString('ar-SA'), status: 'PENDING' }); fetchData(); } catch (err: any) { addNotification(err); } }} {...commonProps} />;
-      default: return null;
+    switch (tabToRender) {
+      case 'dashboard': return <AdminDashboardOverview stats={{ students: students.length, users: users.length, activeSupervisions: supervisions.length }} absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} studentsList={students} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} systemConfig={systemConfig} />;
+      case 'head-dash': return <ControlHeadDashboard users={users} students={students} absences={absences} deliveryLogs={deliveryLogs} requests={controlRequests} supervisions={supervisions} systemConfig={systemConfig} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} />;
+      case 'control-monitor': return (
+        <div className="fixed inset-0 z-[200] bg-slate-950 no-print">
+           <button onClick={() => setActiveTab('dashboard')} className="fixed top-6 left-6 z-[210] bg-white/10 text-white p-3 rounded-full hover:bg-white/20">
+              <X size={32} />
+           </button>
+           <ControlRoomMonitor absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} students={students} requests={controlRequests} />
+        </div>
+      );
+      case 'proctor-excellence': return <AdminProctorPerformance users={users} supervisions={supervisions} deliveryLogs={deliveryLogs} absences={absences} systemConfig={systemConfig} />;
+      case 'committee-labels': return <CommitteeLabelsPrint students={students} />;
+      case 'control-manager': return <ControlManager users={users} deliveryLogs={deliveryLogs} students={students} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} onUpdateUserGrades={async (userId, grades) => { const uMatch = users.find(u => u.id === userId); if (uMatch) { await db.users.upsert([{ ...uMatch, assigned_grades: grades }]); await fetchData(); } }} systemConfig={systemConfig} absences={absences} supervisions={supervisions} setDeliveryLogs={async (log) => { await db.deliveryLogs.upsert(log); await fetchData(); }} setSystemConfig={async (cfg) => { await db.config.upsert(cfg); await fetchData(); }} onRemoveSupervision={async (id) => { await db.supervision.deleteByTeacherId(id); await fetchData(); }} onAssignProctor={async (tid, cid) => { await db.supervision.deleteByTeacherId(tid); await db.supervision.insert({ id: crypto.randomUUID(), teacher_id: tid, committee_number: cid, date: new Date().toISOString(), period: 1, subject: 'اختبار' }); await fetchData(); }} />;
+      case 'teachers': return <AdminUsersManager users={users} setUsers={async (u: any) => { await db.users.upsert(typeof u === 'function' ? u(users) : u); await fetchData(); }} students={students} onDeleteUser={async (id: string) => { if(confirm('حذف؟')) { await db.users.delete(id); await fetchData(); } }} onAlert={addLocalNotification} />;
+      case 'students': return <AdminStudentsManager students={students} setStudents={async (s: any) => { await db.students.upsert(typeof s === 'function' ? s(students) : s); await fetchData(); }} onDeleteStudent={async (id: string) => { if(confirm('حذف؟')) { await db.students.delete(id); await fetchData(); } }} onAlert={addLocalNotification} />;
+      case 'committees': return <AdminSupervisionMonitor supervisions={supervisions} users={users} students={students} absences={absences} deliveryLogs={deliveryLogs} />;
+      case 'daily-reports': return <AdminDailyReports supervisions={supervisions} users={users} students={students} deliveryLogs={deliveryLogs} systemConfig={systemConfig} committeeReports={committeeReports} />;
+      case 'official-forms': return <AdminOfficialForms absences={absences} students={students} supervisions={supervisions} users={users} />;
+      case 'settings': return <AdminSystemSettings systemConfig={systemConfig} setSystemConfig={async (cfg) => { await db.config.upsert(cfg); await fetchData(); }} resetFunctions={{ students: async () => { if(confirm('حذف الطلاب؟')) { await supabase.from('students').delete().neq('id', '0'); await fetchData(); } }, teachers: async () => { if(confirm('حذف المعلمين؟')) { await supabase.from('users').delete().neq('role', 'ADMIN'); await fetchData(); } }, operations: async () => { if(confirm('تصفير سجلات اليوم؟')) { await supabase.from('absences').delete().gte('date', systemConfig.active_exam_date); await supabase.from('delivery_logs').delete().gte('time', systemConfig.active_exam_date); await fetchData(); } }, fullReset: () => {} }} onAlert={addLocalNotification} />;
+      case 'assigned-requests': return <AssistantControlView user={currentUser} requests={controlRequests} setRequests={fetchData} absences={absences} students={students} users={users} onAlert={addLocalNotification} />;
+      case 'paper-logs': return <ControlReceiptView user={currentUser} students={students} absences={absences} deliveryLogs={deliveryLogs} setDeliveryLogs={async (log) => { await db.deliveryLogs.upsert(log); await fetchData(); }} supervisions={supervisions} users={users} controlRequests={controlRequests} setControlRequests={fetchData} systemConfig={systemConfig} onAlert={addLocalNotification} />;
+      case 'receipt-history': return <ReceiptLogsView deliveryLogs={deliveryLogs} users={users} />;
+      case 'digital-id': return <TeacherBadgeView user={currentUser} />;
+      case 'proctor-alerts': return <ProctorAlertsHistory requests={controlRequests} userFullName={currentUser.full_name} />;
+      case 'student-absences': return <CounselorAbsenceMonitor absences={absences} students={students} supervisions={supervisions} users={users} />;
+      case 'my-tasks': return <ProctorDailyAssignmentFlow user={currentUser} supervisions={supervisions} setSupervisions={fetchData} students={students} absences={absences} setAbsences={fetchData} deliveryLogs={deliveryLogs} setDeliveryLogs={async (log) => { await db.deliveryLogs.upsert(log); await fetchData(); }} sendRequest={async (txt, com) => { await db.controlRequests.insert({ from: currentUser.full_name, committee: com, text: txt, time: new Date().toISOString(), status: 'PENDING' }); await fetchData(); }} controlRequests={controlRequests} users={users} systemConfig={systemConfig} committeeReports={committeeReports} onReportUpsert={async (report) => { await db.committeeReports.upsert(report); await fetchData(); }} onAlert={addLocalNotification} />;
+      default: return <div className="p-20 text-center animate-pulse text-slate-400 font-bold">جاري تحميل المحتوى المخصص...</div>;
     }
   };
 
+  if (isInitialLoading && currentUser) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-6">
+        <Loader2 size={64} className="text-blue-600 animate-spin" />
+        <p className="font-black text-slate-500 italic">جاري تهيئة مركز العمليات...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#f8fafc] font-['Tajawal'] overflow-x-hidden">
-      {currentUser && (
-        <>
-          <header className="fixed top-0 right-0 left-0 bg-white/80 backdrop-blur-md z-[90] lg:hidden border-b px-6 py-4 flex justify-between items-center no-print">
-             <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 rounded-xl"><Menu size={24} className="text-slate-700" /></button>
-             <h1 className="font-black text-slate-900">كنترول الاختبارات</h1>
-          </header>
-          <Sidebar user={currentUser} onLogout={handleLogout} activeTab={activeTab} setActiveTab={setActiveTab} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} isCollapsed={isSidebarCollapsed} setIsCollapsed={setIsSidebarCollapsed} />
-        </>
-      )}
-      <div className="fixed top-4 left-4 z-[200] flex flex-col gap-3 w-80 max-w-[calc(100vw-2rem)] no-print">
+    <div id="app-root" className="min-h-screen bg-[#f8fafc] font-['Tajawal'] overflow-x-hidden text-right selection:bg-blue-100" dir="rtl">
+      {/* التنبيهات الذكية */}
+      <div className="fixed top-24 left-6 right-6 lg:right-auto lg:left-8 z-[1000] flex flex-col gap-3 max-w-sm pointer-events-none no-print">
         {notifications.map(n => (
-          <div key={n.id} className={`${n.type === 'broadcast' ? 'bg-blue-600' : 'bg-slate-900 shadow-[0_0_30px_rgba(0,0,0,0.3)]'} text-white border-r-8 border-blue-400 px-6 py-5 rounded-3xl flex items-start gap-4 animate-slide-up relative overflow-hidden`}>
-             <Bell size={24} className="shrink-0 mt-1" />
-             <div className="flex-1">
-               <span className="font-bold text-[13px] leading-relaxed block break-words whitespace-pre-wrap">{n.text}</span>
-               <button onClick={() => setNotifications(prev => prev.filter(nn => nn.id !== n.id))} className="mt-2 text-[10px] font-black uppercase text-blue-300">إغلاق التنبيه</button>
-             </div>
+          <div key={n.id} className={`p-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-slide-in pointer-events-auto border-r-[6px] ${
+            n.type === 'success' ? 'bg-emerald-50 border-emerald-500 text-emerald-900' :
+            n.type === 'error' ? 'bg-rose-50 border-rose-500 text-rose-900' :
+            n.type === 'warning' ? 'bg-amber-50 border-amber-500 text-amber-900' :
+            'bg-blue-50 border-blue-500 text-blue-900'
+          }`}>
+            <div className="shrink-0">
+              {n.type === 'success' ? <CheckCircle2 size={24} /> :
+               n.type === 'error' ? <AlertCircle size={24} /> :
+               n.type === 'warning' ? <AlertTriangle size={24} /> :
+               <Info size={24} />}
+            </div>
+            <p className="font-black text-[11px] lg:text-sm">{n.text}</p>
+            <button onClick={() => setNotifications(prev => prev.filter(item => item.id !== n.id))} className="mr-auto opacity-40 hover:opacity-100"><X size={16}/></button>
           </div>
         ))}
       </div>
-      <main className={`transition-all duration-300 min-h-screen ${currentUser ? (isSidebarCollapsed ? 'lg:mr-20' : 'lg:mr-72') : ''} ${currentUser ? 'p-6 lg:p-10 pt-24 lg:pt-10' : ''}`}>
-        {currentUser ? renderContent() : <Login users={users} onLogin={handleLogin} />}
+
+      {currentUser && (
+        <>
+          <header className="fixed top-0 right-0 left-0 bg-white/80 backdrop-blur-md z-[90] lg:hidden border-b px-6 py-4 flex justify-between items-center no-print shadow-sm">
+             <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 rounded-xl hover:bg-blue-50 transition-colors">
+                <Menu size={24} className="text-slate-700" />
+             </button>
+             <h1 className="font-black text-slate-900 text-lg">كنترول الاختبارات</h1>
+             <div className="w-10"></div>
+          </header>
+          <div className="no-print">
+            <Sidebar 
+              user={currentUser} 
+              onLogout={handleLogout} 
+              activeTab={activeTab} 
+              setActiveTab={(t) => { setActiveTab(t); localStorage.setItem('activeTab', t); }} 
+              isOpen={isSidebarOpen} 
+              setIsOpen={setIsSidebarOpen} 
+              isCollapsed={isSidebarCollapsed} 
+              setIsCollapsed={setIsSidebarCollapsed} 
+              controlRequests={controlRequests} 
+            />
+          </div>
+        </>
+      )}
+
+      <main className={`transition-all duration-300 min-h-screen ${currentUser ? (isSidebarCollapsed ? 'lg:mr-24' : 'lg:mr-80') : ''} ${currentUser ? 'p-6 lg:p-10 pt-24 lg:pt-10' : ''}`}>
+        {currentUser ? renderContent() : <Login users={users} onLogin={handleLoginSuccess} onAlert={addLocalNotification} />}
       </main>
+
+      <style>{`
+        @keyframes slideIn { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .animate-slide-in { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        body { -webkit-tap-highlight-color: transparent; }
+        input, select, button { outline: none !important; }
+      `}</style>
     </div>
   );
 };

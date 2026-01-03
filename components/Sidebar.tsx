@@ -3,10 +3,19 @@ import React from 'react';
 import { 
   LayoutDashboard, Users, GraduationCap, ClipboardList, LogOut,
   ShieldAlert, Inbox, FileText, Settings, X, ChevronRight, ChevronLeft,
-  History, IdCard, UserCircle, ShieldCheck, ShieldHalf
+  History, IdCard, UserCircle, ShieldCheck, ShieldHalf, Bell, Shield,
+  Monitor, Fingerprint, MonitorPlay, Award, LayoutPanelTop, QrCode,
+  FileSpreadsheet, MessageSquareQuote
 } from 'lucide-react';
-import { UserRole, User } from '../types';
+import { UserRole, User, ControlRequest } from '../types';
 import { APP_CONFIG, ROLES_ARABIC } from '../constants';
+
+interface SidebarLink {
+  id: string;
+  label: string;
+  icon: any;
+  badge?: number | null;
+}
 
 interface SidebarProps {
   user: User;
@@ -17,49 +26,58 @@ interface SidebarProps {
   setIsOpen: (open: boolean) => void;
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
+  controlRequests?: ControlRequest[];
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
-  user, onLogout, activeTab, setActiveTab, isOpen, setIsOpen, isCollapsed, setIsCollapsed
+  user, onLogout, activeTab, setActiveTab, isOpen, setIsOpen, isCollapsed, setIsCollapsed, controlRequests = []
 }) => {
   const role = user?.role || 'PROCTOR';
   
-  const adminLinks = [
-    { id: 'dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
-    { id: 'control-manager', label: 'مركز قيادة الكنترول', icon: ShieldHalf },
+  const pendingCount = controlRequests.filter(r => 
+    (role === 'PROCTOR' ? r.from === user.full_name : user.assigned_committees?.includes(r.committee)) && 
+    (r.status === 'PENDING' || r.status === 'IN_PROGRESS')
+  ).length;
+
+  const adminLinks: SidebarLink[] = [
+    { id: 'head-dash', label: 'غرفة العمليات', icon: LayoutPanelTop },
+    { id: 'dashboard', label: 'الإحصائيات العامة', icon: LayoutDashboard },
+    { id: 'control-monitor', label: 'لوحة العرض (TV)', icon: MonitorPlay },
+    { id: 'control-manager', label: 'مركز القيادة', icon: ShieldHalf },
+    { id: 'proctor-excellence', label: 'سجل التميز', icon: Award },
+    { id: 'committee-labels', label: 'ملصقات اللجان (QR)', icon: QrCode },
     { id: 'teachers', label: 'الصلاحيات', icon: Users },
     { id: 'students', label: 'الطلاب', icon: GraduationCap },
     { id: 'committees', label: 'المراقبة', icon: ClipboardList },
+    { id: 'daily-reports', label: 'التقارير اليومية', icon: FileSpreadsheet },
     { id: 'official-forms', label: 'النماذج', icon: FileText },
     { id: 'settings', label: 'إعدادات النظام', icon: Settings },
   ];
 
-  const controlManagerLinks = [
-    { id: 'control-manager', label: 'مركز قيادة الكنترول', icon: ShieldHalf },
+  const controlManagerLinks: SidebarLink[] = [
+    { id: 'head-dash', label: 'غرفة العمليات', icon: LayoutPanelTop },
+    { id: 'control-manager', label: 'مركز القيادة', icon: ShieldHalf },
     { id: 'paper-logs', label: 'استلام المظاريف', icon: Inbox },
     { id: 'receipt-history', label: 'سجل العمليات', icon: History },
-    { id: 'digital-id', label: 'البطاقة الرقمية', icon: IdCard },
   ];
 
-  const proctorLinks = [
+  const proctorLinks: SidebarLink[] = [
     { id: 'my-tasks', label: 'رصد اللجنة', icon: ClipboardList },
-    { id: 'digital-id', label: 'البطاقة الرقمية', icon: IdCard },
+    { id: 'proctor-alerts', label: 'سجل البلاغات', icon: MessageSquareQuote, badge: pendingCount > 0 ? pendingCount : null },
+    { id: 'digital-id', label: 'الهوية الرقمية', icon: Fingerprint },
   ];
 
-  const counselorLinks = [
+  const counselorLinks: SidebarLink[] = [
     { id: 'student-absences', label: 'متابعة الغياب', icon: Users },
-    { id: 'digital-id', label: 'بطاقتي الرقمية', icon: IdCard },
   ];
 
-  const controlLinks = [
+  const controlLinks: SidebarLink[] = [
     { id: 'paper-logs', label: 'استلام المظاريف', icon: Inbox },
     { id: 'receipt-history', label: 'سجل العمليات', icon: History },
-    { id: 'digital-id', label: 'البطاقة الرقمية', icon: IdCard },
   ];
 
-  const assistantControlLinks = [
-    { id: 'assigned-requests', label: 'طلباتي', icon: ShieldAlert },
-    { id: 'digital-id', label: 'البطاقة الرقمية', icon: IdCard },
+  const assistantControlLinks: SidebarLink[] = [
+    { id: 'assigned-requests', label: 'بلاغات اللجان', icon: ShieldAlert, badge: pendingCount > 0 ? pendingCount : null },
   ];
 
   const links = role === 'ADMIN' ? adminLinks : 
@@ -72,68 +90,55 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {isOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden" onClick={() => setIsOpen(false)}/>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] lg:hidden animate-fade-in" onClick={() => setIsOpen(false)}/>
       )}
 
-      <div className={`fixed right-0 top-0 h-full bg-slate-950 text-white shadow-2xl z-[110] flex flex-col transition-all duration-300 ${isOpen ? 'translate-x-0 w-80' : 'translate-x-full lg:translate-x-0'} ${!isOpen && isCollapsed ? 'lg:w-24' : 'lg:w-80'}`}>
-        <div className="p-6 border-b border-white/5 flex items-center justify-between">
+      <div className={`fixed right-0 top-0 h-full bg-[#0f172a] text-white shadow-2xl z-[110] flex flex-col transition-all duration-300 ${isOpen ? 'translate-x-0 w-72' : 'translate-x-full lg:translate-x-0'} ${!isOpen && isCollapsed ? 'lg:w-20' : 'lg:w-72'}`}>
+        <div className="p-6 border-b border-white/5 flex items-center justify-between h-20">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1 shrink-0">
+            <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center p-1.5 shrink-0">
                <img src={APP_CONFIG.LOGO_URL} alt="Logo" className="w-full h-full object-contain" />
             </div>
             {(!isCollapsed || isOpen) && (
-              <div className="animate-fade-in whitespace-nowrap text-right">
-                <h1 className="text-lg font-black text-blue-400 leading-none">كنترول الاختبارات</h1>
-                <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">النظام الذكي</p>
+              <div className="animate-fade-in whitespace-nowrap">
+                <h1 className="text-sm font-black text-white leading-none">كنترول الاختبارات</h1>
+                <p className="text-[10px] text-slate-500 font-bold mt-1">Smart Control System</p>
               </div>
             )}
           </div>
-          <button onClick={() => setIsCollapsed(!isCollapsed)} className="hidden lg:flex p-2 bg-white/5 text-slate-400 hover:text-white rounded-xl transition-all">
-            {isCollapsed ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+          <button onClick={() => setIsCollapsed(!isCollapsed)} className="hidden lg:flex p-1.5 bg-white/5 text-slate-400 hover:text-white rounded-lg transition-colors">
+            {isCollapsed ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
           </button>
         </div>
 
-        <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar">
           {links.map((link) => (
             <button
               key={link.id}
               onClick={() => { setActiveTab(link.id); setIsOpen(false); }}
-              className={`w-full flex items-center px-4 py-4 rounded-2xl transition-all group ${isCollapsed && !isOpen ? 'justify-center' : 'gap-4 flex-row-reverse'} ${activeTab === link.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+              className={`w-full flex items-center p-3 rounded-xl transition-all group relative ${isCollapsed && !isOpen ? 'justify-center' : 'gap-3'} ${activeTab === link.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
             >
-              <link.icon size={22} className={activeTab === link.id ? 'animate-pulse' : 'shrink-0'} />
-              {(!isCollapsed || isOpen) && <span className="font-bold text-sm flex-1 text-right">{link.label}</span>}
+              <link.icon size={20} className={activeTab === link.id ? '' : 'shrink-0 group-hover:scale-110 transition-transform'} />
+              {(!isCollapsed || isOpen) && <span className="font-bold text-[13px] flex-1 text-right">{link.label}</span>}
+              {link.badge && (
+                <span className={`absolute ${isCollapsed && !isOpen ? 'top-1 right-1' : 'left-3'} bg-rose-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-[#0f172a]`}>
+                  {link.badge}
+                </span>
+              )}
             </button>
           ))}
         </nav>
 
-        {(!isCollapsed || isOpen) && (
-          <div className="px-6 py-8 mt-auto">
-            <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-white/10 rounded-[2.5rem] p-6 relative overflow-hidden group/badge shadow-2xl">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-600"></div>
-              <div className="flex flex-col items-center gap-4 text-center">
-                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-2 shadow-2xl border-2 border-white/5">
-                  <img src={APP_CONFIG.LOGO_URL} className="w-full h-full object-contain" alt="User" />
-                </div>
-                <div className="w-full">
-                  <h4 className="font-black text-sm text-white leading-tight mb-2 px-2 break-words">
-                    {user?.full_name || 'موظف النظام'}
-                  </h4>
-                  <div className="inline-block bg-blue-600/20 text-blue-400 px-4 py-1 rounded-full text-[10px] font-black border border-blue-500/20">
-                    {ROLES_ARABIC[role] || role}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest border-t border-white/5 pt-4 mt-4">
-                <span className="flex items-center gap-1"><ShieldCheck size={10} className="text-emerald-500"/> حساب مؤمن</span>
-                <span>ID: {user?.national_id?.slice(-4) || '----'}</span>
-              </div>
+        <div className="p-4 border-t border-white/5 bg-slate-900/50">
+          {(!isCollapsed || isOpen) && (
+            <div className="mb-4 px-2">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2">المستخدم</p>
+              <h4 className="text-xs font-black text-white truncate">{user.full_name}</h4>
+              <p className="text-[9px] text-indigo-400 font-bold mt-1 uppercase tracking-tighter">{ROLES_ARABIC[user.role]}</p>
             </div>
-          </div>
-        )}
-
-        <div className="p-4 border-t border-white/5">
-          <button onClick={onLogout} className={`w-full flex items-center px-4 py-4 text-red-400 hover:bg-red-500/10 rounded-2xl transition-all font-bold text-sm ${isCollapsed && !isOpen ? 'justify-center' : 'gap-4 flex-row-reverse'}`}>
-            <LogOut size={20} className="shrink-0" />
+          )}
+          <button onClick={onLogout} className={`w-full flex items-center p-3 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 rounded-xl transition-all font-bold text-xs ${isCollapsed && !isOpen ? 'justify-center' : 'gap-3'}`}>
+            <LogOut size={18} className="shrink-0" />
             {(!isCollapsed || isOpen) && <span className="flex-1 text-right">تسجيل الخروج</span>}
           </button>
         </div>
