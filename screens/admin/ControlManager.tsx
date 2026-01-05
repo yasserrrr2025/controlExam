@@ -60,7 +60,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
   }, [students, deliveryLogs, absences]);
 
   const committeeStatus = useMemo(() => {
-    const comNums = Array.from(new Set(students.map(s => s.committee_number))).filter(Boolean).sort((a,b)=>Number(a)-Number(b));
+    const comNums = Array.from(new Set(students.map(s => s.committee_number))).filter(Boolean).sort((a,b)=>Number(a)-Number(b)) as string[];
     return comNums.map(num => {
       const sv = supervisions.find(s => s.committee_number === num);
       const user = users.find(u => u.id === sv?.teacher_id);
@@ -132,23 +132,26 @@ const ControlManager: React.FC<ControlManagerProps> = ({
          </div>
       </div>
 
-      {/* Proctor Management Tab - Enhanced with Replacement System */}
       {activeTab === 'proctors-mgmt' && (
         <div className="space-y-8 animate-slide-up">
            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
               <div className="lg:col-span-1 bg-slate-950 p-8 rounded-[3.5rem] text-white shadow-2xl border-b-8 border-emerald-500 overflow-hidden relative">
                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-3xl"></div>
-                 <h3 className="text-xl font-black mb-6 flex items-center gap-3 text-emerald-400"><UserCheck size={24}/> المتاحون للإحلال ({availableProctors.length})</h3>
+                 <h3 className="text-xl font-black mb-6 flex items-center gap-3 text-emerald-400"><UserPlus size={24}/> الإسناد اليدوي المباشر</h3>
+                 <p className="text-[10px] font-bold text-slate-500 mb-4">اسحب أو اختر مراقب لتعيينه في لجنة شاغرة</p>
                  <div className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
                     {availableProctors.map(u => (
-                       <div key={u.id} className="p-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between group hover:bg-white/10 transition-all">
+                       <div key={u.id} className="p-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between group hover:bg-white/10 transition-all cursor-pointer">
                           <div className="text-right">
                              <p className="font-black text-sm">{u.full_name}</p>
-                             <p className="text-[10px] text-emerald-400 font-black uppercase tracking-tighter">جاهز للاستبدال</p>
+                             <p className="text-[10px] text-emerald-400 font-black uppercase tracking-tighter">متاح حالياً</p>
                           </div>
-                          <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center"><UserCircle size={20}/></div>
+                          <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center"><Plus size={18}/></div>
                        </div>
                     ))}
+                    {availableProctors.length === 0 && (
+                      <p className="text-center py-10 text-slate-600 font-bold italic">جميع المراقبين لديهم تكليفات</p>
+                    )}
                  </div>
               </div>
 
@@ -156,13 +159,16 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                  <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="flex items-center gap-4">
                        <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl"><RefreshCcw size={28} /></div>
-                       <h3 className="text-2xl font-black text-slate-800 tracking-tight">نظام تبديل وإحلال المراقبين الذكي</h3>
+                       <h3 className="text-2xl font-black text-slate-800 tracking-tight">نظام إدارة المراقبين والإحلال</h3>
                     </div>
-                    <p className="text-[10px] font-bold text-slate-400 max-w-xs text-center md:text-right">يسمح هذا النظام بإجراء تبديل فوري في حال خروج مراقب لظرف طارئ مع الحفاظ على البيانات.</p>
+                    <div className="relative w-full md:w-64">
+                      <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input type="text" placeholder="رقم اللجنة..." className="w-full pr-10 py-3 bg-slate-50 border rounded-2xl font-bold text-xs outline-none focus:border-blue-500" value={assignmentSearch} onChange={e => setAssignmentSearch(e.target.value)} />
+                    </div>
                  </div>
 
                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {committeeStatus.map(com => (
+                    {committeeStatus.filter(c => c.num.includes(assignmentSearch)).map(com => (
                       <div key={com.num} className={`bg-white p-8 rounded-[3.5rem] border-2 shadow-xl transition-all relative group overflow-hidden ${com.proctor ? 'border-slate-50' : 'border-red-100 bg-red-50/10'}`}>
                          <div className="flex justify-between items-start mb-6">
                             <div className="bg-slate-950 text-white w-16 h-16 rounded-2xl flex flex-col items-center justify-center font-black">
@@ -170,33 +176,36 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                                <span className="text-3xl leading-none">{com.num}</span>
                             </div>
                             {com.proctor ? (
-                               <div className="bg-blue-600 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase shadow-lg">نشطة ميدانياً</div>
+                               <div className="bg-blue-600 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase shadow-lg">مباشر حالياً</div>
                             ) : (
-                               <div className="bg-red-600 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase animate-pulse shadow-xl">تحتاج بديل فوراً</div>
+                               <div className="bg-red-600 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase animate-pulse shadow-xl">بانتظار إسناد</div>
                             )}
                          </div>
 
                          <div className="mb-8 min-h-[60px] flex items-center">
                             {com.proctor ? (
                                <div className="flex items-center gap-4 w-full">
-                                  <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-2xl ring-4 ring-slate-50"><UserCheck size={32}/></div>
-                                  <div className="min-w-0 flex-1">
+                                  <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-2xl ring-4 ring-slate-50 text-emerald-400"><UserCheck size={32}/></div>
+                                  <div className="min-w-0 flex-1 text-right">
                                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">المراقب المكلف</p>
                                      <h4 className="text-lg font-black text-slate-900 truncate leading-tight">{com.proctor.full_name}</h4>
                                   </div>
                                </div>
                             ) : (
-                               <div className="w-full py-4 text-center border-2 border-dashed border-red-200 rounded-2xl text-red-300 font-bold italic text-sm">شاغرة - بانتظار إحلال بديل</div>
+                               <div className="w-full py-4 text-center border-2 border-dashed border-red-200 rounded-2xl text-red-400 font-bold italic text-sm">شاغرة - يرجى تعيين مراقب</div>
                             )}
                          </div>
 
-                         <div className="grid grid-cols-1">
+                         <div className="flex flex-col gap-2">
                             <button 
                               onClick={() => { setTargetCommittee(com.num); setIsAssigning(true); }}
-                              className={`w-full py-5 rounded-2xl font-black text-sm flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95 ${com.proctor ? 'bg-slate-950 text-white hover:bg-blue-600 shadow-blue-200' : 'bg-red-600 text-white hover:bg-red-700 shadow-red-200 animate-bounce-subtle'}`}
+                              className={`w-full py-5 rounded-2xl font-black text-xs flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95 ${com.proctor ? 'bg-slate-950 text-white hover:bg-blue-600' : 'bg-red-600 text-white hover:bg-red-700 shadow-red-200 animate-bounce-subtle'}`}
                             >
-                               {com.proctor ? <><ArrowRightLeft size={20}/> إجراء استبدال طارئ</> : <><Plus size={20}/> تعيين بديل فوري</>}
+                               {com.proctor ? <><ArrowRightLeft size={18}/> تبديل المراقب</> : <><UserPlus size={18}/> إسناد يدوي فوري</>}
                             </button>
+                            {com.proctor && (
+                              <button onClick={() => { if(confirm('هل أنت متأكد من حذف التكليف؟ سيصبح المراقب متاحاً في قائمة الاحتياط.')) onRemoveSupervision(com.proctor!.id); }} className="w-full py-3 bg-red-50 text-red-500 rounded-xl font-black text-[10px] hover:bg-red-500 hover:text-white transition-all">إلغاء التكليف</button>
+                            )}
                          </div>
                       </div>
                     ))}
@@ -215,12 +224,12 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                   <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/20 blur-3xl rounded-full"></div>
                   <div className="flex items-center gap-6 relative z-10">
                      <div className="w-20 h-20 bg-blue-600 text-white rounded-3xl flex flex-col items-center justify-center font-black shadow-xl">
-                        <span className="text-[10px] opacity-50 mb-1">لجنة</span>
+                        <span className="text-[10px] opacity-50 mb-1 leading-none uppercase">لجنة</span>
                         <span className="text-4xl leading-none">{targetCommittee}</span>
                      </div>
-                     <div>
-                        <h3 className="text-3xl font-black tracking-tight italic">وحدة الإحلال السريع</h3>
-                        <p className="text-blue-400 text-[10px] font-black uppercase mt-1">Smart Replacement Unit</p>
+                     <div className="text-right">
+                        <h3 className="text-3xl font-black tracking-tight italic">إسناد مراقب للجنة</h3>
+                        <p className="text-blue-400 text-[10px] font-black uppercase mt-1">Manual Assignment Protocol</p>
                      </div>
                   </div>
                   <button onClick={() => setIsAssigning(false)} className="bg-white/10 p-3 rounded-full hover:bg-white/20 transition-all"><X size={32}/></button>
@@ -231,7 +240,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                      <Search size={22} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400" />
                      <input 
                         type="text" 
-                        placeholder="ابحث عن اسم المعلم البديل..." 
+                        placeholder="ابحث عن اسم المعلم..." 
                         className="w-full pr-14 py-5 bg-slate-50 border-2 border-slate-100 rounded-[2rem] font-black text-lg outline-none focus:border-blue-600 shadow-inner"
                         value={proctorSearchInModal}
                         onChange={e => setProctorSearchInModal(e.target.value)}
@@ -248,7 +257,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                              key={u.id} 
                              disabled={isCurrentInThisCom}
                              onClick={async () => {
-                                if (confirm(`هل ترغب في تعيين (${u.full_name}) كبديل في اللجنة (${targetCommittee})؟`)) {
+                                if (confirm(`تعيين (${u.full_name}) في اللجنة (${targetCommittee})؟`)) {
                                    await onAssignProctor(u.id, targetCommittee);
                                    setIsAssigning(false);
                                 }
@@ -262,7 +271,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                                  <div className="text-right">
                                     <p className="font-black text-xl text-slate-800 leading-none mb-1">{u.full_name}</p>
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                       {currentSv ? `سيتم نقله من لجنة ${currentSv.committee_number}` : 'مراقب احتياط جاهز للبدء'}
+                                       {currentSv ? `سيتم نقله من لجنة ${currentSv.committee_number}` : 'مراقب متاح حالياً للإسناد'}
                                     </p>
                                  </div>
                               </div>
@@ -270,6 +279,9 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                            </button>
                         );
                      })}
+                     {proctorsListForModal.length === 0 && (
+                       <p className="text-center py-10 text-slate-400 font-bold">لا يوجد مراقبين متاحين للبحث المختار</p>
+                     )}
                   </div>
                </div>
             </div>
@@ -282,7 +294,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
            <div className="xl:col-span-2 space-y-6">
               <div className="bg-white p-10 rounded-[3.5rem] border shadow-sm">
                  <div className="flex justify-between items-center mb-8">
-                    <h3 className="text-2xl font-black flex items-center gap-3 text-slate-800"><Radio size={24} className="text-blue-600"/> مصفوفة اللجان الحية</h3>
+                    <h3 className="text-2xl font-black flex items-center gap-3 text-slate-800 text-right"><Radio size={24} className="text-blue-600"/> مصفوفة اللجان الحية</h3>
                     <div className="flex gap-4 text-[10px] font-black text-slate-400">
                        <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-600 shadow-sm shadow-blue-200"></div> نشطة</span>
                        <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-slate-200 shadow-sm shadow-slate-200"></div> شاغرة</span>
@@ -299,14 +311,14 @@ const ControlManager: React.FC<ControlManagerProps> = ({
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div className="bg-white p-8 rounded-[3rem] border shadow-sm flex items-center gap-6 group hover:scale-[1.02] transition-all">
+                 <div className="bg-white p-8 rounded-[3rem] border shadow-sm flex items-center gap-6 group hover:scale-[1.02] transition-all text-right">
                     <div className="bg-emerald-50 text-emerald-600 p-4 rounded-2xl group-hover:rotate-6 transition-transform"><CheckCircle2 size={32}/></div>
                     <div>
                        <p className="text-[10px] font-black text-slate-400 uppercase">اللجان المكتملة</p>
                        <p className="text-3xl font-black text-slate-900 tabular-nums">{stats.confirmed}</p>
                     </div>
                  </div>
-                 <div className="bg-white p-8 rounded-[3rem] border shadow-sm flex items-center gap-6 group hover:scale-[1.02] transition-all">
+                 <div className="bg-white p-8 rounded-[3rem] border shadow-sm flex items-center gap-6 group hover:scale-[1.02] transition-all text-right">
                     <div className="bg-red-50 text-red-600 p-4 rounded-2xl group-hover:rotate-6 transition-transform"><UserX size={32}/></div>
                     <div>
                        <p className="text-[10px] font-black text-slate-400 uppercase">إجمالي الغيابات</p>
@@ -318,8 +330,8 @@ const ControlManager: React.FC<ControlManagerProps> = ({
            
            <div className="bg-slate-950 p-8 rounded-[3.5rem] text-white shadow-xl relative overflow-hidden flex flex-col h-full min-h-[500px]">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-3xl"></div>
-              <h3 className="text-xl font-black mb-6 flex items-center gap-3 text-blue-400 relative z-10"><History /> العمليات اللحظية</h3>
-              <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 relative z-10 space-y-4">
+              <h3 className="text-xl font-black mb-6 flex items-center gap-3 text-blue-400 relative z-10 text-right"><History /> العمليات اللحظية</h3>
+              <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 relative z-10 space-y-4 text-right">
                  {deliveryLogs.filter(l => l.status === 'CONFIRMED').slice(-8).map(l => (
                    <div key={l.id} className="p-5 bg-white/5 rounded-2xl border border-white/10 flex flex-col gap-2 group hover:bg-white/10 transition-colors">
                       <div className="flex justify-between items-center">
@@ -343,7 +355,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
       {/* Assignments Tab */}
       {activeTab === 'assignments' && (
         <div className="space-y-8 animate-slide-up">
-           <div className="bg-white p-10 rounded-[3.5rem] border shadow-xl flex flex-col lg:flex-row items-center justify-between gap-8">
+           <div className="bg-white p-10 rounded-[3.5rem] border shadow-xl flex flex-col lg:flex-row items-center justify-between gap-8 text-right">
               <div className="flex items-center gap-6">
                  <div className="bg-indigo-50 text-indigo-600 p-5 rounded-3xl shadow-inner"><Layers size={40} /></div>
                  <div>
@@ -356,7 +368,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                  <input 
                     type="text" 
                     placeholder="بحث في طاقم العمل..." 
-                    className="w-full pr-14 py-4 bg-slate-50 border-2 border-slate-100 rounded-[2rem] font-bold outline-none focus:border-indigo-600"
+                    className="w-full pr-14 py-4 bg-slate-50 border-2 border-slate-100 rounded-[2rem] font-bold outline-none focus:border-indigo-600 text-right"
                     value={assignmentSearch}
                     onChange={e => setAssignmentSearch(e.target.value)}
                  />
@@ -365,7 +377,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
 
            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {users.filter(u => (u.role === 'CONTROL' || u.role === 'ASSISTANT_CONTROL') && (u.full_name.includes(assignmentSearch))).map(user => (
-                <div key={user.id} className="bg-white p-10 rounded-[4rem] border-2 border-slate-50 shadow-2xl flex flex-col gap-8 transition-all hover:border-indigo-100">
+                <div key={user.id} className="bg-white p-10 rounded-[4rem] border-2 border-slate-50 shadow-2xl flex flex-col gap-8 transition-all hover:border-indigo-100 text-right">
                    <div className="flex items-center gap-6">
                       <div className={`w-20 h-20 rounded-[1.8rem] flex items-center justify-center shadow-xl ${user.role === 'CONTROL' ? 'bg-blue-600' : 'bg-indigo-900'} text-white`}>
                          <UserCheck size={40} />
@@ -417,7 +429,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
       {/* Comms Tab */}
       {activeTab === 'comms' && (
         <div className="space-y-8 animate-slide-up">
-           <div className="bg-white p-12 rounded-[4rem] border shadow-2xl relative overflow-hidden">
+           <div className="bg-white p-12 rounded-[4rem] border shadow-2xl relative overflow-hidden text-right">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-3xl rounded-full"></div>
               <h3 className="text-3xl font-black text-slate-900 mb-10 flex items-center gap-4"><Megaphone size={32} className="text-blue-600" /> بث التعليمات والبلاغات</h3>
               
@@ -434,7 +446,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                  </div>
                  <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">نص البلاغ / التعليمات</label>
-                    <textarea value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} placeholder="اكتب التعليمات هنا بوضوح..." className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] p-8 font-bold text-lg h-48 outline-none focus:border-blue-600 transition-all shadow-inner resize-none" />
+                    <textarea value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} placeholder="اكتب التعليمات هنا بوضوح..." className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] p-8 font-bold text-lg h-48 outline-none focus:border-blue-600 transition-all shadow-inner resize-none text-right" />
                  </div>
                  <button onClick={() => { if(broadcastMsg.trim()) { onBroadcast(broadcastMsg, broadcastTarget); setBroadcastMsg(''); alert('تم بث البلاغ'); } }} disabled={!broadcastMsg.trim()} className="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] font-black text-2xl flex items-center justify-center gap-6 shadow-2xl hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
                     <Send size={32}/> بث التعليمات الآن
@@ -447,7 +459,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
       {/* Emergency Receipt Tab */}
       {activeTab === 'emergency-receipt' && (
         <div className="space-y-8 animate-slide-up">
-           <div className="bg-red-600 p-12 rounded-[4rem] text-white shadow-2xl relative overflow-hidden group">
+           <div className="bg-red-600 p-12 rounded-[4rem] text-white shadow-2xl relative overflow-hidden group text-right">
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[100px] rounded-full -mr-32 -mt-32"></div>
               <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-10">
                  <div className="space-y-4">
@@ -462,10 +474,10 @@ const ControlManager: React.FC<ControlManagerProps> = ({
 
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {committeeStatus.map(com => (
-                <div key={com.num} className="bg-white p-8 rounded-[3.5rem] border-2 border-slate-50 shadow-xl flex flex-col gap-6 group hover:border-red-600 transition-all">
+                <div key={com.num} className="bg-white p-8 rounded-[3.5rem] border-2 border-slate-50 shadow-xl flex flex-col gap-6 group hover:border-red-600 transition-all text-right">
                    <div className="flex justify-between items-center">
                       <div className="bg-slate-900 text-white w-16 h-16 rounded-2xl flex flex-col items-center justify-center font-black">
-                         <span className="text-[8px] opacity-40 mb-1">لجنة</span>
+                         <span className="text-[8px] opacity-40 mb-1 leading-none uppercase">لجنة</span>
                          <span className="text-3xl leading-none">{com.num}</span>
                       </div>
                    </div>
@@ -505,6 +517,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
         .animate-bounce-subtle {
            animation: bounce-subtle 3s ease-in-out infinite;
         }
+        .dir-rtl { direction: rtl; }
       `}</style>
     </div>
   );

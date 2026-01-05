@@ -90,38 +90,38 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {isOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] lg:hidden animate-fade-in" onClick={() => setIsOpen(false)}/>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden" onClick={() => setIsOpen(false)}/>
       )}
 
-      <div className={`fixed right-0 top-0 h-full bg-[#0f172a] text-white shadow-2xl z-[110] flex flex-col transition-all duration-300 ${isOpen ? 'translate-x-0 w-72' : 'translate-x-full lg:translate-x-0'} ${!isOpen && isCollapsed ? 'lg:w-20' : 'lg:w-72'}`}>
-        <div className="p-6 border-b border-white/5 flex items-center justify-between h-20">
+      <div className={`fixed right-0 top-0 h-full bg-[#020617] text-white shadow-2xl z-[110] flex flex-col transition-all duration-300 ${isOpen ? 'translate-x-0 w-80' : 'translate-x-full lg:translate-x-0'} ${!isOpen && isCollapsed ? 'lg:w-24' : 'lg:w-80'}`}>
+        <div className="p-6 border-b border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center p-1.5 shrink-0">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1 shrink-0 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
                <img src={APP_CONFIG.LOGO_URL} alt="Logo" className="w-full h-full object-contain" />
             </div>
             {(!isCollapsed || isOpen) && (
-              <div className="animate-fade-in whitespace-nowrap">
-                <h1 className="text-sm font-black text-white leading-none">كنترول الاختبارات</h1>
-                <p className="text-[10px] text-slate-500 font-bold mt-1">Smart Control System</p>
+              <div className="animate-fade-in whitespace-nowrap text-right">
+                <h1 className="text-lg font-black text-blue-400 leading-none tracking-tighter uppercase">كنترول الاختبارات</h1>
+                <p className="text-[9px] text-slate-500 font-bold mt-1 uppercase tracking-widest">Smart Control System</p>
               </div>
             )}
           </div>
-          <button onClick={() => setIsCollapsed(!isCollapsed)} className="hidden lg:flex p-1.5 bg-white/5 text-slate-400 hover:text-white rounded-lg transition-colors">
-            {isCollapsed ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+          <button onClick={() => setIsCollapsed(!isCollapsed)} className="hidden lg:flex p-2 bg-white/5 text-slate-400 hover:text-white rounded-xl transition-colors">
+            {isCollapsed ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
           {links.map((link) => (
             <button
               key={link.id}
               onClick={() => { setActiveTab(link.id); setIsOpen(false); }}
-              className={`w-full flex items-center p-3 rounded-xl transition-all group relative ${isCollapsed && !isOpen ? 'justify-center' : 'gap-3'} ${activeTab === link.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+              className={`w-full flex items-center px-4 py-4 rounded-2xl transition-all group relative ${isCollapsed && !isOpen ? 'justify-center' : 'gap-4 flex-row-reverse'} ${activeTab === link.id ? 'bg-blue-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)]' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
             >
-              <link.icon size={20} className={activeTab === link.id ? '' : 'shrink-0 group-hover:scale-110 transition-transform'} />
-              {(!isCollapsed || isOpen) && <span className="font-bold text-[13px] flex-1 text-right">{link.label}</span>}
+              <link.icon size={22} className={activeTab === link.id ? 'animate-pulse' : 'shrink-0 group-hover:scale-110 transition-transform'} />
+              {(!isCollapsed || isOpen) && <span className="font-bold text-sm flex-1 text-right">{link.label}</span>}
               {link.badge && (
-                <span className={`absolute ${isCollapsed && !isOpen ? 'top-1 right-1' : 'left-3'} bg-rose-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-[#0f172a]`}>
+                <span className={`absolute ${isCollapsed && !isOpen ? 'top-2 right-2' : 'left-4'} bg-red-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center animate-bounce border-2 border-[#020617]`}>
                   {link.badge}
                 </span>
               )}
@@ -129,16 +129,28 @@ const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </nav>
 
-        <div className="p-4 border-t border-white/5 bg-slate-900/50">
-          {(!isCollapsed || isOpen) && (
-            <div className="mb-4 px-2">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-2">المستخدم</p>
-              <h4 className="text-xs font-black text-white truncate">{user.full_name}</h4>
-              <p className="text-[9px] text-indigo-400 font-bold mt-1 uppercase tracking-tighter">{ROLES_ARABIC[user.role]}</p>
+        {(!isCollapsed || isOpen) && (
+          <div className="px-6 pb-4">
+            <div className="bg-[#0f172a] rounded-[2rem] p-5 border border-blue-900/30 relative overflow-hidden group shadow-2xl transition-all hover:border-blue-500/50">
+               <div className="absolute top-0 left-0 w-24 h-24 bg-blue-600/10 blur-3xl rounded-full -ml-12 -mt-12"></div>
+               <div className="relative z-10 flex flex-col items-center gap-3">
+                  <div className="w-14 h-14 bg-white rounded-xl p-1.5 shadow-xl border border-white/10 group-hover:scale-105 transition-transform">
+                     <img src={APP_CONFIG.LOGO_URL} alt="MinLogo" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="text-center">
+                    <h4 className="text-sm font-black text-white leading-tight mb-2 truncate max-w-[180px]">{user.full_name}</h4>
+                    <div className="bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-lg text-[10px] font-black inline-block uppercase tracking-tight">
+                       {ROLES_ARABIC[user.role]}
+                    </div>
+                  </div>
+               </div>
             </div>
-          )}
-          <button onClick={onLogout} className={`w-full flex items-center p-3 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 rounded-xl transition-all font-bold text-xs ${isCollapsed && !isOpen ? 'justify-center' : 'gap-3'}`}>
-            <LogOut size={18} className="shrink-0" />
+          </div>
+        )}
+
+        <div className="p-4 border-t border-white/5">
+          <button onClick={onLogout} className={`w-full flex items-center px-4 py-4 text-red-400 hover:bg-red-500/10 rounded-2xl transition-all font-bold text-sm ${isCollapsed && !isOpen ? 'justify-center' : 'gap-4 flex-row-reverse'}`}>
+            <LogOut size={20} className="shrink-0" />
             {(!isCollapsed || isOpen) && <span className="flex-1 text-right">تسجيل الخروج</span>}
           </button>
         </div>

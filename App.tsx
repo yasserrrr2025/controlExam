@@ -22,6 +22,7 @@ import CounselorAbsenceMonitor from './screens/counselor/AbsenceMonitor';
 import ControlReceiptView from './screens/control/ReceiptView';
 import ReceiptLogsView from './screens/control/ReceiptLogsView';
 import AssistantControlView from './screens/control/AssistantControlView';
+import CommitteeLiveStatus from './screens/public/CommitteeLiveStatus';
 import { BellRing, Menu, X, CheckCircle2, AlertCircle, Info, AlertTriangle, Loader2 } from 'lucide-react';
 import { db, supabase } from './supabase';
 
@@ -31,6 +32,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(window.innerWidth < 1024);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [publicCommittee, setPublicCommittee] = useState<string | null>(null);
   
   const [users, setUsers] = useState<User[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -90,6 +92,13 @@ const App: React.FC = () => {
   }, [systemConfig.active_exam_date]);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get('view');
+    const com = params.get('committee');
+    if (view === 'status' && com) {
+      setPublicCommittee(com);
+    }
+
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
       try { 
@@ -128,6 +137,13 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
+    if (publicCommittee) {
+      return <CommitteeLiveStatus committeeNumber={publicCommittee} students={students} absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} onBack={() => {
+        window.history.replaceState({}, '', window.location.pathname);
+        setPublicCommittee(null);
+      }} />;
+    }
+
     if (!currentUser) return null;
     
     const tabToRender = activeTab || (
@@ -167,7 +183,7 @@ const App: React.FC = () => {
     }
   };
 
-  if (isInitialLoading && currentUser) {
+  if (isInitialLoading && (currentUser || publicCommittee)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-6">
         <Loader2 size={64} className="text-blue-600 animate-spin" />
@@ -199,7 +215,7 @@ const App: React.FC = () => {
         ))}
       </div>
 
-      {currentUser && (
+      {currentUser && !publicCommittee && (
         <>
           <header className="fixed top-0 right-0 left-0 bg-white/80 backdrop-blur-md z-[90] lg:hidden border-b px-6 py-4 flex justify-between items-center no-print shadow-sm">
              <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 rounded-xl hover:bg-blue-50 transition-colors">
@@ -224,8 +240,8 @@ const App: React.FC = () => {
         </>
       )}
 
-      <main className={`transition-all duration-300 min-h-screen ${currentUser ? (isSidebarCollapsed ? 'lg:mr-24' : 'lg:mr-80') : ''} ${currentUser ? 'p-6 lg:p-10 pt-24 lg:pt-10' : ''}`}>
-        {currentUser ? renderContent() : <Login users={users} onLogin={handleLoginSuccess} onAlert={addLocalNotification} />}
+      <main className={`transition-all duration-300 min-h-screen ${currentUser && !publicCommittee ? (isSidebarCollapsed ? 'lg:mr-24' : 'lg:mr-80') : ''} ${currentUser || publicCommittee ? 'p-6 lg:p-10 pt-24 lg:pt-10' : ''}`}>
+        {(currentUser || publicCommittee) ? renderContent() : <Login users={users} onLogin={handleLoginSuccess} onAlert={addLocalNotification} />}
       </main>
 
       <style>{`

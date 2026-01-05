@@ -41,6 +41,11 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
     return () => window.removeEventListener('afterprint', handleAfterPrint);
   }, []);
 
+  // دالة لتوليد رابط صفحة الحالة المباشرة
+  const getLiveStatusUrl = (comNum: string) => {
+    return `${window.location.origin}/?view=status&committee=${comNum}`;
+  };
+
   return (
     <div className="space-y-10 animate-fade-in text-right pb-24">
       
@@ -129,10 +134,10 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                         <span className="text-[6pt] font-black text-black-bold mt-2 uppercase tracking-tighter text-center">كنترول الاختبارات الذكي</span>
                       </div>
                       
-                      {/* كود QR عالي التباين */}
+                      {/* كود QR عالي التباين - يشير لرابط صفحة الحالة */}
                       <div className="w-[40%] flex items-center justify-center">
                         <img 
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${comNum}&color=000000`} 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(getLiveStatusUrl(comNum))}&color=000000`} 
                           alt="QR" 
                           className="w-20 h-20"
                           style={{ imageRendering: 'pixelated' }}
@@ -158,7 +163,8 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 <h3 className="text-3xl font-black tracking-tighter">طباعة ملصقات اللجان (وضوح عالٍ)</h3>
              </div>
              <p className="text-slate-400 font-bold max-w-xl leading-relaxed">
-               تم تحسين القوالب لتكون باللون الأسود الصريح لضمان وضوح الأرقام والشعار عند الطباعة على ورق <span className="text-white font-black underline">GS-1021</span>.
+               الأكواد المطبوعة الآن تشير إلى <span className="text-blue-400 underline underline-offset-4">صفحة حالة اللجنة المباشرة</span>. 
+               يمكن للمراقب المسح للمباشرة، أو لأي شخص متابعة حالة اللجنة لحظياً.
              </p>
              <div className="flex items-center gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 w-fit">
                 <Info size={18} className="text-blue-400" />
