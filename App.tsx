@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, Student, Absence, Supervision, ControlRequest, DeliveryLog, SystemConfig, CommitteeReport, EnvelopeLog } from './types';
+import { User, Student, Absence, Supervision, ControlRequest, DeliveryLog, SystemConfig, CommitteeReport, EnvelopeLog, SystemNotification } from './types';
 import Sidebar from './components/Sidebar';
 import Login from './screens/Login';
 import AdminDashboardOverview from './screens/admin/DashboardOverview';
@@ -47,6 +47,7 @@ const App: React.FC = () => {
   const [deliveryLogs, setDeliveryLogs] = useState<DeliveryLog[]>([]);
   const [committeeReports, setCommitteeReports] = useState<CommitteeReport[]>([]);
   const [envelopeLogs, setEnvelopeLogs] = useState<EnvelopeLog[]>([]);
+  const [systemBroadcasts, setSystemBroadcasts] = useState<SystemNotification[]>([]);
   const [systemConfig, setSystemConfig] = useState<SystemConfig>({ 
     id: 'main_config', 
     exam_start_time: '08:00', 
@@ -70,7 +71,7 @@ const App: React.FC = () => {
         setSystemConfig(prev => ({ ...prev, ...cfg }));
         filterDate = cfg.active_exam_date || filterDate;
       }
-      const [u, s, sv, ab, cr, dl, reports, env] = await Promise.all([
+      const [u, s, sv, ab, cr, dl, reports, env, broadcasts] = await Promise.all([
         db.users.getAll(),
         db.students.getAll(),
         db.supervision.getAll(),
@@ -79,9 +80,11 @@ const App: React.FC = () => {
         db.deliveryLogs.getAll(),
         db.committeeReports.getAll(),
         db.envelopeLogs.getAll(),
+        db.notifications.getAll(),
       ]);
       setUsers(u);
       setStudents(s);
+      setSystemBroadcasts(broadcasts);
       
       if (filterDate) {
         setSupervisions(sv.filter(i => i.date && i.date.startsWith(filterDate))); 
@@ -141,7 +144,7 @@ const App: React.FC = () => {
       }
     }
     fetchData();
-    const interval = setInterval(fetchData, 10000);
+    const interval = setInterval(fetchData, 8000); // تقليل وقت التحديث قليلاً لزيادة الاستجابة
     return () => {
       window.removeEventListener('hashchange', handleRoute);
       clearInterval(interval);
@@ -210,7 +213,13 @@ const App: React.FC = () => {
       case 'digital-id': return <TeacherBadgeView user={currentUser} />;
       case 'proctor-alerts': return <ProctorAlertsHistory requests={controlRequests} userFullName={currentUser.full_name} />;
       case 'student-absences': return <CounselorAbsenceMonitor absences={absences} students={students} supervisions={supervisions} users={users} />;
-      case 'my-tasks': return <ProctorDailyAssignmentFlow user={currentUser} supervisions={supervisions} setSupervisions={fetchData} students={students} absences={absences} setAbsences={fetchData} deliveryLogs={deliveryLogs} setDeliveryLogs={async (log) => { await db.deliveryLogs.upsert(log); await fetchData(); }} sendRequest={async (txt, com) => { await db.controlRequests.insert({ from: currentUser.full_name, committee: com, text: txt, time: new Date().toISOString(), status: 'PENDING' }); await fetchData(); }} controlRequests={controlRequests} users={users} systemConfig={systemConfig} committeeReports={committeeReports} onReportUpsert={async (report) => { await db.committeeReports.upsert(report); await fetchData(); }} onAlert={addLocalNotification} />;
+      case 'my-tasks': return <ProctorDailyAssignmentFlow user={currentUser} supervisions={supervisions} setSupervisions={fetchData} students={students} absences={absences} setAbsences={fetchData} deliveryLogs={deliveryLogs} setDeliveryLogs={async (log) => { await db.deliveryLogs.upsert(log); await fetchData(); }} sendRequest={async (txt, com) => { 
+        // استخدام الوقت المحلي المدمج مع التاريخ النشط لضمان الظهور في الفلتر
+        const timePart = new Date().toLocaleTimeString('en-GB'); 
+        const combinedTime = `${systemConfig.active_exam_date}T${timePart}`;
+        await db.controlRequests.insert({ from: currentUser.full_name, committee: com, text: txt, time: combinedTime, status: 'PENDING' }); 
+        await fetchData(); 
+      }} controlRequests={controlRequests} users={users} systemConfig={systemConfig} committeeReports={committeeReports} onReportUpsert={async (report) => { await db.committeeReports.upsert(report); await fetchData(); }} onAlert={addLocalNotification} broadcasts={systemBroadcasts} />;
       default: return <div className="p-20 text-center animate-pulse text-slate-400 font-bold">جاري تحميل المحتوى المخصص...</div>;
     }
   };

@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { User, Student, Absence, Supervision, ControlRequest, DeliveryLog, SystemConfig, CommitteeReport, EnvelopeLog } from './types';
+import { User, Student, Absence, Supervision, ControlRequest, DeliveryLog, SystemConfig, CommitteeReport, EnvelopeLog, SystemNotification } from './types';
 
 const supabaseUrl = 'https://upfavagxyuwnqmjgiibo.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwZmF2YWd4eXV3bnFtamdpaWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0MDQ0OTYsImV4cCI6MjA4MTk4MDQ5Nn0.AxsPO_Vw04aVuoa2KkFS_63OX1lz1yYthzBLLIkotuw';
@@ -90,7 +90,8 @@ export const db = {
 
   controlRequests: {
     getAll: async () => {
-      const { data, error } = await supabase.from('control_requests').select('*').order('id', { ascending: false });
+      // تعديل الترتيب ليصبح حسب الوقت تنازلياً لضمان ظهور أحدث البلاغات في الأعلى
+      const { data, error } = await supabase.from('control_requests').select('*').order('time', { ascending: false });
       const err = handleError(error, "controlRequests.getAll");
       if (err) throw new Error(err);
       return (data || []).map((d: any) => ({
@@ -189,6 +190,12 @@ export const db = {
   },
 
   notifications: {
+    getAll: async () => {
+      const { data, error } = await supabase.from('notifications').select('*').order('created_at', { ascending: false });
+      const err = handleError(error, "notifications.getAll");
+      if (err) throw new Error(err);
+      return (data || []) as SystemNotification[];
+    },
     broadcast: async (message: string, target: string, sender: string) => {
       const { error } = await supabase.from('notifications').insert([{
         message,

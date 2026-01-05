@@ -21,18 +21,25 @@ interface Props {
 const CommitteeLiveStatus: React.FC<Props> = ({ 
   committeeNumber, students, absences, supervisions, users, deliveryLogs, onBack 
 }) => {
-  const activeDate = new Date().toISOString().split('T')[0];
+  // ملاحظة: لا نحتاج لتعريف activeDate هنا لأن App.tsx يقوم بفلترة المصفوفات مسبقاً 
+  // بناءً على اليوم النشط في النظام قبل تمريرها لهذا المكون.
 
   const stats = useMemo(() => {
-    const committeeStudents = students.filter(s => s.committee_number === committeeNumber);
-    const committeeAbsences = absences.filter(a => a.committee_number === committeeNumber && a.date.startsWith(activeDate));
+    // توحيد مقارنة رقم اللجنة لضمان الدقة
+    const targetCom = String(committeeNumber).trim();
+
+    const committeeStudents = students.filter(s => String(s.committee_number).trim() === targetCom);
+    const committeeAbsences = absences.filter(a => String(a.committee_number).trim() === targetCom);
+    
     const total = committeeStudents.length;
     const abs = committeeAbsences.filter(a => a.type === 'ABSENT').length;
     const late = committeeAbsences.filter(a => a.type === 'LATE').length;
-    const sv = supervisions.find(s => s.committee_number === committeeNumber && s.date.startsWith(activeDate));
+    
+    // البحث عن التكليف في المصفوفة المفلترة مسبقاً
+    const sv = supervisions.find(s => String(s.committee_number).trim() === targetCom);
     const proctor = users.find(u => u.id === sv?.teacher_id);
     
-    const logs = deliveryLogs.filter(l => l.committee_number === committeeNumber && l.time.startsWith(activeDate));
+    const logs = deliveryLogs.filter(l => String(l.committee_number).trim() === targetCom);
     const confirmedLogs = logs.filter(l => l.status === 'CONFIRMED');
 
     return {
@@ -45,7 +52,7 @@ const CommitteeLiveStatus: React.FC<Props> = ({
       progress: total > 0 ? Math.round(((total - abs) / total) * 100) : 0,
       logs: confirmedLogs.sort((a, b) => b.time.localeCompare(a.time))
     };
-  }, [committeeNumber, students, absences, supervisions, users, deliveryLogs, activeDate]);
+  }, [committeeNumber, students, absences, supervisions, users, deliveryLogs]);
 
   return (
     <div className="max-w-2xl mx-auto py-10 px-4 animate-fade-in text-right">
@@ -63,7 +70,7 @@ const CommitteeLiveStatus: React.FC<Props> = ({
              <img src={APP_CONFIG.LOGO_URL} alt="Logo" className="w-full h-full object-contain" />
           </div>
           <div className="text-center">
-             <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-blue-400 mb-2">Live Status Portal</h2>
+             <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-blue-400 mb-2">بوابة المتابعة المباشرة</h2>
              <h1 className="text-4xl font-black tracking-tighter">اللجنة رقم {committeeNumber}</h1>
           </div>
           <div className="flex gap-4">
@@ -148,7 +155,7 @@ const CommitteeLiveStatus: React.FC<Props> = ({
         {/* Footer info */}
         <div className="text-center pt-8 space-y-2 opacity-40">
            <p className="text-[10px] font-black uppercase tracking-[0.3em]">Smart Control Live Sync</p>
-           <p className="text-[8px] font-bold italic text-slate-500 underline decoration-blue-500/30">جميع البيانات أعلاه يتم تحديثها آلياً كل 10 ثوانٍ</p>
+           <p className="text-[8px] font-bold italic text-slate-500 underline decoration-blue-500/30">جميع البيانات أعلاه يتم تحديثها آلياً بشكل لحظي</p>
         </div>
       </div>
     </div>

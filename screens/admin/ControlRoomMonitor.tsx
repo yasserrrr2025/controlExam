@@ -66,7 +66,8 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
         committeeLogs.some(l => l.grade === g)
       );
 
-      const hasAlert = !isSubmitted && !isDone && requests.some(r => r.committee === num && r.status === 'PENDING');
+      // التأكد من أن التنبيه يظهر إذا كان هناك بلاغ معلق (PENDING) أو قيد التنفيذ (IN_PROGRESS)
+      const hasAlert = !isDone && requests.some(r => r.committee === num && r.status === 'PENDING');
       const inProgress = requests.some(r => r.committee === num && r.status === 'IN_PROGRESS');
       const sv = supervisions.find(s => s.committee_number === num);
       const isOccupied = !!sv;
@@ -76,7 +77,12 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
   }, [students, deliveryLogs, requests, supervisions, activeDate]);
 
   const sortedRequests = useMemo(() => {
-    return [...requests].sort((a, b) => b.time.localeCompare(a.time));
+    // عرض البلاغات غير المنتهية أولاً
+    return [...requests].sort((a, b) => {
+        if (a.status !== 'DONE' && b.status === 'DONE') return -1;
+        if (a.status === 'DONE' && b.status !== 'DONE') return 1;
+        return b.time.localeCompare(a.time);
+    });
   }, [requests]);
 
   const toggleMaximize = (panel: 'MAP' | 'ABSENCES' | 'REPORTS') => {
@@ -91,9 +97,8 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
     const sv = supervisions.find(s => s.committee_number === selectedCommitteeNum);
     const proctor = users.find(u => u.id === sv?.teacher_id);
     
-    // استخدام URL API لضمان إنشاء رابط مطلق صحيح مهما كانت البيئة
     const currentUrl = new URL(window.location.href);
-    currentUrl.search = ''; // حذف أي Query params
+    currentUrl.search = ''; 
     currentUrl.hash = `status-${selectedCommitteeNum}`;
     const statusUrl = currentUrl.toString();
     
@@ -236,9 +241,14 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
                     <span className="text-xs font-black font-mono text-slate-500 tracking-widest">{new Date(req.time).toLocaleTimeString('ar-SA')}</span>
                  </div>
                  <p className={`${isFull ? 'text-5xl' : 'text-2xl'} font-black text-white leading-relaxed text-right`}>{req.text}</p>
-                 <div className="flex items-center gap-4 mt-6">
-                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center"><UserCircle size={24} className="text-slate-500" /></div>
-                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">{req.from}</p>
+                 <div className="flex items-center justify-between mt-6">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center"><UserCircle size={24} className="text-slate-500" /></div>
+                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">{req.from}</p>
+                    </div>
+                    {req.status === 'IN_PROGRESS' && (
+                        <span className="bg-blue-600 text-white px-4 py-1 rounded-full font-black text-[10px] uppercase animate-pulse">قيد المباشرة</span>
+                    )}
                  </div>
               </div>
             ))
@@ -350,8 +360,8 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
                  <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_20px_rgba(16,185,129,0.8)]"></div> LIVE SYNC ACTIVE
               </span>
               <p className="text-slate-500 font-bold text-xs mt-3 mr-2 font-mono">{activeDate}</p>
-           </div>
         </div>
+      </div>
       </div>
 
       <div className="flex-1 grid grid-cols-12 gap-8 overflow-hidden">
