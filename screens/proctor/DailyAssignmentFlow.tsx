@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Supervision, Student, Absence, DeliveryLog, ControlRequest, CommitteeReport, SystemNotification } from '../../types';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -10,7 +9,8 @@ import {
   ChevronRight, Users, Check, AlertCircle, Award,
   Sparkles, CheckCircle, Info, X, UserSearch, AlertTriangle,
   ArrowRight, Timer, UserCheck, Bell, Package, Search,
-  Megaphone, Activity, BarChart3
+  Megaphone, Activity, BarChart3, QrCode, Trophy, PartyPopper,
+  UserX
 } from 'lucide-react';
 import { db } from '../../supabase';
 import { APP_CONFIG, ROLES_ARABIC } from '../../constants';
@@ -62,7 +62,6 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   const [isCountingLocked, setIsCountingLocked] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
   
-  // نافذة البلاغات المتطورة
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportStep, setReportStep] = useState<'CATEGORIES' | 'SELECT_STUDENTS' | 'SELECT_TEACHER' | 'INPUT_QUANTITY' | 'OTHER'>('CATEGORIES');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -115,7 +114,6 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
     return { total, present: total - abs, absent: abs, late, progress: total > 0 ? Math.round(((total - abs) / total) * 100) : 0 };
   }, [myStudents, myAbsences]);
 
-  // تصفية التنبيهات الموجهة للمراقب أو للكل
   const relevantBroadcasts = useMemo(() => {
     return broadcasts.filter(b => b.target === 'ALL' || b.target === 'PROCTOR');
   }, [broadcasts]);
@@ -123,18 +121,11 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   const joinCommittee = async (committeeNum: string) => {
     let cleanedNum = committeeNum.trim();
     if (cleanedNum.includes('#status-')) cleanedNum = cleanedNum.split('#status-')[1];
-    else if (cleanedNum.includes('?')) {
-       const urlParams = new URLSearchParams(cleanedNum.split('?')[1]);
-       cleanedNum = urlParams.get('committee') || cleanedNum;
-    }
-
     if (!cleanedNum || isJoining) return;
     setIsJoining(true);
     try {
       await db.supervision.deleteByTeacherId(user.id);
-      const currentTime = new Date().toISOString().split('T')[1];
-      const joinedDate = `${activeDate}T${currentTime}`;
-      await db.supervision.insert({ id: crypto.randomUUID(), teacher_id: user.id, committee_number: cleanedNum, date: joinedDate, period: 1, subject: 'اختبار' });
+      await db.supervision.insert({ id: crypto.randomUUID(), teacher_id: user.id, committee_number: cleanedNum, date: new Date().toISOString(), period: 1, subject: 'اختبار' });
       await setSupervisions();
       onAlert(`تمت المباشرة في اللجنة ${cleanedNum} بنجاح`, 'success');
     } catch (err: any) { onAlert(err.message, 'error'); } finally { setIsJoining(false); }
@@ -151,19 +142,10 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
 
   const toggleStudentStatus = async (student: Student, type: 'ABSENT' | 'LATE') => {
     if (isCommitteeFinished || !activeCommittee) return;
-
-    // العثور على سجل غياب الطالب الحالي في اليوم النشط
     const existing = absences.find(a => a.student_id === student.national_id && a.date.startsWith(activeDate));
-    
     try {
-      if (existing && existing.type === type) {
-        // إذا نقر على نفس النوع (مثلاً غياب وهو غائب أصلاً)، نقوم بحذف الحالة ليعود "حاضر"
-        await db.absences.delete(student.national_id);
-      } else {
-        // إذا لم يكن موجوداً أو كان نوعاً مختلفاً، نقوم بالتحديث/الإضافة
-        const currentTimePart = new Date().toISOString().split('T')[1];
-        const recordDate = `${activeDate}T${currentTimePart}`;
-
+      if (existing && existing.type === type) await db.absences.delete(student.national_id);
+      else {
         await db.absences.upsert({ 
           id: existing?.id || crypto.randomUUID(), 
           student_id: student.national_id, 
@@ -172,30 +154,23 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
           period: 1, 
           type, 
           proctor_id: user.id, 
-          date: recordDate 
+          date: new Date().toISOString() 
         });
       }
-      // تحديث البيانات لحظياً
       await setAbsences();
-    } catch (err: any) { 
-      onAlert(err.message || String(err), 'error'); 
-    }
+    } catch (err: any) { onAlert(err.message, 'error'); }
   };
 
   const handleUrgentReport = async () => {
     let message = "";
     switch(selectedCategory) {
-      case 'ANSWER_SHEET': 
-        const names = myStudents.filter(s => selectedStudentIds.includes(s.national_id)).map(s => s.name).join('، ');
-        message = `طلب ورقة إجابة للطلاب: (${names})`;
-        break;
+      case 'ANSWER_SHEET': message = `طلب ورقة إجابة للطلاب: (${myStudents.filter(s => selectedStudentIds.includes(s.national_id)).map(s => s.name).join('، ')})`; break;
       case 'SUBJECT_TEACHER': message = `استدعاء معلم المادة: (${otherText})`; break;
       case 'PENCIL': message = `طلب مرسام/أدوات عدد: (${quantity})`; break;
       case 'QUESTION_SHEET': message = `طلب ورقة أسئلة عدد: (${quantity})`; break;
       case 'HEALTH': message = `🚨 حالة صحية طارئة في اللجنة`; break;
       case 'OTHER': message = `بلاغ: ${otherText}`; break;
     }
-
     try {
       await sendRequest(message, activeCommittee!);
       onAlert("تم إرسال البلاغ فوراً لوحدة التحكم", "success");
@@ -250,72 +225,113 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
 
   if (isCommitteeFinished) {
     const myLogs = deliveryLogs.filter(l => l.committee_number === activeCommittee && l.time.startsWith(activeDate));
+    const proctorQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${user.national_id}&color=0f172a`;
+
     return (
-      <div className="max-w-4xl mx-auto py-12 px-6 animate-fade-in pb-48 space-y-12">
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-600 to-blue-600 rounded-[5rem] blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
-            <div className="relative bg-white rounded-[4.5rem] p-12 text-center shadow-2xl overflow-hidden border border-slate-100">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[100px] rounded-full"></div>
-              <div className="relative z-10 space-y-8">
-                <div className="w-48 h-48 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-[3.5rem] flex items-center justify-center mx-auto shadow-2xl border-8 border-white/20 relative">
-                    <Award size={110} className="text-white drop-shadow-lg" />
-                    <Sparkles size={32} className="absolute -top-4 -right-4 text-emerald-400 animate-pulse" />
+      <div className="max-w-4xl mx-auto py-8 px-6 animate-fade-in pb-48 space-y-10">
+          {/* شاشة الشكر والباركود الاحترافية */}
+          <div className="relative group perspective-1000">
+            <div className="absolute -inset-2 bg-gradient-to-r from-blue-600 via-emerald-500 to-indigo-600 rounded-[5rem] blur opacity-20 group-hover:opacity-40 transition duration-1000 animate-pulse"></div>
+            <div className="relative bg-white rounded-[4.5rem] shadow-2xl overflow-hidden border border-slate-100 flex flex-col items-center">
+              
+              <div className="w-full bg-[#0f172a] p-10 text-center relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+                <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-600/20 blur-[100px] rounded-full"></div>
+                <div className="relative z-10 flex flex-col items-center gap-6">
+                  <div className="w-28 h-28 bg-emerald-500 rounded-full flex items-center justify-center shadow-2xl border-4 border-white/10 animate-bounce">
+                    <Trophy size={56} className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-5xl font-black text-white tracking-tighter mb-2">إنجاز رائع أستاذ {user.full_name.split(' ')[0]}!</h2>
+                    <p className="text-emerald-400 font-bold text-xl flex items-center justify-center gap-3">
+                      <PartyPopper size={24}/> تم إنهاء أعمال اللجنة {activeCommittee} بنجاح
+                    </p>
+                  </div>
                 </div>
+              </div>
+
+              <div className="p-12 text-center space-y-10 w-full">
                 <div className="space-y-4">
-                    <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-600 px-6 py-2 rounded-full font-black text-xs uppercase tracking-widest border border-emerald-100 mb-2">
-                       <ShieldCheck size={16}/> وثيقة إنجاز ميداني
+                  <p className="text-slate-400 font-black text-[10px] uppercase tracking-[0.5em] mb-2">Proctor Identification Code</p>
+                  <div className="bg-slate-50 p-8 rounded-[4rem] border-2 border-slate-100 inline-block relative group/qr shadow-inner">
+                    <img src={proctorQrUrl} alt="Proctor QR" className="w-64 h-64 mix-blend-multiply group-hover/qr:scale-105 transition-transform duration-500" />
+                    <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-2 rounded-full font-black text-xs shadow-xl flex items-center gap-2">
+                      <QrCode size={14} className="text-blue-400"/> امسح الكود للاستلام
                     </div>
-                    <h2 className="text-5xl font-black text-slate-900 tracking-tighter">اللجنة {activeCommittee} منتهية</h2>
-                    <p className="text-slate-500 font-bold text-xl italic max-w-md mx-auto leading-relaxed">أستاذ {user.full_name}، تم إرسال البيانات للكنترول بنجاح. يرجى مطابقة المظاريف يدوياً الآن.</p>
+                  </div>
+                  <p className="text-slate-500 font-bold text-lg max-w-md mx-auto leading-relaxed mt-6">
+                    يرجى إبراز هذا الكود لعضو الكنترول لمطابقة البيانات الورقية وتوثيق الاستلام النهائي.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                    <Users size={24} className="text-blue-600 mx-auto mb-2" />
+                    <p className="text-[9px] font-black text-slate-400 uppercase">طلاب اللجنة</p>
+                    <p className="text-3xl font-black text-slate-900 tabular-nums">{stats.total}</p>
+                  </div>
+                  <div className="bg-red-50 p-6 rounded-[2.5rem] border border-red-100 shadow-sm">
+                    <UserX size={24} className="text-red-600 mx-auto mb-2" />
+                    <p className="text-[9px] font-black text-slate-400 uppercase">الغياب</p>
+                    <p className="text-3xl font-black text-red-600 tabular-nums">{stats.absent}</p>
+                  </div>
+                  <div className="bg-emerald-50 p-6 rounded-[2.5rem] border border-emerald-100 shadow-sm">
+                    <CheckCircle2 size={24} className="text-emerald-600 mx-auto mb-2" />
+                    <p className="text-[9px] font-black text-slate-400 uppercase">الحضور</p>
+                    <p className="text-3xl font-black text-emerald-600 tabular-nums">{stats.present}</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* سجل الحالة بالاستلام والوقت */}
           <div className="space-y-6">
              <div className="flex items-center justify-between px-6">
-                <h3 className="text-2xl font-black text-slate-900 flex items-center gap-4"><History className="text-blue-600" size={32}/> سجل مطابقة المظاريف</h3>
+                <h3 className="text-2xl font-black text-slate-900 flex items-center gap-4">
+                  <Activity className="text-blue-600" size={32}/> 
+                  تتبع حالة المظاريف
+                </h3>
              </div>
-             <div className="grid grid-cols-1 gap-6">
-                {myLogs.map((log) => {
-                  const totalGrade = students.filter(s => s.committee_number === activeCommittee && s.grade === log.grade).length;
-                  const comAbsences = absences.filter(a => a.committee_number === activeCommittee && a.date.startsWith(activeDate) && students.find(s => s.national_id === a.student_id)?.grade === log.grade);
-                  const absCount = comAbsences.filter(a => a.type === 'ABSENT').length;
-                  const lateCount = comAbsences.filter(a => a.type === 'LATE').length;
-                  return (
-                    <div key={log.id} className="bg-white p-8 rounded-[3.5rem] shadow-xl border-2 border-slate-50 flex flex-col md:flex-row justify-between items-center gap-8 transition-all hover:bg-slate-50 group">
-                       <div className="flex items-center gap-6 flex-1 w-full md:w-auto">
-                          <div className={`w-20 h-20 rounded-[1.8rem] flex items-center justify-center shadow-lg shrink-0 ${log.status === 'CONFIRMED' ? 'bg-emerald-600 text-white' : 'bg-orange-500 text-white animate-pulse'}`}>
-                             {log.status === 'CONFIRMED' ? <PackageCheck size={36}/> : <Package size={36}/>}
-                          </div>
-                          <div className="flex-1">
-                             <div className="flex items-center gap-4 mb-1">
-                                <h4 className="text-3xl font-black text-slate-900">{log.grade}</h4>
-                                <span className={`px-4 py-1 rounded-lg font-black text-[9px] uppercase tracking-widest ${log.status === 'CONFIRMED' ? 'bg-emerald-500 text-white' : 'bg-orange-500 text-white'}`}>{log.status === 'CONFIRMED' ? 'مستلم نظامياً' : 'متجه للكنترول'}</span>
+             <div className="space-y-4">
+                {myLogs.map((log) => (
+                  <div key={log.id} className="bg-white p-8 rounded-[3.5rem] shadow-xl border-2 border-slate-50 flex flex-col md:flex-row justify-between items-center gap-8 transition-all hover:bg-slate-50 group overflow-hidden relative">
+                    {log.status === 'CONFIRMED' && <div className="absolute top-0 right-0 w-2 h-full bg-emerald-500"></div>}
+                    <div className="flex items-center gap-6 flex-1 w-full md:w-auto">
+                        <div className={`w-20 h-20 rounded-[2.2rem] flex items-center justify-center shadow-lg shrink-0 ${log.status === 'CONFIRMED' ? 'bg-emerald-600 text-white' : 'bg-orange-500 text-white animate-pulse'}`}>
+                           {log.status === 'CONFIRMED' ? <PackageCheck size={36}/> : <Package size={36}/>}
+                        </div>
+                        <div className="flex-1">
+                           <div className="flex items-center gap-4 mb-2">
+                              <h4 className="text-3xl font-black text-slate-900">{log.grade}</h4>
+                              <span className={`px-4 py-1 rounded-full font-black text-[9px] uppercase tracking-widest ${log.status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-600 border border-emerald-200' : 'bg-orange-100 text-orange-600 border border-orange-200'}`}>
+                                {log.status === 'CONFIRMED' ? 'تم الاستلام نظامياً' : 'متجه للكنترول'}
+                              </span>
+                           </div>
+                           <div className="flex items-center gap-6">
+                             <div className="flex items-center gap-2 text-slate-400">
+                                <UserCheck size={16} className={log.status === 'CONFIRMED' ? 'text-blue-600' : 'text-slate-300'} />
+                                <span className="text-sm font-black italic">{log.status === 'CONFIRMED' ? `المستلم: ${log.teacher_name}` : 'بانتظار مطابقة الكنترول'}</span>
                              </div>
-                             <div className="flex flex-wrap gap-2">
-                                <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-[10px] font-black">إجمالي: {totalGrade}</span>
-                                <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-[10px] font-black">حاضر: {totalGrade - absCount}</span>
-                                <span className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-[10px] font-black">غائب: {absCount}</span>
-                                <span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-lg text-[10px] font-black">تأخر: {lateCount}</span>
-                             </div>
-                          </div>
-                       </div>
-                       <div className="flex items-center gap-6 border-t md:border-t-0 md:border-r border-slate-100 pt-6 md:pt-0 md:pr-10 w-full md:w-auto justify-between md:justify-end">
-                          <div className="text-right">
-                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">المستلم</p>
-                             <p className="text-sm font-black text-slate-700">{log.status === 'CONFIRMED' ? log.teacher_name : '---'}</p>
-                          </div>
-                          <div className="text-center">
-                             <p className="text-[9px] font-black text-slate-400 uppercase leading-none mb-1">الوقت</p>
-                             <p className="text-xl font-black text-slate-900 tabular-nums">{new Date(log.time).toLocaleTimeString('ar-SA', {hour:'2-digit', minute:'2-digit'})}</p>
-                          </div>
-                       </div>
+                           </div>
+                        </div>
                     </div>
-                  );
-                })}
+                    <div className="flex items-center gap-6 border-t md:border-t-0 md:border-r border-slate-100 pt-6 md:pt-0 md:pr-10 w-full md:w-auto justify-between md:justify-end">
+                        <div className="text-center">
+                           <p className="text-[9px] font-black text-slate-400 uppercase leading-none mb-2">وقت التوثيق</p>
+                           <p className="text-3xl font-black text-slate-900 tabular-nums flex items-center gap-3">
+                              <Clock size={24} className="text-slate-300" />
+                              {new Date(log.time).toLocaleTimeString('ar-SA', {hour:'2-digit', minute:'2-digit'})}
+                           </p>
+                        </div>
+                    </div>
+                  </div>
+                ))}
              </div>
           </div>
-          <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white py-8 rounded-[2.5rem] font-black text-2xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all"><RefreshCcw size={32}/> تحديث الحالة الميدانية</button>
+          <button onClick={() => window.location.reload()} className="w-full bg-slate-950 text-white py-8 rounded-[2.5rem] font-black text-2xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all">
+            <RefreshCcw size={32}/> تحديث الحالة الميدانية
+          </button>
       </div>
     );
   }
@@ -390,7 +406,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
              </div>
              <div className="flex-1 max-w-md mx-6 hidden lg:block">
                 <div className="flex justify-between mb-2 px-2"><span className="text-[9px] font-black text-slate-500 uppercase">مؤشر رصد الحضور المباشر</span><span className="text-[9px] font-black text-blue-400">{stats.progress}%</span></div>
-                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/10"><div className="h-full bg-blue-600 rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(37,99,235,0.5)]" style={{ width: `${stats.progress}%` }}></div></div>
+                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/10"><div className="h-full bg-blue-600 rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(37,99,235,0.4)]" style={{ width: `${stats.progress}%` }}></div></div>
              </div>
              <div className="flex gap-4">
                 <div className="bg-white/5 border border-white/10 p-5 rounded-3xl text-center min-w-[100px]"><p className="text-[8px] font-black uppercase text-slate-500 mb-1">طلاب اللجنة</p><p className="text-2xl font-black text-white tabular-nums">{stats.total}</p></div>
@@ -493,9 +509,51 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
                {isVerifying ? (
                   <div className="p-24 text-center space-y-12 flex flex-col items-center"><Loader2 size={140} className="text-blue-600 animate-spin" /><h3 className="text-5xl font-black text-slate-900 tracking-tighter italic">جاري الأرشفة والتوثيق...</h3></div>
                ) : closingStep === 0 ? (
-                 <div className="p-12 space-y-10 text-right"><div className="flex items-center gap-6 mb-4"><CheckCircle2 size={48} className="text-emerald-400"/><h3 className="text-4xl font-black tracking-tighter">مراجعة الحالات النهائية</h3></div><p className="text-slate-400 font-bold mb-6">يمكنك تحويل الغائب لمتأخر إذا حضر الآن:</p><div className="max-h-[300px] overflow-y-auto space-y-3 px-2 custom-scrollbar">{myAbsences.length === 0 ? (<div className="p-8 text-center bg-emerald-50 text-emerald-600 rounded-3xl font-black border-2 border-dashed border-emerald-100">لا يوجد غياب أو تأخر في اللجنة</div>) : (myAbsences.map(a => (<div key={a.id} className="flex justify-between items-center p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100 group"><div className="flex flex-col"><span className="font-black text-slate-900 text-lg">{a.student_name}</span><span className={`text-[10px] font-black uppercase ${a.type === 'ABSENT' ? 'text-red-500' : 'text-amber-500'}`}>{a.type === 'ABSENT' ? 'غائب' : 'متأخر'}</span></div><button onClick={async () => { const newType = a.type === 'ABSENT' ? 'LATE' : 'ABSENT'; await db.absences.upsert({ ...a, type: newType }); await setAbsences(); }} className="bg-white text-slate-400 p-3 rounded-2xl hover:bg-blue-600 hover:text-white transition-all shadow-sm flex items-center gap-2 text-xs font-black"><RefreshCcw size={14}/> {a.type === 'ABSENT' ? 'تحويل لمتأخر' : 'تحويل لغائب'} Comp</button></div>)))}</div><button onClick={() => setClosingStep(1)} className="w-full bg-slate-900 text-white py-10 rounded-[2.8rem] font-black text-3xl flex items-center justify-center gap-8 shadow-2xl shadow-blue-500/10 active:scale-95 transition-all">متابعة العد والفرز <ChevronLeft size={48} /></button></div>
+                 <div className="p-12 space-y-10 text-right">
+                   <div className="flex items-center gap-6 mb-4">
+                     <CheckCircle2 size={48} className="text-emerald-400"/>
+                     <h3 className="text-4xl font-black tracking-tighter">مراجعة الحالات النهائية</h3>
+                   </div>
+                   <p className="text-slate-400 font-bold mb-6">يرجى التأكد من دقة الحالات قبل إغلاق اللجنة:</p>
+                   <div className="max-h-[300px] overflow-y-auto space-y-3 px-2 custom-scrollbar">
+                     {myAbsences.length === 0 ? (
+                       <div className="p-8 text-center bg-emerald-50 text-emerald-600 rounded-3xl font-black border-2 border-dashed border-emerald-100">لا يوجد غياب أو تأخر في اللجنة</div>
+                     ) : (
+                       myAbsences.map(a => (
+                         <div key={a.id} className={`flex justify-between items-center p-6 rounded-[2.5rem] border transition-all group ${a.type === 'ABSENT' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                           <div className="flex flex-col">
+                             <span className="font-black text-lg">{a.student_name}</span>
+                             <span className="text-[10px] font-black uppercase flex items-center gap-1">
+                               {a.type === 'ABSENT' ? <AlertCircle size={10}/> : <Clock size={10}/>}
+                               {a.type === 'ABSENT' ? 'غائب' : 'متأخر'}
+                             </span>
+                           </div>
+                           <button onClick={async () => { const newType = a.type === 'ABSENT' ? 'LATE' : 'ABSENT'; await db.absences.upsert({ ...a, type: newType }); await setAbsences(); }} className={`p-3 rounded-2xl hover:scale-105 transition-all shadow-sm flex items-center gap-2 text-xs font-black bg-white ${a.type === 'ABSENT' ? 'text-amber-600 border-amber-100' : 'text-red-600 border-red-100'}`}>
+                             <RefreshCcw size={14}/> {a.type === 'ABSENT' ? 'تحويل لمتأخر' : 'تحويل لغائب'}
+                           </button>
+                         </div>
+                       ))
+                     )}
+                   </div>
+                   <button onClick={() => setClosingStep(1)} className="w-full bg-slate-900 text-white py-10 rounded-[2.8rem] font-black text-3xl flex items-center justify-center gap-8 shadow-2xl shadow-blue-500/10 active:scale-95 transition-all">متابعة العد والفرز <ChevronLeft size={48} /></button>
+                 </div>
                ) : closingStep === 1 ? (
-                 <div className="p-14 space-y-14 text-center"><div className="space-y-4"><div className="bg-blue-50 text-blue-600 px-8 py-3 rounded-full w-fit mx-auto text-xl font-black">{myGrades[currentGradeIdx]}</div><h4 className="text-6xl font-black text-slate-900 tracking-tighter leading-none">عد أوراق الإجابة</h4><p className="text-slate-400 font-bold text-xl italic uppercase tracking-widest">أدخل عدد أوراق المظروف الفعلية</p></div><div className="flex items-center justify-center gap-12"><button onClick={() => { setClosingCounts(prev => ({...prev, [myGrades[currentGradeIdx]]: Math.max(0, (prev[myGrades[currentGradeIdx]] || 0) - 1)})); setCountError(null); setIsCountingLocked(false); }} className="w-32 h-32 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 active:scale-90 transition-transform shadow-inner"><Minus size={64} /></button><div className="relative"><input type="number" value={closingCounts[myGrades[currentGradeIdx]] || 0} onChange={e => { setClosingCounts({...closingCounts, [myGrades[currentGradeIdx]]: parseInt(e.target.value) || 0}); setCountError(null); setIsCountingLocked(false); }} className={`w-64 h-64 bg-white border-[10px] rounded-[5rem] text-center font-black text-[100px] text-slate-900 outline-none tabular-nums shadow-2xl transition-all ${countError ? 'border-red-500 bg-red-50 animate-shake' : 'border-slate-50'}`} /></div><button onClick={() => { setClosingCounts(prev => ({...prev, [myGrades[currentGradeIdx]]: (prev[myGrades[currentGradeIdx]] || 0) + 1})); setCountError(null); setIsCountingLocked(false); }} className="w-32 h-32 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 active:scale-90 transition-transform shadow-inner"><Plus size={64} /></button></div>{countError && (<div className="bg-red-50 p-6 rounded-3xl border border-red-100 flex items-center gap-4 text-red-700 text-right animate-bounce-subtle"><AlertTriangle className="shrink-0" size={32}/><p className="text-sm font-black leading-relaxed">{countError}</p></div>)}<button onClick={validateAndNext} className={`w-full py-11 rounded-[3rem] font-black text-4xl flex items-center justify-center gap-8 shadow-2xl border-b-[10px] transition-all active:scale-95 ${isCountingLocked && countError ? 'bg-slate-400 cursor-not-allowed border-slate-500' : 'bg-emerald-600 text-white border-emerald-800 shadow-emerald-500/20'}`}>{currentGradeIdx === myGrades.length - 1 ? 'إرسال للكنترول' : 'الصف التالي'} <ChevronLeft size={56} /></button></div>
+                 <div className="p-14 space-y-14 text-center">
+                   <div className="space-y-4">
+                     <div className="bg-blue-50 text-blue-600 px-8 py-3 rounded-full w-fit mx-auto text-xl font-black">{myGrades[currentGradeIdx]}</div>
+                     <h4 className="text-6xl font-black text-slate-900 tracking-tighter leading-none">عد أوراق الإجابة</h4>
+                     <p className="text-slate-400 font-bold text-xl italic uppercase tracking-widest">أدخل عدد أوراق المظروف الفعلية</p>
+                   </div>
+                   <div className="flex items-center justify-center gap-12">
+                     <button onClick={() => { setClosingCounts(prev => ({...prev, [myGrades[currentGradeIdx]]: Math.max(0, (prev[myGrades[currentGradeIdx]] || 0) - 1)})); setCountError(null); setIsCountingLocked(false); }} className="w-32 h-32 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 active:scale-90 transition-transform shadow-inner"><Minus size={64} /></button>
+                     <div className="relative">
+                       <input type="number" value={closingCounts[myGrades[currentGradeIdx]] || 0} onChange={e => { setClosingCounts({...closingCounts, [myGrades[currentGradeIdx]]: parseInt(e.target.value) || 0}); setCountError(null); setIsCountingLocked(false); }} className={`w-64 h-64 bg-white border-[10px] rounded-[5rem] text-center font-black text-[100px] text-slate-900 outline-none tabular-nums shadow-2xl transition-all ${countError ? 'border-red-500 bg-red-50 animate-shake' : 'border-slate-50'}`} />
+                     </div>
+                     <button onClick={() => { setClosingCounts(prev => ({...prev, [myGrades[currentGradeIdx]]: (prev[myGrades[currentGradeIdx]] || 0) + 1})); setCountError(null); setIsCountingLocked(false); }} className="w-32 h-32 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 active:scale-90 transition-transform shadow-inner"><Plus size={64} /></button>
+                   </div>
+                   {countError && (<div className="bg-red-50 p-6 rounded-3xl border border-red-100 flex items-center gap-4 text-red-700 text-right animate-bounce-subtle"><AlertTriangle className="shrink-0" size={32}/><p className="text-sm font-black leading-relaxed">{countError}</p></div>)}
+                   <button onClick={validateAndNext} className={`w-full py-11 rounded-[3rem] font-black text-4xl flex items-center justify-center gap-8 shadow-2xl border-b-[10px] transition-all active:scale-95 ${isCountingLocked && countError ? 'bg-slate-400 cursor-not-allowed border-slate-500' : 'bg-emerald-600 text-white border-emerald-800 shadow-emerald-500/20'}`}>{currentGradeIdx === myGrades.length - 1 ? 'إرسال للكنترول' : 'الصف التالي'} <ChevronLeft size={56} /></button>
+                 </div>
                ) : null}
             </div>
          </div>
@@ -507,6 +565,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
          @keyframes bounce-subtle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
          @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
          .animate-marquee { display: inline-block; animation: marquee 25s linear infinite; }
+         .perspective-1000 { perspective: 1000px; }
        `}</style>
     </div>
   );
