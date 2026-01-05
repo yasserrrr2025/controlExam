@@ -69,11 +69,13 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   const [quantity, setQuantity] = useState(1);
 
   const qrScannerRef = useRef<Html5Qrcode | null>(null);
+  // تأكد من أن التاريخ النشط مأخوذ من الإعدادات أو تاريخ اليوم الفعلي
   const activeDate = useMemo(() => systemConfig?.active_exam_date || new Date().toISOString().split('T')[0], [systemConfig]);
 
+  // تبسيط منطق البحث عن التكليف النشط
   const activeAssignment = useMemo(() => 
-    supervisions.find((s: any) => s.teacher_id === user.id && s.date && s.date.startsWith(activeDate)), 
-  [supervisions, user.id, activeDate]);
+    supervisions.find((s: any) => s.teacher_id === user.id), 
+  [supervisions, user.id]);
 
   const activeCommittee = activeAssignment?.committee_number || null;
 
@@ -110,34 +112,48 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
     const total = myStudents.length;
     const abs = myAbsences.filter(a => a.type === 'ABSENT').length;
     const late = myAbsences.filter(a => a.type === 'LATE').length;
-    const processed = myAbsences.length; // عدد من تم رصدهم (غياب أو تأخر)
-    // نعتبر البقية حاضرين، لكن الإحصائية تهمنا للمراقب
     return { total, present: total - abs, absent: abs, late, progress: total > 0 ? Math.round(((total - abs) / total) * 100) : 0 };
   }, [myStudents, myAbsences]);
 
   const joinCommittee = async (committeeNum: string) => {
     let cleanedNum = committeeNum.trim();
-    // إذا كان المدخل رابطاً، نحاول استخراج رقم اللجنة منه
-    if (cleanedNum.includes('?')) {
-      const urlParams = new URLSearchParams(cleanedNum.split('?')[1]);
-      cleanedNum = urlParams.get('committee') || cleanedNum;
+    
+    // فك تشفير الرابط إذا كان الكود يحتوي على URL كامل
+    if (cleanedNum.includes('#status-')) {
+       cleanedNum = cleanedNum.split('#status-')[1];
+    } else if (cleanedNum.includes('?')) {
+       const urlParams = new URLSearchParams(cleanedNum.split('?')[1]);
+       cleanedNum = urlParams.get('committee') || cleanedNum;
     }
 
     if (!cleanedNum || isJoining) return;
     setIsJoining(true);
+    
     try {
+      // حذف أي تكليف قديم للمعلم لليوم النشط
       await db.supervision.deleteByTeacherId(user.id);
+      
+      // دمج التاريخ النشط من الإعدادات مع الوقت الحالي لضمان ظهور السجل في الفلترة
+      const currentTime = new Date().toISOString().split('T')[1];
+      const joinedDate = `${activeDate}T${currentTime}`;
+
       await db.supervision.insert({ 
         id: crypto.randomUUID(), 
         teacher_id: user.id, 
         committee_number: cleanedNum, 
-        date: new Date().toISOString(), 
+        date: joinedDate, 
         period: 1, 
         subject: 'اختبار' 
       });
+      
+      // استدعاء تحديث البيانات من المكون الأب فوراً
       await setSupervisions();
-      onAlert(`تمت المباشرة في اللجنة ${cleanedNum}`, 'success');
-    } catch (err: any) { onAlert(err.message, 'error'); } finally { setIsJoining(false); }
+      onAlert(`تمت المباشرة في اللجنة ${cleanedNum} بنجاح`, 'success');
+    } catch (err: any) { 
+      onAlert(err.message, 'error'); 
+    } finally { 
+      setIsJoining(false); 
+    }
   };
 
   const stopScanner = async () => {
@@ -373,7 +389,6 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
 
   return (
     <div className="space-y-8 animate-fade-in max-w-7xl mx-auto text-right pb-48 px-4 md:px-0">
-       {/* Ticker for Admin Announcements */}
        <div className="bg-slate-950 text-white h-12 flex items-center overflow-hidden rounded-2xl relative shadow-xl border-b-2 border-blue-600">
           <div className="bg-blue-600 h-full flex items-center px-4 font-black text-[10px] uppercase gap-2 z-10 shrink-0">
              <Megaphone size={14} className="animate-bounce" /> تعليمات الكنترول
@@ -422,14 +437,12 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
                 </div>
                 <div className="bg-white/5 border border-white/10 p-5 rounded-3xl text-center min-w-[100px]">
                    <p className="text-[8px] font-black uppercase text-slate-500 mb-1">الغياب</p>
-                   {/* Fix: changed stats.abs to stats.absent to match the stats object definition */}
                    <p className="text-2xl font-black text-red-500 tabular-nums">{stats.absent}</p>
                 </div>
              </div>
           </div>
        </div>
 
-       {/* Search Box */}
        <div className="relative group">
           <Search size={24} className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
           <input 
@@ -441,7 +454,6 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
           />
        </div>
 
-       {/* تتبع البلاغات النشطة */}
        {myActiveRequests.length > 0 && (
          <div className="bg-white p-8 rounded-[3.5rem] shadow-2xl border-2 border-red-50 animate-bounce-subtle">
             <div className="flex items-center gap-4 mb-6 pb-4 border-b border-red-50">

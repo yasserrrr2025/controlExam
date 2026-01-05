@@ -23,6 +23,17 @@ export interface Student {
   location?: string;
 }
 
+export interface EnvelopeLog {
+  id: string;
+  grade: string;
+  subject: string;
+  opened_by_name: string;
+  opened_by_id: string;
+  time: string;
+  status: 'INTACT' | 'DAMAGED'; // سليم أو غير سليم
+  period: string;
+}
+
 export interface Supervision {
   id: string;
   teacher_id: string;

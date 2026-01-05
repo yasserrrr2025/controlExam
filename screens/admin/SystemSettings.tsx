@@ -21,7 +21,7 @@ const AdminSystemSettings: React.FC<Props> = ({ systemConfig, setSystemConfig, r
   const [isSavingCfg, setIsSavingCfg] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
-  const sqlManualJoinFix = `-- إصلاح وتحديث قاعدة البيانات بالكامل (نسخة الميدان المحدثة V6)
+  const sqlManualJoinFix = `-- إصلاح وتحديث قاعدة البيانات بالكامل (نسخة الميدان المحدثة V7 - المظاريف الذكية)
 -- 1. جدول إعدادات النظام
 DROP TABLE IF EXISTS system_config;
 CREATE TABLE system_config (
@@ -47,22 +47,34 @@ CREATE TABLE IF NOT EXISTS committee_reports (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 3. تحديث جدول المستخدمين
+-- 3. جدول سجلات فتح المظاريف (الجديد V7)
+CREATE TABLE IF NOT EXISTS envelope_logs (
+  id UUID PRIMARY KEY,
+  grade TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  opened_by_id UUID NOT NULL,
+  opened_by_name TEXT NOT NULL,
+  time TEXT NOT NULL,
+  status TEXT DEFAULT 'INTACT',
+  period TEXT DEFAULT 'الأولى'
+);
+
+-- 4. تحديث جدول المستخدمين
 ALTER TABLE users ADD COLUMN IF NOT EXISTS assigned_committees TEXT[] DEFAULT '{}';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS assigned_grades TEXT[] DEFAULT '{}';
 
--- 4. تحديث جدول الطلاب
+-- 5. تحديث جدول الطلاب
 ALTER TABLE students ADD COLUMN IF NOT EXISTS seating_number TEXT;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS committee_number TEXT;
 
--- 5. تحديث جدول التكليفات
+-- 6. تحديث جدول التكليفات
 ALTER TABLE supervision ALTER COLUMN date TYPE TEXT;
 
--- 6. تحديث جدول سجلات الاستلام
+-- 7. تحديث جدول سجلات الاستلام
 ALTER TABLE delivery_logs ADD COLUMN IF NOT EXISTS proctor_name TEXT;
 ALTER TABLE delivery_logs ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'PENDING';
 
--- 7. تحديث جدول البلاغات
+-- 8. تحديث جدول البلاغات
 ALTER TABLE control_requests ADD COLUMN IF NOT EXISTS assistant_name TEXT;`;
 
   const handleCopy = (text: string, id: string) => {
