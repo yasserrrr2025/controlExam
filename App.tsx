@@ -22,6 +22,7 @@ import CounselorAbsenceMonitor from './screens/counselor/AbsenceMonitor';
 import ControlReceiptView from './screens/control/ReceiptView';
 import ReceiptLogsView from './screens/control/ReceiptLogsView';
 import AssistantControlView from './screens/control/AssistantControlView';
+import GlobalQRScanner from './components/GlobalQRScanner';
 import { BellRing, Menu, X, CheckCircle2, AlertCircle, Info, AlertTriangle, Loader2 } from 'lucide-react';
 import { db, supabase } from './supabase';
 
@@ -227,6 +228,15 @@ const App: React.FC = () => {
       <main className={`transition-all duration-300 min-h-screen ${currentUser ? (isSidebarCollapsed ? 'lg:mr-24' : 'lg:mr-80') : ''} ${currentUser ? 'p-6 lg:p-10 pt-24 lg:pt-10' : ''}`}>
         {currentUser ? renderContent() : <Login users={users} onLogin={handleLoginSuccess} onAlert={addLocalNotification} />}
       </main>
+
+      {currentUser && ['ADMIN', 'CONTROL_MANAGER', 'ASSISTANT_CONTROL', 'COUNSELOR'].includes(currentUser.role) && (
+         <GlobalQRScanner 
+           students={students} 
+           absences={absences} 
+           activeDate={systemConfig.active_exam_date || new Date().toISOString().split('T')[0]} 
+           onRefreshData={fetchData} 
+         />
+      )}
 
       <style>{`
         @keyframes slideIn { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
