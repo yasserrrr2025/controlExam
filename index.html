@@ -3,15 +3,39 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>كنترول الاختبارات - النظام الذكي</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>الكنترول المطور - إدارة الاختبارات</title>
+    <meta name="description" content="النظام الذكي الشامل لإدارة لجان الاختبارات والمراقبة الميدانية">
+    <meta name="keywords" content="كنترول, اختبارات, مراقبة, لجان, وزارة التعليم">
+    <meta name="author" content="وزارة التعليم">
     
-    <!-- PWA Meta Tags -->
+    <!-- PWA Core -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#020617" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#020617">
+    
+    <!-- Apple PWA Meta -->
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-title" content="الكنترول المطور">
     <link rel="apple-touch-icon" href="https://www.raed.net/img?id=1488645">
-    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" sizes="152x152" href="https://www.raed.net/img?id=1488645">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://www.raed.net/img?id=1488645">
+    
+    <!-- Microsoft PWA -->
+    <meta name="msapplication-TileImage" content="https://www.raed.net/img?id=1488645">
+    <meta name="msapplication-TileColor" content="#020617">
+    <meta name="msapplication-tap-highlight" content="no">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="الكنترول المطور">
+    <meta property="og:description" content="النظام الذكي الشامل لإدارة لجان الاختبارات">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://www.raed.net/img?id=1488645">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="https://www.raed.net/img?id=1488645">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -88,8 +112,46 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
+                navigator.serviceWorker.register('/sw.js')
+                  .then((reg) => {
+                    // كشف تحديثات SW جديدة
+                    reg.addEventListener('updatefound', () => {
+                        const newWorker = reg.installing;
+                        if (!newWorker) return;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // إظهار بانر تحديث أنيق
+                                showUpdateBanner();
+                            }
+                        });
+                    });
+                  })
+                  .catch(err => console.warn('SW failed:', err));
             });
+        }
+
+        function showUpdateBanner() {
+            const banner = document.createElement('div');
+            banner.id = 'update-banner';
+            banner.innerHTML = `
+              <div style="
+                position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+                background:#1e40af; color:white; padding:14px 24px;
+                border-radius:999px; font-family:'Tajawal',sans-serif; font-weight:800;
+                font-size:14px; direction:rtl; z-index:9999; white-space:nowrap;
+                box-shadow:0 8px 32px rgba(37,99,235,0.5); border:1px solid rgba(255,255,255,0.15);
+                display:flex; align-items:center; gap:12px; cursor:pointer;
+                animation: slideUp2 0.4s ease-out;
+              " onclick="window.location.reload()">
+                <span style="font-size:18px">⚡</span>
+                <span>يوجد تحديث جديد — اضغط للتحديث</span>
+                <span style="background:rgba(255,255,255,0.2); padding:4px 12px; border-radius:999px; font-size:12px">تحديث</span>
+              </div>
+              <style>@keyframes slideUp2 { from{transform:translate(-50%,20px);opacity:0} to{transform:translate(-50%,0);opacity:1} }</style>
+            `;
+            document.body.appendChild(banner);
+            // إخفاء البانر تلقائياً بعد 15 ثانية
+            setTimeout(() => banner.remove(), 15000);
         }
     </script>
 <script type="module" src="/index.tsx"></script>
