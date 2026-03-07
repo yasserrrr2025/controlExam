@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Student } from '../../types';
 import { APP_CONFIG } from '../../constants';
 
@@ -25,7 +26,7 @@ const DoorLabelsPrint: React.FC<Props> = ({ students }) => {
   const siteUrl = window.location.origin;
 
   return (
-    <div className="bg-slate-100 min-h-screen p-8 text-right font-['Tajawal']" dir="rtl">
+    <div className="bg-slate-100 min-h-screen p-8 print:p-0 print:bg-white text-right font-['Tajawal']" dir="rtl">
       <div className="max-w-4xl mx-auto space-y-6 no-print">
         <div className="bg-white p-8 rounded-3xl shadow-xl flex justify-between items-center border-b-4 border-blue-600">
           <div>
@@ -48,21 +49,38 @@ const DoorLabelsPrint: React.FC<Props> = ({ students }) => {
               size: A4 landscape;
               margin: 0;
             }
-            body {
+            html, body {
               background: white !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 100%;
+              height: 100%;
+            }
+            body * {
+              visibility: hidden;
+            }
+            #door-labels-print-root, #door-labels-print-root * {
+              visibility: visible;
+            }
+            #door-labels-print-root {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100%;
               margin: 0;
               padding: 0;
+              background: white;
             }
-            .no-print { display: none !important; }
             .door-label-page {
               width: 297mm;
               height: 210mm;
               page-break-after: always;
               display: flex;
               align-items: stretch;
-              padding: 10mm;
+              padding: 12mm;
               box-sizing: border-box;
               position: relative;
+              background: white;
             }
             .door-label-page:last-child {
               page-break-after: auto;
@@ -70,7 +88,9 @@ const DoorLabelsPrint: React.FC<Props> = ({ students }) => {
           }
         `}</style>
 
-        {committees.map((committee, idx) => {
+        {createPortal(
+          <div id="door-labels-print-root" dir="rtl" className="font-['Tajawal'] hidden print:block bg-white z-[9999]">
+            {committees.map((committee, idx) => {
           const publicUrl = `${siteUrl}?public_committee=${committee.num}`;
           return (
             <div key={idx} className="door-label-page bg-white">
@@ -142,8 +162,11 @@ const DoorLabelsPrint: React.FC<Props> = ({ students }) => {
 
               </div>
             </div>
-          );
-        })}
+            );
+          })}
+          </div>,
+          document.body
+        )}
       </div>
     </div>
   );
