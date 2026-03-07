@@ -108,6 +108,8 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   const [quantity, setQuantity] = useState(1);
   const [filter, setFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'LATE'>('ALL');
   const [elapsedTime, setElapsedTime] = useState('00:00');
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [localPendingCount, setLocalPendingCount] = useState(0);
 
   const qrScannerRef = useRef<Html5Qrcode | null>(null);
   const activeDate = useMemo(
@@ -163,6 +165,42 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
   }, [activeAssignment?.date]);
+
+  /* ── مراقبة الاتصال بالإنترنت ── */
+  useEffect(() => {
+    const goOnline = async () => {
+      setIsOffline(false);
+      // محاولة رفع السجلات المحلية المعلقة عند عودة الاتصال
+      const localKey = `offline_absences_${user.id}`;
+      const raw = localStorage.getItem(localKey);
+      if (!raw) return;
+      try {
+        const pending: any[] = JSON.parse(raw);
+        if (!pending.length) return;
+        for (const rec of pending) {
+          if (rec._delete) {
+            await db.absences.delete(rec.student_id).catch(() => {});
+          } else {
+            await db.absences.upsert(rec).catch(() => {});
+          }
+        }
+        localStorage.removeItem(localKey);
+        setLocalPendingCount(0);
+        await setAbsences();
+        onAlert(`✅ تمت مزامنة ${pending.length} تغيير محفوظ محلياً`, 'success');
+      } catch { /* تجاهل أخطاء المزامنة */ }
+    };
+    const goOffline = () => setIsOffline(true);
+    window.addEventListener('online',  goOnline);
+    window.addEventListener('offline', goOffline);
+    // حساب عدد السجلات المحلية المعلقة
+    const raw = localStorage.getItem(`offline_absences_${user.id}`);
+    if (raw) { try { setLocalPendingCount(JSON.parse(raw).length); } catch {} }
+    return () => {
+      window.removeEventListener('online',  goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, [user.id]);
 
   // منطق الإغلاق: اللجنة منتهية إذا كان هناك سجل (سواء معلق أو مؤكد) لجميع صفوف اللجنة
   const isCommitteeFinished = useMemo(() => {
@@ -270,14 +308,39 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   ) => {
     if (isCommitteeFinished) return;
     const existing = absences.find(
-      (a) =>
-        a.student_id === student.national_id && a.date.startsWith(activeDate),
+      (a) => a.student_id === student.national_id && a.date.startsWith(activeDate),
     );
+    const isRemoving = existing && existing.type === type;
+
+    // ── أولاً: حفظ محلي فوري (Optimistic / Offline) ──
+    const localKey = `offline_absences_${user.id}`;
+    const addToLocal = (rec: any) => {
+      try {
+        const raw = localStorage.getItem(localKey);
+        const list: any[] = raw ? JSON.parse(raw) : [];
+        const idx = list.findIndex(r => r.student_id === rec.student_id);
+        if (idx >= 0) list[idx] = rec; else list.push(rec);
+        localStorage.setItem(localKey, JSON.stringify(list));
+        setLocalPendingCount(list.length);
+      } catch {}
+    };
+    const removeFromLocal = (studentId: string) => {
+      try {
+        const raw = localStorage.getItem(localKey);
+        if (!raw) return;
+        const list: any[] = JSON.parse(raw).filter((r: any) => r.student_id !== studentId);
+        localStorage.setItem(localKey, JSON.stringify(list));
+        setLocalPendingCount(list.length);
+      } catch {}
+    };
+
+    // ── ثانياً: رفع للسيرفر (مع fallback محلي) ──
     try {
-      if (existing && existing.type === type) {
+      if (isRemoving) {
+        removeFromLocal(student.national_id);
         await db.absences.delete(student.national_id);
       } else {
-        await db.absences.upsert({
+        const rec = {
           id: existing?.id || crypto.randomUUID(),
           student_id: student.national_id,
           student_name: student.name,
@@ -286,11 +349,35 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
           type,
           proctor_id: user.id,
           date: new Date().toISOString(),
-        });
+        };
+        if (isOffline) {
+          // في وضع عدم الاتصال: حفظ محلي فقط
+          addToLocal(rec);
+          onAlert('📵 لا يوجد اتصال — حُفظ محلياً وسيُزامَن تلقائياً', 'warning');
+          await setAbsences(); // تحديث الواجهة من الذاكرة
+          return;
+        }
+        await db.absences.upsert(rec);
+        removeFromLocal(student.national_id); // نجح الرفع → نمسح المحلي
       }
       await setAbsences();
     } catch (err: any) {
-      onAlert(err.message || String(err), "error");
+      // فشل الاتصال → حفظ محلي
+      if (!isRemoving) {
+        const rec = {
+          id: existing?.id || crypto.randomUUID(),
+          student_id: student.national_id,
+          student_name: student.name,
+          committee_number: activeCommittee!,
+          period: 1, type,
+          proctor_id: user.id,
+          date: new Date().toISOString(),
+        };
+        addToLocal(rec);
+        onAlert('⚠️ فشل الاتصال — حُفظ التغيير محلياً', 'warning');
+      } else {
+        onAlert(err.message || String(err), 'error');
+      }
     }
   };
 
@@ -796,6 +883,31 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   // واجهة الرصد النشط
   return (
     <div className="space-y-8 animate-fade-in max-w-7xl mx-auto text-right pb-48 px-4 md:px-0">
+
+      {/* ── بانر عدم الاتصال ── */}
+      {isOffline && (
+        <div className="bg-orange-500 text-white px-5 py-3.5 rounded-[1.5rem] flex items-center gap-3 shadow-lg font-bold text-sm animate-pulse">
+          <span className="text-xl">📵</span>
+          <div>
+            <p className="font-black">أنت غير متصل بالإنترنت</p>
+            <p className="text-orange-100 text-xs font-bold">التغييرات تُحفظ محلياً وتُزامَن تلقائياً عند عودة الاتصال</p>
+          </div>
+          {localPendingCount > 0 && (
+            <span className="mr-auto bg-white text-orange-600 text-xs font-black px-3 py-1 rounded-full">
+              {localPendingCount} معلق
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* بانر انتظار المزامنة (متصل لكن فيه معلقات) */}
+      {!isOffline && localPendingCount > 0 && (
+        <div className="bg-blue-600/10 border border-blue-500/30 text-blue-700 px-5 py-3 rounded-[1.5rem] flex items-center gap-3 text-sm font-bold">
+          <span className="text-base">🔄</span>
+          <p>جاري مزامنة {localPendingCount} تغيير محفوظ أثناء انقطاع الاتصال...</p>
+        </div>
+      )}
+
       <div className="bg-slate-950 p-8 md:p-10 rounded-[3.5rem] text-white shadow-2xl border-b-[8px] border-blue-600">
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-8">
