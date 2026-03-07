@@ -169,7 +169,7 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                       {/* كود QR */}
                       <div className="w-[18mm] flex flex-col items-center justify-center shrink-0">
                         <img 
-                          src={\`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=\${student.national_id}&color=000000\`} 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${student.national_id}&color=000000`} 
                           alt="QR" 
                           className="w-full h-auto aspect-square"
                           style={{ imageRendering: 'pixelated' }}
@@ -300,7 +300,7 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                      ))}
                      {/* ملء الفراغات في الورقة الأخيرة إذا كانت أقل من 21 ملصق */}
                      {Array.from({ length: 21 - page.students.length }).map((_, i) => (
-                       <div key={\`empty-\${i}\`} className="border border-slate-200/50 bg-slate-100/30 flex items-center justify-center shadow-sm aspect-[70/42.4]">
+                       <div key={`empty-${i}`} className="border border-slate-200/50 bg-slate-100/30 flex items-center justify-center shadow-sm aspect-[70/42.4]">
                          <span className="text-[3px] text-slate-300 uppercase letter-spacing-widest filter blur-[0.5px]">فارغ</span>
                        </div>
                      ))}
