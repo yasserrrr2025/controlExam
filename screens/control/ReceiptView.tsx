@@ -42,6 +42,16 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
     return String(id).trim();
   };
 
+  /* ── مطابقة التاريخ بمرونة (يتعامل مع ISO كامل أو YYYY-MM-DD) ── */
+  const matchDate = (isoStr: string | undefined | null, date: string): boolean => {
+    if (!isoStr || !date) return false;
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return String(isoStr).startsWith(date);
+      return d.toISOString().startsWith(date);
+    } catch { return String(isoStr ?? '').startsWith(date); }
+  };
+
   const getUniqueKey = (committee: string | number, grade: string): string => {
     return `${cleanId(committee)}_${grade.trim()}`;
   };
@@ -50,13 +60,13 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
   const proctorSubmittedCommittees = useMemo(() => {
     return new Set(
       deliveryLogs
-        .filter(l => l.type === 'RECEIVE' && l.time.startsWith(todayDate) && (l.status === 'PENDING' || l.proctor_name))
+        .filter(l => l.type === 'RECEIVE' && matchDate(l.time, todayDate) && (l.status === 'PENDING' || l.proctor_name))
         .map(l => cleanId(l.committee_number))
     );
   }, [deliveryLogs, todayDate]);
 
   const receivedKeys = useMemo(() => {
-    return new Set(deliveryLogs.filter(l => l.type === 'RECEIVE' && l.status === 'CONFIRMED' && l.time.startsWith(todayDate)).map(l => getUniqueKey(l.committee_number, l.grade)));
+    return new Set(deliveryLogs.filter(l => l.type === 'RECEIVE' && l.status === 'CONFIRMED' && matchDate(l.time, todayDate)).map(l => getUniqueKey(l.committee_number, l.grade)));
   }, [deliveryLogs, todayDate]);
 
   const myGrades = useMemo(() => {
@@ -97,7 +107,7 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
 
   const recentLogs = useMemo(() => {
     return deliveryLogs
-      .filter(l => l.type === 'RECEIVE' && l.status === 'CONFIRMED' && l.time.startsWith(todayDate))
+      .filter(l => l.type === 'RECEIVE' && l.status === 'CONFIRMED' && matchDate(l.time, todayDate))
       .sort((a,b) => b.time.localeCompare(a.time))
       .slice(0, 5);
   }, [deliveryLogs, todayDate]);
@@ -120,7 +130,7 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
     
     if (proctorUser) {
       // إذا كانت هوية مراقب، نبحث عن تكليفه النشط اليوم
-      const sv = supervisions.find(s => s.teacher_id === proctorUser.id && s.date.startsWith(todayDate));
+      const sv = supervisions.find(s => s.teacher_id === proctorUser.id && matchDate(s.date, todayDate));
       if (sv) {
         targetCommitteeNum = cleanId(sv.committee_number);
         onAlert(`تم التعرف على المراقب: ${proctorUser.full_name} - لجنة ${targetCommitteeNum}`);
@@ -166,7 +176,7 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
     const item = currentQueue[currentQueueIndex];
     if (!item) return;
 
-    const sv = supervisions.find(s => cleanId(s.committee_number) === item.committee && s.date.startsWith(todayDate));
+    const sv = supervisions.find(s => cleanId(s.committee_number) === item.committee && matchDate(s.date, todayDate));
     const proctorObj = users.find(u => u.id === sv?.teacher_id);
     
     const newLog: DeliveryLog = { 
@@ -371,17 +381,31 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
                                {absences.filter(a => a.committee_number === activeCommitteeId && a.type === 'LATE' && a.date.startsWith(todayDate) && students.find(s => s.national_id === a.student_id)?.grade === currentQueue[currentQueueIndex].grade).length}
                              </p>
                           </div>
-                       </div>
+                        </div>
 
-                       <div className="bg-slate-50 p-8 rounded-[3rem] border-2 border-slate-100 flex items-center gap-6 group transition-all">
-                          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg border border-slate-200"><UserCheck size={36} className="text-slate-400 group-hover:text-blue-600 transition-colors" /></div>
-                          <div className="flex-1 text-right">
-                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المراقب الميداني الموثق</p>
-                             <h5 className="text-2xl font-black text-slate-800 leading-tight">
-                                {users.find(u => u.id === supervisions.find(s => cleanId(s.committee_number) === activeCommitteeId && s.date.startsWith(todayDate))?.teacher_id)?.full_name || '---'}
-                             </h5>
+                        {/* بيانات المراقب والمستلم */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-blue-50 p-5 rounded-[2rem] border border-blue-100 flex items-center gap-4">
+                            <div className="w-11 h-11 bg-blue-600 rounded-2xl flex items-center justify-center shrink-0">
+                              <UserCheck size={20} className="text-white" />
+                            </div>
+                            <div className="flex-1 text-right">
+                              <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">المراقب الميداني</p>
+                              <h5 className="text-base font-black text-blue-900 leading-tight">
+                                {users.find(u => u.id === supervisions.find(s => cleanId(s.committee_number) === activeCommitteeId && matchDate(s.date, todayDate))?.teacher_id)?.full_name || <span className="text-blue-300 italic text-sm">لم يُكلَّف بعد</span>}
+                              </h5>
+                            </div>
                           </div>
-                       </div>
+                          <div className="bg-emerald-50 p-5 rounded-[2rem] border border-emerald-100 flex items-center gap-4">
+                            <div className="w-11 h-11 bg-emerald-600 rounded-2xl flex items-center justify-center shrink-0">
+                              <ShieldCheck size={20} className="text-white" />
+                            </div>
+                            <div className="flex-1 text-right">
+                              <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">المستلم (كنترول)</p>
+                              <h5 className="text-base font-black text-emerald-900 leading-tight">{user.full_name}</h5>
+                            </div>
+                          </div>
+                        </div>
 
                        <div className="pt-4">
                          <button 
@@ -412,7 +436,7 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
            stats.remainingKeys.map(key => {
              const info = myTotalScope[key];
              const isReady = proctorSubmittedCommittees.has(info.committee);
-             const sv = supervisions.find(s => cleanId(s.committee_number) === info.committee && s.date.startsWith(todayDate));
+              const sv = supervisions.find(s => cleanId(s.committee_number) === info.committee && matchDate(s.date, todayDate));
              const proctor = users.find(u => u.id === sv?.teacher_id);
              
              return (
