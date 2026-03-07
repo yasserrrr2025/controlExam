@@ -403,35 +403,47 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
 
   // واجهة النجاح والقفل (وثيقة الإنجاز + سجل المطابقة)
   if (isCommitteeFinished) {
-    const myLogs = deliveryLogs.filter(
+    const committeeLogs = deliveryLogs.filter(
       (l) =>
         l.committee_number === activeCommittee && l.time.startsWith(activeDate),
     );
+    
+    // منع التكرار: نحتفظ بسجل واحد لكل صف، مع أولوية السجل المؤكد (CONFIRMED)
+    const myLogs = Object.values(committeeLogs.reduce((acc, log) => {
+      if (!acc[log.grade] || log.status === 'CONFIRMED') {
+        acc[log.grade] = log;
+      }
+      return acc;
+    }, {} as Record<string, DeliveryLog>)) as DeliveryLog[];
+
+    const isFullyConfirmed = myLogs.length > 0 && myLogs.every(l => l.status === 'CONFIRMED');
+
     return (
       <div className="max-w-4xl mx-auto py-12 px-6 animate-fade-in pb-48 space-y-12">
         {/* وثيقة الإنجاز */}
         <div className="relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-emerald-600 to-blue-600 rounded-[5rem] blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+          <div className={`absolute -inset-1 rounded-[5rem] blur opacity-25 group-hover:opacity-50 transition duration-1000 ${isFullyConfirmed ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 'bg-gradient-to-r from-blue-500 to-indigo-500'}`}></div>
           <div className="relative bg-white rounded-[4.5rem] p-12 text-center shadow-2xl overflow-hidden border border-slate-100">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[100px] rounded-full"></div>
+            <div className={`absolute top-0 right-0 w-64 h-64 blur-[100px] rounded-full ${isFullyConfirmed ? 'bg-emerald-500/10' : 'bg-blue-500/10'}`}></div>
             <div className="relative z-10 space-y-8">
-              <div className="w-48 h-48 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-[3.5rem] flex items-center justify-center mx-auto shadow-2xl border-8 border-white/20 relative">
-                <Award size={110} className="text-white drop-shadow-lg" />
+              <div className={`w-48 h-48 rounded-[3.5rem] flex items-center justify-center mx-auto shadow-2xl border-8 border-white/20 relative ${isFullyConfirmed ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : 'bg-gradient-to-br from-blue-500 to-blue-700'}`}>
+                {isFullyConfirmed ? <CheckCircle2 size={110} className="text-white drop-shadow-lg" /> : <Award size={110} className="text-white drop-shadow-lg" />}
                 <Sparkles
                   size={32}
-                  className="absolute -top-4 -right-4 text-emerald-400 animate-pulse"
+                  className={`absolute -top-4 -right-4 animate-pulse ${isFullyConfirmed ? 'text-emerald-400' : 'text-blue-400'}`}
                 />
               </div>
               <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-600 px-6 py-2 rounded-full font-black text-xs uppercase tracking-widest border border-emerald-100 mb-2">
-                  <ShieldCheck size={16} /> وثيقة إنجاز ميداني
+                <div className={`inline-flex items-center gap-2 px-6 py-2 rounded-full font-black text-xs uppercase tracking-widest border mb-2 ${isFullyConfirmed ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                  <ShieldCheck size={16} /> {isFullyConfirmed ? 'تمت المطابقة النهائية' : 'وثيقة إنجاز ميداني'}
                 </div>
                 <h2 className="text-5xl font-black text-slate-900 tracking-tighter">
-                  اللجنة {activeCommittee} منتهية
+                  اللجنة {activeCommittee} {isFullyConfirmed ? 'مكتملة ومستلمة' : 'منتهية ميدانياً'}
                 </h2>
                 <p className="text-slate-500 font-bold text-xl italic max-w-md mx-auto leading-relaxed">
-                  أستاذ {user.full_name}، تم إرسال البيانات للكنترول بنجاح. يرجى
-                  مطابقة المظاريف يدوياً الآن.
+                  {isFullyConfirmed ? 
+                    `شكراً لجهودك أستاذ ${user.full_name}! تم إغلاق ومطابقة جميع مظاريف هذه اللجنة بواسطة الكنترول بنجاح تام.` : 
+                    `أستاذ ${user.full_name}، تم إرسال البيانات للكنترول بنجاح. يرجى التوجه للكنترول لمطابقة المظاريف.`}
                 </p>
               </div>
             </div>
