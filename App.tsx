@@ -223,7 +223,10 @@ const App: React.FC = () => {
 
       {currentUser && (
         <>
-          <header className="fixed top-0 right-0 left-0 bg-white/80 backdrop-blur-md z-[90] lg:hidden border-b px-6 py-4 flex justify-between items-center no-print shadow-sm">
+          <header
+            style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}
+            className="fixed top-0 right-0 left-0 bg-white/90 backdrop-blur-md z-[90] lg:hidden border-b px-6 pb-4 flex justify-between items-center no-print shadow-sm"
+          >
              <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 rounded-xl hover:bg-blue-50 transition-colors">
                 <Menu size={24} className="text-slate-700" />
              </button>
@@ -246,7 +249,10 @@ const App: React.FC = () => {
         </>
       )}
 
-      <main className={`transition-all duration-300 min-h-screen ${currentUser ? (isSidebarCollapsed ? 'lg:mr-24' : 'lg:mr-80') : ''} ${currentUser ? 'p-6 lg:p-10 pt-24 lg:pt-10' : ''}`}>
+      <main
+        style={{ paddingTop: currentUser ? 'calc(env(safe-area-inset-top) + 80px)' : undefined }}
+        className={`transition-all duration-300 min-h-screen ${currentUser ? (isSidebarCollapsed ? 'lg:mr-24' : 'lg:mr-80') : ''} ${currentUser ? 'px-4 pb-6 lg:p-10 lg:pt-10' : ''}`}
+      >
         {currentUser ? renderContent() : <Login users={users} onLogin={handleLoginSuccess} onAlert={addLocalNotification} />}
       </main>
 
@@ -266,6 +272,13 @@ const App: React.FC = () => {
         .animate-slide-in { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         body { -webkit-tap-highlight-color: transparent; }
         input, select, button { outline: none !important; }
+        /* iOS Safe Area Fix */
+        :root {
+          --sat: env(safe-area-inset-top);
+          --sab: env(safe-area-inset-bottom);
+          --sal: env(safe-area-inset-left);
+          --sar: env(safe-area-inset-right);
+        }
       `}</style>
     </div>
   );
