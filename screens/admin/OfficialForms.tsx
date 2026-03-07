@@ -167,17 +167,17 @@ const AdminOfficialForms: React.FC<Props> = ({ absences, students, supervisions,
 
           <div className="mt-auto grid grid-cols-2 gap-10 px-6 pb-6 text-[8pt]">
              <div className="text-center space-y-12">
+                <p className="font-black underline underline-offset-4 text-[10pt]">رئيس الكنترول</p>
+                <div className="space-y-1">
+                  <p className="font-black">{headName}</p>
+                  <p className="font-bold">.........................</p>
+                </div>
+             </div>
+             <div className="text-center space-y-12">
                 <p className="font-black underline underline-offset-4 text-[10pt]">مدير المدرسة</p>
                 <div className="space-y-1">
                   <p className="font-bold">.........................</p>
                   <p className="text-slate-400 italic text-[7pt]">(الختم الرسمي)</p>
-                </div>
-             </div>
-             <div className="text-center space-y-12">
-                <p className="font-black underline underline-offset-4 text-[10pt]">الموجه الطلابي</p>
-                <div className="space-y-1">
-                  <p className="font-black">{counselorName}</p>
-                  <p className="font-bold">.........................</p>
                 </div>
              </div>
           </div>
@@ -190,7 +190,7 @@ const AdminOfficialForms: React.FC<Props> = ({ absences, students, supervisions,
   const DelayForm = ({ absence }: { absence: Absence }) => {
     const student = students.find(s => s.national_id === absence.student_id);
     const proctorName = getProctorName(absence.committee_number, absence.date);
-    const counselorName = getRandomUserByRole('COUNSELOR');
+    const headName = getRandomUserByRole('CONTROL_MANAGER');
     const dayName = getArabicDayName(absence.date);
 
     return (
@@ -232,9 +232,9 @@ const AdminOfficialForms: React.FC<Props> = ({ absences, students, supervisions,
                 </div>
              </div>
              <div className="text-center space-y-12">
-                <p className="font-black underline underline-offset-4 text-[10pt]">الموجه الطلابي</p>
+                <p className="font-black underline underline-offset-4 text-[10pt]">رئيس الكنترول</p>
                 <div className="space-y-1">
-                  <p className="font-black">{counselorName}</p>
+                  <p className="font-black">{headName}</p>
                   <p className="font-bold">.........................</p>
                 </div>
              </div>
