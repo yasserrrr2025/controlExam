@@ -24,6 +24,8 @@ import ReceiptLogsView from './screens/control/ReceiptLogsView';
 import AssistantControlView from './screens/control/AssistantControlView';
 import EnvelopeOpeningView from './screens/control/EnvelopeOpeningView';
 import EnvelopeLabelsPrint from './screens/admin/EnvelopeLabelsPrint';
+import DoorLabelsPrint from './screens/admin/DoorLabelsPrint';
+import CommitteePublicView from './screens/public/CommitteePublicView';
 import GlobalQRScanner from './components/GlobalQRScanner';
 import { BellRing, Menu, X, CheckCircle2, AlertCircle, Info, AlertTriangle, Loader2 } from 'lucide-react';
 import { db, supabase } from './supabase';
@@ -168,17 +170,32 @@ const App: React.FC = () => {
       case 'my-tasks': return <ProctorDailyAssignmentFlow user={currentUser} supervisions={supervisions} setSupervisions={fetchData} students={students} absences={absences} setAbsences={fetchData} deliveryLogs={deliveryLogs} setDeliveryLogs={async (log) => { await db.deliveryLogs.upsert(log); await fetchData(); }} sendRequest={async (txt, com) => { await db.controlRequests.insert({ from: currentUser.full_name, committee: com, text: txt, time: new Date().toISOString(), status: 'PENDING' }); await fetchData(); }} controlRequests={controlRequests} users={users} systemConfig={systemConfig} committeeReports={committeeReports} onReportUpsert={async (report) => { await db.committeeReports.upsert(report); await fetchData(); }} onAlert={addLocalNotification} />;
       case 'envelope-opening': return <EnvelopeOpeningView user={currentUser} systemConfig={systemConfig} users={users} />;
       case 'envelope-labels': return <EnvelopeLabelsPrint students={students} />;
+      case 'door-labels': return <DoorLabelsPrint students={students} />;
       default: return <div className="p-20 text-center animate-pulse text-slate-400 font-bold">جاري تحميل المحتوى المخصص...</div>;
     }
   };
 
-  if (isInitialLoading && currentUser) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-6">
-        <Loader2 size={64} className="text-blue-600 animate-spin" />
-        <p className="font-black text-slate-500 italic">جاري تهيئة مركز العمليات...</p>
-      </div>
-    );
+  if (isInitialLoading) {
+    if (new URLSearchParams(window.location.search).get('public_committee')) {
+       return (
+         <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-6 font-['Tajawal']" dir="rtl">
+           <Loader2 size={48} className="text-blue-600 animate-spin" />
+           <p className="font-bold text-slate-500 text-sm">جاري جلب بيانات اللجنة...</p>
+         </div>
+       );
+    } else if (currentUser) {
+       return (
+         <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-6">
+           <Loader2 size={64} className="text-blue-600 animate-spin" />
+           <p className="font-black text-slate-500 italic">جاري تهيئة مركز العمليات...</p>
+         </div>
+       );
+    }
+  }
+
+  const publicCommitteeId = new URLSearchParams(window.location.search).get('public_committee');
+  if (publicCommitteeId) {
+    return <CommitteePublicView committeeNumber={publicCommitteeId} students={students} supervisions={supervisions} absences={absences} users={users} />;
   }
 
   return (

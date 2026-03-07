@@ -46,6 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'control-manager', label: 'مركز القيادة', icon: ShieldHalf },
     { id: 'proctor-excellence', label: 'سجل التميز', icon: Award },
     { id: 'committee-labels', label: 'ملصقات اللجان (QR)', icon: QrCode },
+    { id: 'door-labels', label: 'ملصقات الأبواب', icon: QrCode },
     { id: 'teachers', label: 'الصلاحيات', icon: Users },
     { id: 'students', label: 'الطلاب', icon: GraduationCap },
     { id: 'committees', label: 'المراقبة', icon: ClipboardList },
