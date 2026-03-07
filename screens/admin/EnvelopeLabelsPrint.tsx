@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, Package } from 'lucide-react';
+import { APP_CONFIG } from '../../constants';
 
 const ALLOWED_SUBJECTS = ['الرياضيات', 'اللغة العربية', 'العلوم', 'اللغة الإنجليزية'];
 
@@ -125,60 +126,80 @@ const EnvelopeLabelsPrint: React.FC<Props> = ({ students }) => {
                 grid-template-rows: repeat(7, 42.4mm);
                 page-break-after: always;
                 box-sizing: border-box;
-                padding-top: 13.5mm;
-                padding-bottom: 13.5mm;
-                padding-left: 7.2mm;
-                padding-right: 7.2mm;
+                padding: 0;
+                margin: 0;
               }
-              .sticker-cell {
-                width: 63.5mm;
-                height: 38.1mm;
-                margin: auto;
+              .gs-1021-label {
+                width: 70mm;
+                height: 42.4mm;
                 box-sizing: border-box;
-                padding: 4px;
+                border: 0.2pt solid #000;
                 display: flex;
-                flex-direction: column;
-                justify-content: center;
                 align-items: center;
-                text-align: center;
-                background-color: white;
-                border: 0.5px dashed #e2e8f0;
+                justify-content: center;
+                overflow: hidden;
+                position: relative;
+                background: white;
+              }
+              .committee-label-content {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 5mm;
+              }
+              .text-black-bold {
+                color: #000 !important;
+                font-weight: 900 !important;
               }
             }
           `}</style>
 
-          {chunkedLabels.map((pageLabels, pageIndex) => (
-            <div key={`page-${pageIndex}`} className="gs-1021-sheet bg-white">
-              {pageLabels.map((lbl, idx) => {
-                const data = `ENV|${lbl.subject}|${lbl.grade}`;
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(data)}&color=000000`;
+          <div className="print-only-labels" dir="rtl">
+            {chunkedLabels.map((pageLabels, pageIndex) => (
+              <div key={`page-${pageIndex}`} className="gs-1021-sheet bg-white">
+                {pageLabels.map((lbl, idx) => {
+                  const data = `ENV|${lbl.subject}|${lbl.grade}`;
+                  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data)}&color=000000`;
+                  
+                  return (
+                    <div key={idx} className="gs-1021-label">
+                      <div className="committee-label-content">
+                         {/* كود QR عالي التباين */}
+                        <div className="w-[40%] flex items-center justify-center">
+                          <img 
+                            src={qrUrl} 
+                            alt="QR" 
+                            className="w-20 h-20"
+                            style={{ imageRendering: 'pixelated' }}
+                            crossOrigin="anonymous"
+                          />
+                        </div>
+
+                        {/* النص والشعار */}
+                        <div className="flex-1 flex flex-col items-center justify-center gap-1 border-r border-black h-[85%] relative">
+                          <img 
+                            src={APP_CONFIG.LOGO_URL} 
+                            alt="Logo" 
+                            className="w-10 h-10 object-contain mb-1" 
+                          />
+                          <span className="text-[8pt] font-black text-black-bold uppercase tracking-widest leading-none mb-1">مظروف أسئلة</span>
+                          <span className="text-[12pt] font-black text-black-bold leading-none tabular-nums text-center" style={{ color: '#000' }}>{lbl.subject}</span>
+                          <span className="text-[8pt] font-black text-black-bold mt-2 uppercase tracking-tighter text-center">{lbl.grade}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
                 
-                return (
-                  <div key={idx} className="sticker-cell">
-                    <div className="w-full flex items-center justify-between px-2 mb-1 border-b border-black">
-                       <span className="font-extrabold text-[10px]">مظروف أسئلة</span>
-                    </div>
-                    
-                    <div className="flex w-full items-center justify-center gap-2 px-1 flex-1">
-                      <div className="flex-1 text-center flex flex-col justify-center border-l-2 border-black h-full gap-1 pl-2">
-                        <div className="text-[12px] font-black">{lbl.subject}</div>
-                        <div className="text-[10px] font-bold text-slate-800">{lbl.grade}</div>
-                      </div>
-                      
-                      <div className="flex items-center justify-center relative w-[25mm] h-[25mm]">
-                         <img src={qrUrl} alt="QR" className="w-[20mm] h-[20mm] object-contain" style={{ imageRendering: 'pixelated' }} />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              
-              {/* Fill remaining cells if less than 21 on the last page */}
-              {Array.from({ length: 21 - pageLabels.length }).map((_, emptyIdx) => (
-                <div key={`empty-${pageIndex}-${emptyIdx}`} className="sticker-cell" />
-              ))}
-            </div>
-          ))}
+                {/* Fill remaining cells if less than 21 on the last page */}
+                {Array.from({ length: 21 - pageLabels.length }).map((_, emptyIdx) => (
+                  <div key={`empty-${pageIndex}-${emptyIdx}`} className="gs-1021-label" />
+                ))}
+              </div>
+            ))}
+          </div>
         </div>,
         document.body
       )}
