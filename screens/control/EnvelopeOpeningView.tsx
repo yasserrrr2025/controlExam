@@ -271,7 +271,7 @@ const EnvelopeOpeningView: React.FC<Props> = ({ user, systemConfig, users }) => 
                     </tr>
                     <tr>
                       <td colSpan={5} style={{ border: '1px solid #000', padding: '20px', textAlign: 'right', fontWeight: 'bold', fontSize: '16px' }}>
-                        تم فتح مظروف الأسئلة عند الساعة ) <span style={{ fontFamily: 'sans-serif', margin: '0 5px' }}>{printRecord.time}</span> ص بواسطة : <span style={{ margin: '0 5px' }}>{printRecord.opened_by || ''}</span> ( ووجد: 
+                        تم فتح مظروف الأسئلة عند الساعة ( <span style={{ fontFamily: 'sans-serif', margin: '0 5px' }}>{printRecord.time}</span> ص بواسطة : <span style={{ margin: '0 5px' }}>{printRecord.opened_by || ''}</span> ) ووجد: 
                         <span style={{ margin: '0 10px' }}>
                           {printRecord.status === 'INTACT' ? '☑ سليم' : '☐ سليم'}
                         </span>
