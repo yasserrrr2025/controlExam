@@ -313,27 +313,29 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
       {/* كارت الإدخال — أبيض منفصل */}
       <div className="bg-white rounded-3xl shadow border border-slate-100 p-5 space-y-3">
         <p className="text-slate-500 text-xs font-black text-center">رقم اللجنة أو رقم هوية الموظف</p>
-        <div className="flex gap-3">
-          <input
-            type="tel"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={searchInput}
-            onChange={e => setSearchInput(e.target.value.replace(/\D/g, ''))}
-            onKeyDown={e => e.key === 'Enter' && searchInput.trim() && handleStartProcess(searchInput)}
-            placeholder="اكتب الرقم هنا"
-            className="flex-1 bg-slate-50 border-2 border-slate-200 focus:border-blue-500 rounded-2xl px-5 py-4 font-black text-3xl text-center text-slate-900 outline-none transition-all placeholder:text-slate-300 placeholder:text-sm placeholder:font-bold"
-            style={{ letterSpacing: '0.1em' }}
-          />
-          <button
-            onClick={() => handleStartProcess(searchInput)}
-            disabled={!searchInput.trim()}
-            className="bg-slate-900 text-white hover:bg-blue-600 active:scale-95 disabled:opacity-25 disabled:cursor-not-allowed w-16 rounded-2xl shadow font-black transition-all flex items-center justify-center"
-          >
-            <Play className="fill-current" size={22} />
-          </button>
-        </div>
+        {/* حقل الإدخال */}
+        <input
+          type="tel"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={searchInput}
+          onChange={e => setSearchInput(e.target.value.replace(/\D/g, ''))}
+          onKeyDown={e => e.key === 'Enter' && searchInput.trim() && handleStartProcess(searchInput)}
+          placeholder="اكتب الرقم هنا"
+          className="w-full bg-slate-50 border-2 border-slate-200 focus:border-blue-500 rounded-2xl px-5 py-4 font-black text-3xl text-center text-slate-900 outline-none transition-all placeholder:text-slate-300 placeholder:text-base placeholder:font-bold"
+          style={{ letterSpacing: '0.1em' }}
+        />
+        {/* زر التأكيد — عرض كامل وواضح */}
+        <button
+          onClick={() => handleStartProcess(searchInput)}
+          disabled={!searchInput.trim()}
+          className="w-full bg-slate-900 text-white hover:bg-blue-600 active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed py-4 rounded-2xl font-black text-base transition-all flex items-center justify-center gap-3 shadow"
+        >
+          <Play className="fill-current" size={20} />
+          تأكيد البحث
+        </button>
       </div>
+
 
       {/* شاشة المسح الكامل */}
       {isScanning && (
