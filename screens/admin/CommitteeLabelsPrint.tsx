@@ -55,8 +55,39 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
     return pages;
   }, [uniqueCommittees, selectedCommittee]);
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     setIsPrinting(true);
+
+    // جمع روابط QR التي سيتم طباعتها حسب وضع الطباعة
+    const imageUrlsToPreload: string[] = [];
+    if (printMode === 'STUDENT') {
+       pagesByCommittee.forEach(page => {
+         page.students.forEach(student => {
+           const data = student.parent_phone || student.national_id;
+           imageUrlsToPreload.push(`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${data}&color=000000`);
+         });
+       });
+    } else {
+       committeePages.forEach(page => {
+         page.forEach(comNum => {
+           imageUrlsToPreload.push(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${comNum}&color=000000`);
+         });
+       });
+    }
+
+    // الانتظار حتى يتم تحميل جميع الصور في المتصفح في الخلفية
+    await Promise.allSettled(
+      imageUrlsToPreload.map(url => {
+        return new Promise<void>((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve();
+          img.onerror = () => resolve(); // في حال فشل صورة لا نوقف البقية
+          img.src = url;
+        });
+      })
+    );
+
+    // إعطاء فرصة قصيرة للـ DOM ليحدث نفسه بعد عرضها ثم الطباعة
     setTimeout(() => {
       window.print();
     }, 500);
