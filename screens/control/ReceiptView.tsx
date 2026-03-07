@@ -262,7 +262,7 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
         </div>
       )}
 
-      <div className="bg-slate-950 rounded-[2.5rem] shadow-2xl overflow-hidden border-b-[6px] border-blue-600">
+      <div className="bg-slate-950 rounded-[2.5rem] shadow-2xl border-b-[6px] border-blue-600">
 
          {/* رأس القسم */}
          <div className="px-6 pt-6 pb-4 text-center border-b border-white/5">
@@ -306,9 +306,9 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
 
            {/* فاصل "أو" */}
            <div className="flex items-center gap-3">
-             <div className="flex-1 h-px bg-white/8" />
+             <div className="flex-1 h-px bg-white/10" />
              <span className="text-slate-600 text-xs font-black px-2">أو أدخل يدوياً</span>
-             <div className="flex-1 h-px bg-white/8" />
+             <div className="flex-1 h-px bg-white/10" />
            </div>
 
            {/* حقل الإدخال — كبير وواضح */}
@@ -323,7 +323,7 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
                  onChange={e => setSearchInput(e.target.value.replace(/\D/g, ''))}
                  onKeyDown={e => e.key === 'Enter' && searchInput.trim() && handleStartProcess(searchInput)}
                  placeholder="اكتب الرقم هنا"
-                 className="flex-1 bg-white/8 border-2 border-white/15 focus:border-blue-500 rounded-2xl px-5 py-4 font-black text-3xl text-center text-white outline-none transition-all placeholder:text-white/20 placeholder:text-base placeholder:font-bold"
+                 className="flex-1 bg-slate-800 border-2 border-slate-700 focus:border-blue-500 rounded-2xl px-5 py-4 font-black text-3xl text-center text-white outline-none transition-all placeholder:text-slate-600 placeholder:text-base placeholder:font-bold"
                  style={{ letterSpacing: '0.15em' }}
                />
                <button
