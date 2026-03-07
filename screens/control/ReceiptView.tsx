@@ -262,7 +262,7 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
         </div>
       )}
 
-      <div className="bg-slate-950 rounded-[2.5rem] shadow-2xl border-b-[6px] border-blue-600">
+      <div className="bg-slate-950 rounded-[2.5rem] shadow-2xl overflow-hidden border-b-[6px] border-blue-600">
 
          {/* رأس القسم */}
          <div className="px-6 pt-6 pb-4 text-center border-b border-white/5">
@@ -274,7 +274,7 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
          </div>
 
          {/* المحتوى */}
-         <div className="p-5 space-y-4">
+         <div className="p-5 pb-8 space-y-4">
 
            {/* زر المسح — عرض كامل وبارز */}
            <button
