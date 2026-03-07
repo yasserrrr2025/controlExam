@@ -135,19 +135,47 @@ const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {(!isCollapsed || isOpen) && (
-          <div className="px-6 pb-4">
-            <div className="bg-[#0f172a] rounded-[2rem] p-5 border border-blue-900/30 relative overflow-hidden group shadow-2xl transition-all hover:border-blue-500/50">
-               <div className="absolute top-0 left-0 w-24 h-24 bg-blue-600/10 blur-3xl rounded-full -ml-12 -mt-12"></div>
-               <div className="relative z-10 flex flex-col items-center gap-3">
-                  <div className="w-14 h-14 bg-white rounded-xl p-1.5 shadow-xl border border-white/10 group-hover:scale-105 transition-transform">
-                     <img src={APP_CONFIG.LOGO_URL} alt="MinLogo" className="w-full h-full object-contain" />
+          <div className="px-4 pb-4">
+            <div className="bg-gradient-to-b from-slate-800/80 to-slate-900/90 rounded-[2rem] p-5 border border-white/5 relative overflow-hidden group shadow-2xl transition-all hover:border-blue-500/30 hover:shadow-blue-500/10">
+               {/* خلفية ضوئية */}
+               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[50px] rounded-full pointer-events-none" />
+               <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-600/10 blur-[40px] rounded-full pointer-events-none" />
+
+               <div className="relative z-10 flex items-center gap-4">
+                  {/* الصورة / الأحرف الأولى */}
+                  <div className="relative shrink-0">
+                    <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/20 border border-white/10 group-hover:scale-105 transition-transform">
+                      <span className="text-xl font-black text-white leading-none">
+                        {user.full_name?.trim().split(' ').slice(0,2).map(w => w[0]).join('') || '؟'}
+                      </span>
+                    </div>
+                    {/* نقطة الاتصال الحي */}
+                    <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-[#020617] shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
                   </div>
-                  <div className="text-center">
-                    <h4 className="text-sm font-black text-white leading-tight mb-2 truncate max-w-[180px]">{user.full_name}</h4>
-                    <div className="bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-lg text-[10px] font-black inline-block uppercase tracking-tight">
-                       {ROLES_ARABIC[user.role]}
+
+                  {/* بيانات المستخدم */}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-black text-white leading-tight break-words">{user.full_name}</h4>
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider">
+                        {ROLES_ARABIC[user.role]}
+                      </div>
                     </div>
                   </div>
+               </div>
+
+               {/* شعار وزارة التعليم صغير */}
+               <div className="relative z-10 mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
+                 <div className="flex items-center gap-2">
+                   <div className="w-6 h-6 bg-white rounded-md p-0.5 shadow">
+                     <img src={APP_CONFIG.LOGO_URL} alt="Logo" className="w-full h-full object-contain" />
+                   </div>
+                   <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Smart Control</p>
+                 </div>
+                 <div className="flex items-center gap-1.5">
+                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                   <span className="text-[9px] text-emerald-500 font-black uppercase tracking-wider">Online</span>
+                 </div>
                </div>
             </div>
           </div>
