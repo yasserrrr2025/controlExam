@@ -77,7 +77,11 @@ const CommitteePublicView: React.FC<Props> = ({
             <img src={APP_CONFIG.LOGO_URL} alt="Logo" className="w-20 h-20 object-contain rounded-2xl bg-white/10 p-2 border border-white/20" />
             <div>
               <h1 className="text-xl font-black mb-1 tracking-tight text-white/90">لجنة رقم {committeeNumber}</h1>
-              <p className="text-xs font-bold text-slate-400">الإدارة العامة للتعليم - لوحة الإشراف الميداني</p>
+              <p className="text-xs font-bold text-slate-400 mb-3">الإدارة العامة للتعليم - لوحة الإشراف الميداني</p>
+              <div className="inline-flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-full text-xs font-bold">
+                 <Calendar size={14} className="text-blue-400" />
+                 <span>{new Intl.DateTimeFormat('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date())}</span>
+              </div>
             </div>
         </div>
       </div>
@@ -127,16 +131,16 @@ const CommitteePublicView: React.FC<Props> = ({
                 const isPresent = !isAbsent && !isLate;
 
                 return (
-                  <div key={student.id} className="p-4 flex items-center gap-4 hover:bg-slate-50/50 transition-colors">
-                     {/* رقم الجلوس */}
-                     <div className="bg-slate-100 text-slate-600 w-12 h-12 rounded-xl flex items-center justify-center font-black text-sm tabular-nums shrink-0">
-                       {student.seating_number || '-'}
-                     </div>
-                     
-                     {/* بيانات الطالب */}
-                     <div className="flex-1 min-w-0">
-                       <h4 className="text-sm font-black text-slate-800 truncate leading-tight">{student.name}</h4>
-                       <p className="text-[10px] font-bold text-slate-400 mt-1">{student.grade} - {student.section}</p>
+                  <div key={student.id} className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
+                     {/* بيانات الطالب ورقم الجلوس */}
+                     <div className="flex-1 min-w-0 flex flex-col justify-center">
+                       <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-[9px] font-black bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded text-center min-w-[24px] tabular-nums shrink-0">
+                            {student.seating_number || '-'}
+                          </span>
+                          <h4 className="text-sm font-black text-slate-800 truncate leading-tight">{student.name}</h4>
+                       </div>
+                       <p className="text-[10px] font-bold text-slate-400 pr-9">{student.grade} - {student.section}</p>
                      </div>
 
                      {/* الحالة */}

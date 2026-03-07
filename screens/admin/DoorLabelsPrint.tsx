@@ -13,8 +13,12 @@ const DoorLabelsPrint: React.FC<Props> = ({ students }) => {
       .sort((a, b) => Number(a) - Number(b));
     return nums.map(num => {
       const commStudents = students.filter(s => s.committee_number === num);
-      const grades = Array.from(new Set(commStudents.map(s => s.grade))).join(' - ');
-      return { num, grades, count: commStudents.length };
+      const grades = Array.from(new Set(commStudents.map(s => s.grade)));
+      const gradeCounts = grades.map(g => ({
+        grade: g,
+        count: commStudents.filter(s => s.grade === g).length
+      }));
+      return { num, gradeCounts, count: commStudents.length };
     });
   }, [students]);
 
@@ -41,7 +45,7 @@ const DoorLabelsPrint: React.FC<Props> = ({ students }) => {
         <style>{`
           @media print {
             @page {
-              size: A4 portrait;
+              size: A4 landscape;
               margin: 0;
             }
             body {
@@ -51,14 +55,12 @@ const DoorLabelsPrint: React.FC<Props> = ({ students }) => {
             }
             .no-print { display: none !important; }
             .door-label-page {
-              width: 210mm;
-              height: 297mm;
+              width: 297mm;
+              height: 210mm;
               page-break-after: always;
               display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              padding: 20mm;
+              align-items: stretch;
+              padding: 10mm;
               box-sizing: border-box;
               position: relative;
             }
@@ -72,42 +74,72 @@ const DoorLabelsPrint: React.FC<Props> = ({ students }) => {
           const publicUrl = `${siteUrl}?public_committee=${committee.num}`;
           return (
             <div key={idx} className="door-label-page bg-white">
-              {/* ترويسة علوية بسيطة */}
-              <div className="absolute top-12 w-full px-12 flex justify-between items-start">
-                <div className="space-y-1">
-                  <p className="font-bold text-lg">المملكة العربية السعودية</p>
-                  <p className="font-bold text-lg">وزارة التعليم</p>
-                  <p className="font-bold text-lg">إدارة التعليم</p>
+              <div className="w-full flex border-4 border-slate-900 rounded-[3rem] p-10 bg-white shadow-2xl overflow-hidden relative">
+                
+                {/* Decorative Elements */}
+                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/5 blur-[100px] rounded-full pointer-events-none"></div>
+                
+                <div className="absolute top-6 right-8 left-8 flex justify-between items-start">
+                  <div className="space-y-1 text-slate-800">
+                    <p className="font-bold text-sm">المملكة العربية السعودية</p>
+                    <p className="font-bold text-sm">وزارة التعليم</p>
+                    <p className="font-bold text-sm">إدارة التعليم</p>
+                  </div>
+                  <img src={APP_CONFIG.LOGO_URL} alt="Ministry Logo" className="w-20 h-20 object-contain opacity-90" />
                 </div>
-                <img src={APP_CONFIG.LOGO_URL} alt="Ministry Logo" className="w-24 h-24 object-contain opacity-90" />
-              </div>
 
-              {/* محتوى الملصق في المنتصف */}
-              <div className="w-full max-w-2xl border-4 border-slate-900 rounded-[3rem] p-16 text-center space-y-12 relative bg-white shadow-2xl">
-                 <div className="space-y-4">
-                    <h1 className="text-8xl font-black tracking-tighter text-blue-900">لجنة رقم</h1>
-                    <div className="text-[12rem] font-black leading-none text-blue-600 block tabular-nums">{committee.num}</div>
-                 </div>
+                {/* Right Side - Info */}
+                <div className="flex-1 flex flex-col justify-center pr-8 pt-20">
+                   <div className="mb-6">
+                      <h1 className="text-4xl font-black tracking-tighter text-blue-900 mb-2">لجنة اختبار رقم</h1>
+                      <div className="text-[10rem] font-black leading-none text-blue-600 tabular-nums drop-shadow-sm">{committee.num}</div>
+                   </div>
 
-                 <div className="space-y-6 pt-8 border-t-[3px] border-dashed border-slate-300">
-                    <div className="text-4xl font-black text-slate-800">{committee.grades}</div>
-                    <div className="bg-slate-100 py-4 px-10 rounded-full inline-block text-2xl font-bold text-slate-600">
-                      عدد الطلاب: <span className="text-3xl font-black text-slate-900 mx-2">{committee.count}</span> طالب
-                    </div>
-                 </div>
+                   <div className="space-y-6 max-w-xl">
+                      <div className="bg-slate-50 border-2 border-slate-100 rounded-3xl overflow-hidden shadow-sm">
+                        <table className="w-full text-center">
+                          <thead className="bg-slate-100 border-b-2 border-slate-200">
+                            <tr>
+                              {committee.gradeCounts.map((g, i) => (
+                                <th key={i} className="py-3 px-4 text-xl font-black text-slate-700 border-l border-slate-200 last:border-0">{g.grade}</th>
+                              ))}
+                              <th className="py-3 px-4 text-xl font-black text-white bg-blue-600">الإجمالي</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              {committee.gradeCounts.map((g, i) => (
+                                <td key={i} className="py-4 px-4 text-3xl font-black text-slate-900 border-l border-slate-200 last:border-0">{g.count}</td>
+                              ))}
+                              <td className="py-4 px-4 text-3xl font-black text-white bg-blue-500">{committee.count}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                   </div>
+                </div>
 
-                 <div className="pt-10 flex flex-col items-center gap-6">
-                    <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(publicUrl)}&color=0f172a`} 
-                      alt="QR Code" 
-                      className="w-48 h-48 border-4 border-slate-200 rounded-3xl shadow-sm p-2"
-                      crossOrigin="anonymous"
-                    />
-                    <div className="space-y-2">
-                       <p className="text-xl font-black text-slate-800">امسح الباركود لعرض تفاصيل اللجنة</p>
-                       <p className="text-md font-bold text-slate-500">حضور الطلاب - وقت الدخول - معلومات المراقب</p>
-                    </div>
-                 </div>
+                {/* Left Side - QR Code */}
+                <div className="w-[35%] flex flex-col items-center justify-center border-r-[3px] border-dashed border-slate-200 pl-8 pr-12 pt-16">
+                   <div className="bg-white p-4 rounded-[2.5rem] shadow-[0_0_40px_rgba(0,0,0,0.08)] border-2 border-slate-100 mb-8 w-full max-w-[280px] aspect-square flex items-center justify-center relative">
+                     <div className="absolute inset-0 bg-blue-50/50 rounded-[2.5rem] transform rotate-3 scale-105 -z-10"></div>
+                     <img 
+                       src={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(publicUrl)}&color=0f172a`} 
+                       alt="QR Code" 
+                       className="w-full h-full object-contain mix-blend-multiply"
+                       crossOrigin="anonymous"
+                     />
+                   </div>
+                   
+                   <div className="text-center space-y-3 w-full">
+                      <div className="inline-flex items-center justify-center gap-2 bg-slate-900 text-white px-6 py-2 rounded-full mb-2 shadow-lg">
+                         <span className="font-bold text-lg">لوحة الإشراف الذكية</span>
+                      </div>
+                      <h3 className="text-3xl font-black text-slate-800 leading-tight">امسح الباركود</h3>
+                      <p className="text-lg font-bold text-slate-500">لمتابعة حالة الحضور والغياب للجنة، ووقت استلام المراقب فورياً.</p>
+                   </div>
+                </div>
+
               </div>
             </div>
           );
