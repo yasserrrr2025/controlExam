@@ -27,44 +27,58 @@ const AdminDailyReports: React.FC<Props> = ({
   const [viewMode, setViewMode] = useState<'LOGS' | 'DETAILED_REPORTS'>('LOGS');
 
   const reportData = useMemo(() => {
-    const committees = Array.from(new Set(students.map(s => s.committee_number))).filter(Boolean).sort((a, b) => Number(a) - Number(b)) as string[];
-
-    return committees.map(num => {
-      const sv = supervisions.find(s => s.committee_number === num && s.date && s.date.startsWith(reportDate));
-      const proctor = users.find(u => u.id === sv?.teacher_id);
+    try {
+      if (!students || !Array.isArray(students)) return [];
       
-      const closeLog = deliveryLogs.find(l => 
-        l.committee_number === num && 
-        l.time && l.time.startsWith(reportDate) && 
-        l.type === 'RECEIVE' && 
-        l.status === 'PENDING'
-      );
+      const committees = Array.from(new Set(students.map(s => s?.committee_number)))
+        .filter(Boolean)
+        .sort((a, b) => Number(a) - Number(b)) as string[];
 
-      const receiptLog = deliveryLogs.find(l => 
-        l.committee_number === num && 
-        l.time && l.time.startsWith(reportDate) && 
-        l.status === 'CONFIRMED'
-      );
+      const validReportDate = reportDate || '';
 
-      const detailedReport = committeeReports.find(r => r.committee_number === num && r.date === reportDate);
+      return committees.map(num => {
+        const sv = (supervisions || []).find(s => s?.committee_number === String(num) && s?.date && String(s.date).startsWith(validReportDate));
+        const proctor = (users || []).find(u => u?.id === sv?.teacher_id);
+        
+        const closeLog = (deliveryLogs || []).find(l => 
+          l?.committee_number === String(num) && 
+          l?.time && String(l.time).startsWith(validReportDate) && 
+          l?.type === 'RECEIVE' && 
+          l?.status === 'PENDING'
+        );
 
-      const formatTime = (isoStr?: string) => {
-        if (!isoStr) return '---';
-        try {
-          return new Date(isoStr).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
-        } catch(e) { return '---'; }
-      };
+        const receiptLog = (deliveryLogs || []).find(l => 
+          l?.committee_number === String(num) && 
+          l?.time && String(l.time).startsWith(validReportDate) && 
+          l?.status === 'CONFIRMED'
+        );
 
-      return {
-        committee: num,
-        proctorName: proctor?.full_name || '................',
-        joinTime: formatTime(sv?.date),
-        closeTime: formatTime(closeLog?.time),
-        receiverName: receiptLog?.teacher_name || '................',
-        receiptTime: formatTime(receiptLog?.time),
-        detailed: detailedReport
-      };
-    }).filter(row => String(row.committee).includes(searchTerm) || row.proctorName.includes(searchTerm));
+        const detailedReport = (committeeReports || []).find(r => r?.committee_number === String(num) && r?.date === validReportDate);
+
+        const formatTime = (isoStr?: string) => {
+          if (!isoStr) return '---';
+          try {
+            return new Date(isoStr).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+          } catch(e) { return '---'; }
+        };
+
+        return {
+          committee: String(num),
+          proctorName: proctor?.full_name || '................',
+          joinTime: formatTime(sv?.date),
+          closeTime: formatTime(closeLog?.time),
+          receiverName: receiptLog?.teacher_name || '................',
+          receiptTime: formatTime(receiptLog?.time),
+          detailed: detailedReport
+        };
+      }).filter(row => {
+        const search = (searchTerm || '').toLowerCase();
+        return row.committee.includes(search) || (row.proctorName || '').toLowerCase().includes(search);
+      });
+    } catch (e) {
+      console.error("Error in reportData useMemo:", e);
+      return [];
+    }
   }, [students, supervisions, users, deliveryLogs, reportDate, searchTerm, committeeReports]);
 
   return (
@@ -95,28 +109,52 @@ const AdminDailyReports: React.FC<Props> = ({
 
       <div className="bg-white rounded-[3rem] shadow-2xl border border-slate-100 overflow-hidden no-print">
          <div className="overflow-x-auto">
-            <table className="w-full text-right border-collapse min-w-[800px]">
-               <thead className="bg-slate-100 border-b text-[10px] font-black text-slate-500 uppercase">
-                 <tr>
-                   <th className="p-6">اللجنة</th>
-                   <th className="p-6">المراقب</th>
-                   <th className="p-6 text-center">دخول</th>
-                   <th className="p-6 text-center">إغلاق</th>
-                   <th className="p-6 text-center">وقت الاستلام</th>
-                 </tr>
-               </thead>
-               <tbody className="divide-y divide-slate-100 font-bold text-slate-700">
-                  {reportData.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-blue-50/40">
-                       <td className="p-6 font-black text-slate-900">لجنة {row.committee}</td>
-                       <td className="p-6">{row.proctorName}</td>
-                       <td className="p-6 text-center tabular-nums text-blue-600">{row.joinTime}</td>
-                       <td className="p-6 text-center tabular-nums text-amber-600">{row.closeTime}</td>
-                       <td className="p-6 text-center tabular-nums text-emerald-600">{row.receiptTime}</td>
+             <table className="w-full text-right border-collapse min-w-[800px]">
+                <thead className="bg-slate-100 border-b text-[10px] font-black text-slate-500 uppercase">
+                  <tr>
+                    <th className="p-6 w-[15%]">اللجنة</th>
+                    <th className="p-6 w-[25%]">المراقب</th>
+                    {viewMode === 'LOGS' ? (
+                      <>
+                        <th className="p-6 text-center w-[20%]">دخول</th>
+                        <th className="p-6 text-center w-[20%]">إغلاق</th>
+                        <th className="p-6 text-center w-[20%]">وقت الاستلام</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="p-6 w-[30%]">الملاحظات</th>
+                        <th className="p-6 w-[30%]">الإجراء المتخذ</th>
+                      </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-bold text-slate-700">
+                  {reportData.length === 0 ? (
+                    <tr>
+                      <td colSpan={viewMode === 'LOGS' ? 5 : 4} className="p-10 text-center text-slate-400 font-bold">لا توجد بيانات لهذا اليوم</td>
                     </tr>
-                  ))}
-               </tbody>
-            </table>
+                  ) : (
+                    reportData.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-blue-50/40">
+                         <td className="p-6 font-black text-slate-900">لجنة {row.committee}</td>
+                         <td className="p-6">{row.proctorName}</td>
+                         {viewMode === 'LOGS' ? (
+                           <>
+                             <td className="p-6 text-center tabular-nums text-blue-600">{row.joinTime}</td>
+                             <td className="p-6 text-center tabular-nums text-amber-600">{row.closeTime}</td>
+                             <td className="p-6 text-center tabular-nums text-emerald-600">{row.receiptTime}</td>
+                           </>
+                         ) : (
+                           <>
+                             <td className="p-6 text-red-600">{row.detailed?.observations || 'لا توجد ملاحظات'}</td>
+                             <td className="p-6 text-blue-600">{row.detailed?.resolutions || '---'}</td>
+                           </>
+                         )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+             </table>
          </div>
       </div>
     </div>
