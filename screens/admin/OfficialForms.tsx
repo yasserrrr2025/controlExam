@@ -201,7 +201,6 @@ const AdminOfficialForms: React.FC<Props> = ({ absences, students, supervisions,
             <p className="text-[7pt] font-black text-slate-500 mb-1">النموذج الموحد رقم: 31</p>
             <h2 className="text-[10pt] font-black mb-1 border-b-2 border-slate-900 inline-block px-8">تعهد تأخر طالب عن اختبار</h2>
           </div>
-          
           <div className="p-8 border-[1pt] border-slate-900 bg-slate-50 leading-relaxed text-[8pt] mb-10 text-right">
              <p className="mb-4">
                أقر أنا الطالب / <span className="font-black px-4 border-b border-slate-400">{absence.student_name}</span>

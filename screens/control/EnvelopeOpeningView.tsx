@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 // @ts-ignore
 import { Html5Qrcode } from "html5-qrcode";
 import { Camera, X, CheckCircle2, ShieldAlert, PackageOpen, Printer, Trash2 } from "lucide-react";
 import { EnvelopeOpening, User } from "../../types";
 import { db } from "../../supabase";
+import OfficialHeader from "../../components/OfficialHeader";
 
 interface Props {
   user: User;
   systemConfig: any;
+  users: User[];
 }
 
-const EnvelopeOpeningView: React.FC<Props> = ({ user, systemConfig }) => {
+const EnvelopeOpeningView: React.FC<Props> = ({ user, systemConfig, users }) => {
   const [openings, setOpenings] = useState<EnvelopeOpening[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const qrScannerRef = useRef<any>(null);
@@ -220,16 +223,22 @@ const EnvelopeOpeningView: React.FC<Props> = ({ user, systemConfig }) => {
        </div>
 
        {/* Printable Report Only */}
-       <div className="print-only">
-          {printRecord && (
-             <div style={{ fontFamily: 'Tajawal, sans-serif', direction: 'rtl', padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-                <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-                    <h1 style={{ fontSize: '24px', fontWeight: 'bold' }}>المملكة العربية السعودية</h1>
-                    <h1 style={{ fontSize: '24px', fontWeight: 'bold' }}>وزارة التعليم</h1>
-                    <h2 style={{ fontSize: '20px', marginTop: '10px' }}>إدارة التعليم</h2>
-                </div>
+       {printRecord && createPortal(
+          <div id="envelope-print-portal">
+             <style>{`
+               @media screen { #envelope-print-portal { display: none !important; } }
+               @media print {
+                 @page { size: A4 portrait; margin: 10mm; }
+                 body { background: white !important; margin: 0; padding: 0; -webkit-print-color-adjust: exact; color: black !important; }
+                 #root, #app-root, header, nav, .no-print { display: none !important; }
+                 #envelope-print-portal { display: block !important; position: absolute; top: 0; left: 0; width: 100%; direction: rtl; }
+                 .print-container { padding: 0; max-width: 100%; margin: 0 auto; font-family: 'Tajawal', sans-serif; }
+               }
+             `}</style>
+             <div className="print-container">
+                <OfficialHeader />
 
-                <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000', marginBottom: '20px', backgroundColor: '#e0f2fe' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000', marginBottom: '20px', backgroundColor: '#e0f2fe', marginTop: '10px' }}>
                   <tbody>
                     <tr>
                       <td style={{ border: '2px solid #000', padding: '10px', width: '50%', fontWeight: 'bold', fontSize: '18px', textAlign: 'center' }}>
@@ -291,28 +300,28 @@ const EnvelopeOpeningView: React.FC<Props> = ({ user, systemConfig }) => {
                   <tbody>
                     <tr>
                       <td style={{ border: '1px solid #000', padding: '15px' }}>1</td>
-                      <td style={{ border: '1px solid #000', padding: '15px' }}></td>
+                      <td style={{ border: '1px solid #000', padding: '15px' }}>{users.find(u => u.role === 'CONTROL_MANAGER')?.full_name || ''}</td>
                       <td style={{ border: '1px solid #000', padding: '15px', fontWeight: 'bold' }}>رئيس الكنترول</td>
                       <td style={{ border: '1px solid #000', padding: '15px', fontWeight: 'bold' }}>رئيساً</td>
                       <td style={{ border: '1px solid #000', padding: '15px' }}></td>
                     </tr>
                     <tr>
                       <td style={{ border: '1px solid #000', padding: '15px' }}>2</td>
-                      <td style={{ border: '1px solid #000', padding: '15px' }}></td>
+                      <td style={{ border: '1px solid #000', padding: '15px' }}>{users.filter(u => u.role === 'CONTROL')[0]?.full_name || ''}</td>
                       <td style={{ border: '1px solid #000', padding: '15px', fontWeight: 'bold' }}>عضو كنترول</td>
                       <td style={{ border: '1px solid #000', padding: '15px', fontWeight: 'bold' }}>عضواً</td>
                       <td style={{ border: '1px solid #000', padding: '15px' }}></td>
                     </tr>
                     <tr>
                       <td style={{ border: '1px solid #000', padding: '15px' }}>3</td>
-                      <td style={{ border: '1px solid #000', padding: '15px' }}></td>
+                      <td style={{ border: '1px solid #000', padding: '15px' }}>{users.filter(u => u.role === 'CONTROL')[1]?.full_name || ''}</td>
                       <td style={{ border: '1px solid #000', padding: '15px', fontWeight: 'bold' }}>عضو كنترول</td>
                       <td style={{ border: '1px solid #000', padding: '15px', fontWeight: 'bold' }}>عضواً</td>
                       <td style={{ border: '1px solid #000', padding: '15px' }}></td>
                     </tr>
                     <tr>
                       <td style={{ border: '1px solid #000', padding: '15px' }}>4</td>
-                      <td style={{ border: '1px solid #000', padding: '15px' }}></td>
+                      <td style={{ border: '1px solid #000', padding: '15px' }}>{users.filter(u => u.role === 'CONTROL')[2]?.full_name || ''}</td>
                       <td style={{ border: '1px solid #000', padding: '15px', fontWeight: 'bold' }}>عضو كنترول</td>
                       <td style={{ border: '1px solid #000', padding: '15px', fontWeight: 'bold' }}>عضواً</td>
                       <td style={{ border: '1px solid #000', padding: '15px' }}></td>
@@ -333,9 +342,10 @@ const EnvelopeOpeningView: React.FC<Props> = ({ user, systemConfig }) => {
                   </ul>
                 </div>
 
-             </div>
-          )}
-       </div>
+              </div>
+          </div>,
+          document.body
+       )}
     </div>
   );
 };
