@@ -7,7 +7,8 @@ import {
   CheckCircle2, Check, ChevronLeft, Loader2, Save, 
   Trophy, Zap, History, UserCircle, UserX, AlertCircle,
   X, Lock, Unlock, Camera, ShieldCheck, UserCheck,
-  ClipboardCheck, MapPin, Search, GraduationCap, ArrowRight
+  ClipboardCheck, MapPin, Search, GraduationCap, ArrowRight,
+  Activity, Play, CheckCircle
 } from 'lucide-react';
 import { db } from '../../supabase';
 
@@ -93,6 +94,19 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
       .map(k => ({ ...myTotalScope[k] }))
       .sort((a, b) => a.grade.localeCompare(b.grade));
   }, [activeCommitteeId, myTotalScope, receivedKeys]);
+
+  const recentLogs = useMemo(() => {
+    return deliveryLogs
+      .filter(l => l.type === 'RECEIVE' && l.status === 'CONFIRMED' && l.time.startsWith(todayDate))
+      .sort((a,b) => b.time.localeCompare(a.time))
+      .slice(0, 5);
+  }, [deliveryLogs, todayDate]);
+
+  const progressPercentage = useMemo(() => {
+    const total = Object.keys(myTotalScope).length;
+    if (total === 0) return 0;
+    return Math.round((receivedKeys.size / total) * 100);
+  }, [myTotalScope, receivedKeys]);
 
   // دالة المعالجة الذكية (تقبل رقم لجنة أو رقم هوية مراقب)
   const handleStartProcess = (val: string) => {
@@ -191,18 +205,59 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
       
       <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b pb-8">
         <div className="space-y-2">
-          <div className="bg-blue-600 text-white px-4 py-1 rounded-lg text-[10px] font-black w-fit shadow-lg uppercase tracking-widest">مركز التوثيق والاستلام المركزي</div>
+          <div className="bg-blue-600 text-white px-4 py-1 rounded-lg text-[10px] font-black w-fit shadow-lg uppercase tracking-widest flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+            غرفة العمليات - التوثيق المركزي
+          </div>
           <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase leading-none">مطابقة واستلام المظاريف</h2>
           <p className="text-slate-400 font-bold italic flex items-center gap-2 tracking-tight mt-2">التاريخ النشط حالياً: {todayDate}</p>
         </div>
+        
+        {/* Circular Progress */}
+        <div className="flex items-center gap-4 bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+           <div className="text-right">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">معدل الإنجاز</p>
+              <p className="text-2xl font-black text-slate-900 tabular-nums">{progressPercentage}%</p>
+           </div>
+           <div className="relative w-16 h-16 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="none" className="text-slate-100" />
+                <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="none" 
+                        className="text-blue-600 transition-all duration-1000 ease-out" 
+                        strokeDasharray="175" 
+                        strokeDashoffset={175 - (175 * progressPercentage) / 100} />
+              </svg>
+              <Activity size={20} className="absolute text-blue-600" />
+           </div>
+        </div>
       </div>
+
+      {/* Action Ticker */}
+      {recentLogs.length > 0 && (
+        <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-xl flex items-center gap-4 overflow-hidden border border-slate-800">
+           <div className="bg-emerald-500/20 text-emerald-400 p-2 rounded-xl shrink-0"><CheckCircle size={20} className="animate-pulse" /></div>
+           <div className="flex-1 whitespace-nowrap overflow-hidden relative">
+              <div className="animate-ticker inline-flex gap-8 items-center h-full">
+                {recentLogs.map(log => (
+                  <span key={log.id} className="text-sm font-bold flex items-center gap-2">
+                    <span className="text-emerald-400">تم الاستلام:</span> 
+                    لجنة {log.committee_number} - {log.grade}
+                    <span className="text-slate-500 text-[10px] mr-2">
+                      ({new Date(log.time).toLocaleTimeString('ar-SA', {hour: '2-digit', minute:'2-digit'})})
+                    </span>
+                  </span>
+                ))}
+              </div>
+           </div>
+        </div>
+      )}
 
       <div className="bg-slate-950 p-10 md:p-14 rounded-[4rem] shadow-2xl relative overflow-hidden group border-b-[10px] border-blue-600">
          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 blur-[150px] rounded-full -mr-48 -mt-48 transition-all group-hover:bg-blue-600/20"></div>
          <div className="relative z-10 space-y-10 text-center">
             <div className="space-y-2">
                <h3 className="text-3xl font-black text-white">تحقق من الهوية الميدانية</h3>
-               <p className="text-slate-500 font-bold text-sm uppercase tracking-[0.3em]">Scan Committee QR or Proctor ID</p>
+               <p className="text-slate-500 font-bold text-sm uppercase tracking-[0.3em]">Turbo Scan Mode</p>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 items-stretch max-w-4xl mx-auto">
@@ -219,27 +274,28 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
                      } catch (err) { setIsScanning(false); }
                    }, 300);
                  }} 
-                 className="flex-[2] bg-blue-600 text-white p-12 rounded-[3rem] font-black text-3xl flex flex-col items-center justify-center gap-6 shadow-2xl hover:bg-blue-700 transition-all active:scale-95 group/btn"
+                 className="flex-[2] bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-12 rounded-[3rem] font-black text-3xl flex flex-col items-center justify-center gap-6 shadow-[0_10px_40px_rgba(37,99,235,0.4)] hover:scale-[1.02] transition-all group/btn relative overflow-hidden text-clip border border-blue-500/50"
                >
-                  <div className="flex items-center gap-4">
-                     <Camera size={64} className="group-hover/btn:rotate-12 transition-transform" />
-                     <LayoutGrid size={40} className="text-white/40" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                  <div className="absolute -top-[100%] -left-[100%] w-[300%] h-[300%] bg-gradient-to-b from-transparent via-white/10 to-transparent animate-scan-laser pointer-events-none opacity-50"></div>
+                  <div className="flex items-center gap-4 relative z-10">
+                     <Scan size={64} className="group-hover/btn:scale-110 transition-transform text-blue-200 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
                   </div>
-                  <span>بدء المسح الذكي للكود</span>
-                  <p className="text-[10px] opacity-60 font-bold tracking-widest leading-none">يدعم كود اللجنة وكود المراقب</p>
+                  <span className="relative z-10 tracking-tighter">مسح ليزري ذكي</span>
+                  <p className="text-[10px] opacity-70 font-bold tracking-widest leading-none relative z-10 bg-black/20 px-4 py-2 rounded-full">جاهز لمسح باركود اللجنة أو المراقب</p>
                </button>
 
-               <div className="flex-1 bg-white/5 border-2 border-white/10 rounded-[3rem] p-6 flex flex-col items-center justify-center gap-4">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">أو أدخل رقم اللجنة / الهوية</p>
+               <div className="flex-1 bg-white/5 border border-white/10 rounded-[3rem] p-6 flex flex-col items-center justify-center gap-4 backdrop-blur-md">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">أو أدخل رقم اللجنة / الهوية</p>
                   <div className="flex gap-2 w-full px-2">
                      <input 
                        type="text" 
                        value={searchInput} 
                        onChange={e => setSearchInput(e.target.value)} 
                        placeholder="00" 
-                       className="bg-transparent border-0 flex-1 px-4 font-black text-4xl text-center text-white outline-none placeholder:text-white/10" 
+                       className="bg-black/20 border border-white/5 rounded-2xl flex-1 px-4 py-4 font-black text-4xl text-center text-white outline-none focus:border-blue-500/50 focus:bg-black/40 transition-all placeholder:text-white/10" 
                      />
-                     <button onClick={() => handleStartProcess(searchInput)} className="bg-white text-slate-950 p-6 rounded-[2rem] shadow-xl hover:bg-blue-400 transition-all active:scale-90"><ArrowRight size={28}/></button>
+                     <button onClick={() => handleStartProcess(searchInput)} className="bg-white text-slate-950 p-4 rounded-2xl shadow-xl hover:bg-blue-400 hover:text-white transition-all active:scale-95"><Play className="fill-current" size={28}/></button>
                   </div>
                </div>
             </div>
@@ -247,8 +303,12 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
 
          {isScanning && (
             <div className="fixed inset-0 z-[500] bg-slate-950/98 backdrop-blur-3xl flex flex-col items-center justify-center p-8 no-print text-white">
-              <div id="receipt-qr-v15" className="w-full max-w-sm aspect-square bg-black rounded-[4rem] border-8 border-white/10 overflow-hidden shadow-2xl"></div>
-              <button onClick={stopScanner} className="mt-12 bg-red-600 text-white px-24 py-6 rounded-[2rem] font-black text-2xl shadow-xl active:scale-95">إلغاء وإغلاق</button>
+              <div className="relative">
+                <div id="receipt-qr-v15" className="w-full max-w-sm aspect-square bg-black rounded-[4rem] border border-slate-800 overflow-hidden shadow-2xl relative z-10"></div>
+                <div className="absolute inset-0 border-4 border-blue-500 rounded-[4rem] animate-pulse z-20 pointer-events-none shadow-[0_0_30px_rgba(59,130,246,0.6)]"></div>
+                <div className="absolute top-1/2 left-0 w-full h-1 bg-red-500 shadow-[0_0_15px_red] animate-scan-line z-30 pointer-events-none"></div>
+              </div>
+              <button onClick={stopScanner} className="mt-12 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white px-24 py-6 rounded-[2rem] font-black text-2xl shadow-xl active:scale-95 transition-all">إلغاء وإغلاق</button>
             </div>
          )}
       </div>
@@ -313,23 +373,28 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
                           </div>
                        </div>
 
-                       <div className="bg-blue-50/50 p-8 rounded-[3rem] border border-blue-100 flex items-center gap-6 group transition-all hover:bg-blue-100">
-                          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg border border-blue-100"><UserCheck size={36} className="text-blue-600" /></div>
+                       <div className="bg-slate-50 p-8 rounded-[3rem] border-2 border-slate-100 flex items-center gap-6 group transition-all">
+                          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg border border-slate-200"><UserCheck size={36} className="text-slate-400 group-hover:text-blue-600 transition-colors" /></div>
                           <div className="flex-1 text-right">
-                             <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1 italic">المراقب الميداني الموثق</p>
+                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المراقب الميداني الموثق</p>
                              <h5 className="text-2xl font-black text-slate-800 leading-tight">
                                 {users.find(u => u.id === supervisions.find(s => cleanId(s.committee_number) === activeCommitteeId && s.date.startsWith(todayDate))?.teacher_id)?.full_name || '---'}
                              </h5>
                           </div>
                        </div>
 
-                       <button 
-                         onClick={confirmReceipt} 
-                         disabled={isSaving}
-                         className="w-full py-8 bg-slate-950 text-white rounded-[2.5rem] font-black text-2xl flex items-center justify-center gap-6 shadow-2xl hover:bg-emerald-600 transition-all active:scale-95 shadow-emerald-500/20"
-                       >
-                          <Save size={36}/> مطابقة وتوثيق الاستلام النهائي
-                       </button>
+                       <div className="pt-4">
+                         <button 
+                           onClick={confirmReceipt} 
+                           disabled={isSaving}
+                           className="w-full py-6 bg-emerald-600 text-white rounded-[2rem] font-black text-2xl flex items-center justify-center gap-4 shadow-[0_10px_30px_rgba(16,185,129,0.3)] hover:bg-emerald-700 transition-all active:scale-95 relative overflow-hidden group"
+                         >
+                            <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <Save size={32}/> 
+                            <span>مطابقة وتوثيق الاستلام النهائي</span>
+                         </button>
+                         <p className="text-center text-[11px] font-bold text-slate-400 mt-4">بالضغط أنت تقر بأنك طابقت الأعداد الفعلية في المظروف مع المسجلة أعلاه.</p>
+                       </div>
                     </div>
                   </div>
                )}
@@ -351,38 +416,45 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
              const proctor = users.find(u => u.id === sv?.teacher_id);
              
              return (
-               <div key={key} className={`bg-white p-8 rounded-[3.5rem] border-2 shadow-xl transition-all relative overflow-hidden group ${isReady ? 'border-emerald-400 bg-emerald-50/20 scale-[1.02]' : 'border-slate-50 opacity-80'}`}>
+               <div key={key} className={`bg-white p-8 rounded-[3.5rem] border-2 shadow-xl transition-all relative overflow-hidden group flex flex-col justify-between ${isReady ? 'border-emerald-400 bg-emerald-50/30 shadow-emerald-500/10 hover:shadow-emerald-500/20' : 'border-slate-50 opacity-80'}`}>
                   {isReady && (
-                    <div className="absolute top-0 right-0 bg-emerald-500 text-white px-6 py-2 rounded-bl-[1.5rem] font-black text-[9px] uppercase tracking-widest flex items-center gap-2 animate-pulse">
-                      <ClipboardCheck size={14}/> جاهزة للمطابقة
-                    </div>
+                    <>
+                      <div className="absolute top-0 right-0 bg-emerald-500 text-white px-6 py-2 rounded-bl-[1.5rem] font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-md z-10">
+                        <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div> جاهزة للمطابقة
+                      </div>
+                      <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-400/20 blur-3xl rounded-full pointer-events-none"></div>
+                    </>
                   )}
 
-                  <div className="flex justify-between items-start mb-6">
+                  <div className="flex justify-between items-start mb-6 relative z-10 mt-2">
                      <div className="flex flex-col">
-                        <span className={`text-6xl font-black leading-none tracking-tighter ${isReady ? 'text-slate-900' : 'text-slate-300'}`}>{info.committee}</span>
+                        <div className="flex items-baseline gap-2">
+                          <span className={`text-6xl font-black leading-none tracking-tighter tabular-nums ${isReady ? 'text-slate-900' : 'text-slate-300'}`}>{info.committee}</span>
+                        </div>
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">لجنة ميدانية</span>
                      </div>
-                     <div className={`px-4 py-1.5 rounded-xl text-[10px] font-black ${isReady ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
+                     <div className={`px-4 py-1.5 rounded-xl text-[10px] font-black ${isReady ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
                         {info.grade}
                      </div>
                   </div>
 
-                  <div className="space-y-4 mb-8">
-                     <div className="flex items-center gap-3 p-4 bg-white/50 rounded-2xl border border-slate-100 shadow-sm transition-all group-hover:bg-white">
-                        <UserCircle size={20} className={isReady ? 'text-blue-500' : 'text-slate-300'} />
+                  <div className="space-y-4 mb-8 mt-auto relative z-10">
+                     <div className="flex items-center gap-3 p-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-100 shadow-sm transition-all group-hover:bg-white">
+                        <UserCircle size={20} className={isReady ? 'text-slate-700' : 'text-slate-300'} />
                         <div className="min-w-0 flex-1">
                            <p className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">المراقب المسؤول</p>
-                           <p className="text-sm font-black text-slate-700 truncate">{proctor?.full_name || 'بانتظار المباشرة...'}</p>
+                           <p className={`text-sm font-black truncate ${isReady ? 'text-slate-800' : 'text-slate-400'}`}>{proctor?.full_name || 'بانتظار المباشرة...'}</p>
                         </div>
                      </div>
                   </div>
 
                   <button 
-                    onClick={() => handleStartProcess(info.committee)}
-                    className={`w-full py-5 rounded-[2rem] font-black text-lg transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl ${isReady ? 'bg-slate-900 text-white hover:bg-black' : 'bg-slate-50 text-slate-300 cursor-not-allowed border border-slate-100'}`}
+                    onClick={() => {
+                      if (isReady) handleStartProcess(info.committee);
+                    }}
+                    className={`w-full py-5 rounded-[2rem] font-black text-lg transition-all flex items-center justify-center gap-3 shadow-sm relative z-10 ${isReady ? 'bg-emerald-500 hover:bg-emerald-600 text-white active:scale-95' : 'bg-slate-50 text-slate-300 cursor-not-allowed border border-slate-100'}`}
                   >
-                     {isReady ? <>بدء المطابقة الفورية <ArrowRight size={24} className="rotate-180" /></> : <><Lock size={20} /> قيد الرصد الميداني</>}
+                     {isReady ? <>استلام سريع <ArrowRight size={20} className="rotate-180" /></> : <><Lock size={18} /> قيد الرصد الميداني</>}
                   </button>
                </div>
              );
@@ -391,12 +463,20 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
       </div>
 
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.05); border-radius: 10px; }
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes scan-laser { 0% { transform: translateY(-50%); } 100% { transform: translateY(50%); } }
+        @keyframes scan-line { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
+        @keyframes ticker-scroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+        
         .animate-fade-in { animation: fade-in 0.4s ease-out; }
         .animate-slide-up { animation: slide-up 0.4s ease-out forwards; }
+        .animate-scan-laser { animation: scan-laser 3s linear infinite; }
+        .animate-scan-line { animation: scan-line 2s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+        .animate-ticker { animation: ticker-scroll 20s linear infinite; white-space: nowrap; display: inline-block; padding-left: 100%; }
+        .animate-ticker:hover { animation-play-state: paused; }
       `}</style>
     </div>
   );

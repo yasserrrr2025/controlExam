@@ -106,6 +106,8 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [otherText, setOtherText] = useState("");
   const [quantity, setQuantity] = useState(1);
+  const [filter, setFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'LATE'>('ALL');
+  const [elapsedTime, setElapsedTime] = useState('00:00');
 
   const qrScannerRef = useRef<Html5Qrcode | null>(null);
   const activeDate = useMemo(
@@ -137,6 +139,30 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
         .sort((a, b) => b.time.localeCompare(a.time)),
     [controlRequests, user.full_name, activeCommittee],
   );
+
+  useEffect(() => {
+    if (!activeAssignment?.date) return;
+    const startTime = new Date(activeAssignment.date).getTime();
+    
+    const updateTimer = () => {
+      const now = new Date().getTime();
+      const diff = Math.floor((now - startTime) / 1000);
+      if (diff < 0) return;
+      const hrs = Math.floor(diff / 3600);
+      const mins = Math.floor((diff % 3600) / 60);
+      const secs = diff % 60;
+      
+      if (hrs > 0) {
+        setElapsedTime(`${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
+      } else {
+        setElapsedTime(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
+      }
+    };
+    
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [activeAssignment?.date]);
 
   // منطق الإغلاق: اللجنة منتهية إذا كان هناك سجل (سواء معلق أو مؤكد) لجميع صفوف اللجنة
   const isCommitteeFinished = useMemo(() => {
@@ -191,6 +217,17 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
     const late = myAbsences.filter((a) => a.type === "LATE").length;
     return { total, present: total - abs, absent: abs, late };
   }, [myStudents, myAbsences]);
+
+  const filteredStudents = useMemo(() => {
+    if (filter === 'ALL') return myStudents;
+    return myStudents.filter(s => {
+      const status = myAbsences.find(a => a.student_id === s.national_id);
+      if (filter === 'PRESENT') return !status;
+      if (filter === 'ABSENT') return status?.type === 'ABSENT';
+      if (filter === 'LATE') return status?.type === 'LATE';
+      return true;
+    });
+  }, [myStudents, myAbsences, filter]);
 
   const joinCommittee = async (committeeNum: string) => {
     const cleanedNum = committeeNum.trim();
@@ -608,10 +645,13 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
             </div>
             <div className="text-right">
               <h3 className="text-3xl font-black">{user.full_name}</h3>
-              <div className="flex items-center gap-3 mt-2">
-                <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-lg font-black text-[9px] uppercase flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>{" "}
+              <div className="flex flex-wrap items-center gap-3 mt-3">
+                <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg font-black text-[10px] uppercase flex items-center gap-2 shadow-inner border border-emerald-500/20">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>{" "}
                   مباشر الآن
+                </span>
+                <span className="bg-white/10 text-slate-300 px-3 py-1.5 rounded-lg font-black text-sm tabular-nums flex items-center gap-2 shadow-inner font-mono tracking-widest border border-white/5">
+                  <Timer size={14} className="text-blue-400" /> {elapsedTime}
                 </span>
               </div>
             </div>
@@ -698,9 +738,14 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <button
           onClick={() => setIsReportModalOpen(true)}
-          className="p-8 bg-rose-600 text-white rounded-[2.5rem] font-black text-2xl flex items-center justify-center gap-6 shadow-xl hover:bg-rose-700 transition-all border-b-[8px] border-rose-800"
+          className="p-8 bg-gradient-to-br from-rose-500 to-rose-700 text-white rounded-[2.5rem] font-black text-2xl flex items-center justify-center gap-4 shadow-[0_10px_40px_rgba(225,29,72,0.4)] hover:scale-[1.02] transition-all border-b-[8px] border-rose-900 group relative overflow-hidden"
         >
-          <Zap size={40} fill="white" /> بلاغ ميداني عاجل
+          <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-rose-400/30 blur-[40px] rounded-full group-hover:animate-ping pointer-events-none"></div>
+          <div className="bg-white/20 p-2 rounded-2xl relative z-10">
+             <AlertTriangle size={32} fill="currentColor" className="text-white group-hover:animate-bounce" />
+          </div>
+          <span className="relative z-10 tracking-tight">بلاغ ميداني عاجل</span>
         </button>
         <button
           onClick={() => {
@@ -710,58 +755,88 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
             setCountError(null);
             setIsCountingLocked(false);
           }}
-          className="p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl flex items-center justify-center gap-6 shadow-xl hover:bg-blue-600 transition-all border-b-[8px] border-slate-950"
+          className="p-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-2xl flex items-center justify-center gap-6 shadow-xl hover:bg-slate-800 transition-all border-b-[8px] border-black"
         >
-          <PackageCheck size={40} /> إنهاء وإغلاق اللجنة
+          <PackageCheck size={36} /> إنهاء وإغلاق اللجنة
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-6">
-        {myStudents.map((s: Student) => {
+      {/* Quick Action Filter Bar */}
+      <div className="bg-white p-3 rounded-full shadow-lg border border-slate-100 flex items-center justify-between overflow-x-auto custom-scrollbar gap-2 sticky top-4 z-40">
+        {[
+          { id: 'ALL', label: 'الكل', count: stats.total, icon: Users, color: 'bg-slate-100 text-slate-700' },
+          { id: 'PRESENT', label: 'حاضر', count: stats.present, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-700' },
+          { id: 'ABSENT', label: 'غائب', count: stats.absent, icon: X, color: 'bg-red-50 text-red-700' },
+          { id: 'LATE', label: 'متأخر', count: stats.late, icon: Clock, color: 'bg-amber-50 text-amber-700' }
+        ].map(f => (
+          <button
+            key={f.id}
+            onClick={() => setFilter(f.id as any)}
+            className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 py-3 px-4 rounded-full font-black text-sm transition-all ${filter === f.id ? f.color + ' ring-2 ring-offset-2 ring-current scale-[1.02]' : 'bg-transparent text-slate-400 hover:bg-slate-50'}`}
+          >
+            <f.icon size={16} />
+            <span>{f.label}</span>
+            <span className="bg-white/50 px-2 py-0.5 rounded-lg tabular-nums shadow-sm">{f.count}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
+        {filteredStudents.map((s: Student) => {
           const status = myAbsences.find((a) => a.student_id === s.national_id);
+          const isAbsent = status?.type === "ABSENT";
+          const isLate = status?.type === "LATE";
           return (
             <div
               key={s.id}
-              className={`p-8 rounded-[3.5rem] border-2 transition-all relative overflow-hidden flex flex-col justify-between shadow-2xl min-h-[340px] ${status?.type === "ABSENT" ? "bg-red-50/70 border-red-200" : status?.type === "LATE" ? "bg-amber-50/70 border-amber-200" : "bg-white border-slate-50 hover:border-blue-100 group"}`}
+              className={`p-6 md:p-8 rounded-[3.5rem] border transition-all duration-300 relative flex flex-col justify-between min-h-[300px] overflow-hidden group 
+                ${isAbsent ? "bg-slate-50 opacity-60 grayscale-[0.5] border-transparent shadow-none scale-95" : 
+                  isLate ? "bg-gradient-to-br from-amber-50 to-white shadow-xl shadow-amber-500/10 border-amber-100" : 
+                  "bg-white/80 backdrop-blur-3xl shadow-2xl border-white hover:border-blue-100"}`}
             >
-              <div className="flex justify-between items-start mb-6">
+              {isLate && <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 blur-3xl rounded-full"></div>}
+              {(!isAbsent && !isLate) && <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-3xl rounded-full"></div>}
+
+              <div className="relative z-10 flex justify-between items-start mb-6">
                 <div
-                  className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner transition-transform ${status?.type === "ABSENT" ? "bg-red-600 text-white" : status?.type === "LATE" ? "bg-amber-500 text-white" : "bg-emerald-600 text-white"}`}
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform ${isAbsent ? "bg-slate-300 text-slate-500 shadow-none" : isLate ? "bg-amber-500 text-white shadow-amber-500/30" : "bg-emerald-500 text-white shadow-emerald-500/30"}`}
                 >
                   <GraduationCap size={28} />
                 </div>
                 <span
-                  className={`px-4 py-1.5 rounded-xl font-black text-[10px] shadow-lg uppercase tracking-widest ${status ? (status.type === "ABSENT" ? "bg-red-600 text-white" : "bg-amber-500 text-white") : "bg-emerald-600 text-white"}`}
+                  className={`px-4 py-1.5 rounded-xl font-black text-[10px] shadow-lg uppercase tracking-widest ${isAbsent ? "bg-slate-300 text-slate-600 shadow-none" : isLate ? "bg-amber-500 text-white shadow-amber-500/20" : "bg-emerald-100 text-emerald-700 shadow-none border border-emerald-200"}`}
                 >
-                  {status
-                    ? status.type === "ABSENT"
-                      ? "غائب"
-                      : "متأخر"
-                    : "حاضر"}
+                  {status ? (isAbsent ? "تم طي القيد - غائب" : "متأخر") : "حاضر"}
                 </span>
               </div>
-              <div className="flex-1 text-right space-y-3 px-2">
-                <h4 className="text-2xl font-black text-slate-900 break-words leading-tight">
+              <div className="relative z-10 flex-1 text-right space-y-3 px-2">
+                <h4 className={`text-2xl font-black break-words leading-tight ${isAbsent ? "text-slate-500 line-through decoration-slate-300 decoration-2" : "text-slate-900"}`}>
                   {s.name}
                 </h4>
                 <div className="flex items-center gap-2">
-                  <span className="bg-slate-100 px-3 py-1 rounded-lg text-[9px] font-black text-slate-500">
+                  <span className={`px-3 py-1 rounded-lg text-[9px] font-black ${isAbsent ? "bg-slate-200 text-slate-400" : "bg-slate-100 text-slate-500"}`}>
                     {s.grade} - فصل {s.section}
+                  </span>
+                  <span className={`px-3 py-1 rounded-lg text-[9px] font-black tabular-nums border ${isAbsent ? "bg-slate-200 text-slate-400 border-transparent" : "bg-white text-slate-600 border-slate-200"}`}>
+                    جلوس: {s.seating_number || '-'}
                   </span>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 mt-8">
+              <div className="relative z-10 grid grid-cols-2 gap-3 mt-8">
                 <button
                   onClick={() => toggleStudentStatus(s, "ABSENT")}
-                  className={`py-5 rounded-[1.8rem] font-black text-xs transition-all ${status?.type === "ABSENT" ? "bg-red-600 text-white shadow-lg" : "bg-white/60 text-slate-400 hover:bg-red-50"}`}
+                  className={`py-4 rounded-[1.8rem] font-black text-xs transition-all flex items-center justify-center gap-2 ${isAbsent ? "bg-slate-800 text-white shadow-lg" : "bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-red-500 border border-slate-100"}`}
                 >
-                  رصد غياب
+                  {isAbsent ? <Check size={16} /> : <X size={16} />} 
+                  {isAbsent ? "إلغاء الغياب" : "رصد غياب"}
                 </button>
                 <button
                   onClick={() => toggleStudentStatus(s, "LATE")}
-                  className={`py-5 rounded-[1.8rem] font-black text-xs transition-all ${status?.type === "LATE" ? "bg-amber-500 text-white shadow-lg" : "bg-white/60 text-slate-400 hover:bg-amber-50"}`}
+                  disabled={isAbsent}
+                  className={`py-4 rounded-[1.8rem] font-black text-xs transition-all flex items-center justify-center gap-2 ${isAbsent ? "opacity-50 cursor-not-allowed bg-slate-50 text-slate-300" : isLate ? "bg-amber-500 text-white shadow-lg shadow-amber-500/30" : "bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-amber-600 border border-slate-100"}`}
                 >
-                  رصد تأخر
+                  {isLate ? <Check size={16} /> : <Clock size={16} />}
+                  {isLate ? "إلغاء التأخر" : "رصد تأخر"}
                 </button>
               </div>
             </div>
