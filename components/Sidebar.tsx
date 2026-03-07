@@ -50,13 +50,15 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'students', label: 'الطلاب', icon: GraduationCap },
     { id: 'committees', label: 'المراقبة', icon: ClipboardList },
     { id: 'daily-reports', label: 'التقارير اليومية', icon: FileSpreadsheet },
-    { id: 'official-forms', label: 'النماذج', icon: FileText },
+    { id: 'envelope-opening', label: 'فتح المظاريف', icon: Inbox },
+    { id: 'envelope-labels', label: 'ملصقات المظاريف', icon: QrCode },
     { id: 'settings', label: 'إعدادات النظام', icon: Settings },
   ];
 
   const controlManagerLinks: SidebarLink[] = [
     { id: 'head-dash', label: 'غرفة العمليات', icon: LayoutPanelTop },
     { id: 'control-manager', label: 'مركز القيادة', icon: ShieldHalf },
+    { id: 'envelope-opening', label: 'فتح المظاريف', icon: Inbox },
     { id: 'paper-logs', label: 'استلام المظاريف', icon: Inbox },
     { id: 'receipt-history', label: 'سجل العمليات', icon: History },
   ];
@@ -72,6 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const controlLinks: SidebarLink[] = [
+    { id: 'envelope-opening', label: 'فتح المظاريف', icon: Inbox },
     { id: 'paper-logs', label: 'استلام المظاريف', icon: Inbox },
     { id: 'receipt-history', label: 'سجل العمليات', icon: History },
   ];
