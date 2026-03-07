@@ -101,9 +101,13 @@ const App: React.FC = () => {
         const user = JSON.parse(savedUser);
         setCurrentUser(user);
         if (!activeTab) {
-          const defaultTab = user.role === 'ADMIN' ? 'dashboard' : 
-                           user.role === 'CONTROL_MANAGER' ? 'head-dash' : 
-                           user.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' : 'my-tasks';
+          const defaultTab = 
+            user.role === 'ADMIN'             ? 'dashboard' :
+            user.role === 'CONTROL_MANAGER'   ? 'head-dash' :
+            user.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' :
+            user.role === 'CONTROL'           ? 'paper-logs' :
+            user.role === 'COUNSELOR'         ? 'student-absences' :
+            'my-tasks';
           setActiveTab(defaultTab);
         }
       } catch (e) { 
@@ -125,9 +129,13 @@ const App: React.FC = () => {
   const handleLoginSuccess = (u: User) => {
     setCurrentUser(u);
     localStorage.setItem('currentUser', JSON.stringify(u));
-    const defaultTab = u.role === 'ADMIN' ? 'dashboard' : 
-                     u.role === 'CONTROL_MANAGER' ? 'head-dash' : 
-                     u.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' : 'my-tasks';
+    const defaultTab =
+      u.role === 'ADMIN'             ? 'dashboard' :
+      u.role === 'CONTROL_MANAGER'   ? 'head-dash' :
+      u.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' :
+      u.role === 'CONTROL'           ? 'paper-logs' :
+      u.role === 'COUNSELOR'         ? 'student-absences' :
+      'my-tasks';
     setActiveTab(defaultTab);
     localStorage.setItem('activeTab', defaultTab);
   };
@@ -136,9 +144,12 @@ const App: React.FC = () => {
     if (!currentUser) return null;
     
     const tabToRender = activeTab || (
-      currentUser.role === 'ADMIN' ? 'dashboard' : 
-      currentUser.role === 'CONTROL_MANAGER' ? 'head-dash' : 
-      currentUser.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' : 'my-tasks'
+      currentUser.role === 'ADMIN'             ? 'dashboard' :
+      currentUser.role === 'CONTROL_MANAGER'   ? 'head-dash' :
+      currentUser.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' :
+      currentUser.role === 'CONTROL'           ? 'paper-logs' :
+      currentUser.role === 'COUNSELOR'         ? 'student-absences' :
+      'my-tasks'
     );
 
     switch (tabToRender) {
