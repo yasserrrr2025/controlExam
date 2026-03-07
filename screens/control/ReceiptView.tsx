@@ -262,81 +262,80 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
         </div>
       )}
 
-      <div className="bg-slate-950 p-6 md:p-10 rounded-[3rem] shadow-2xl relative overflow-hidden border-b-[8px] border-blue-600">
-         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 blur-[100px] rounded-full pointer-events-none" />
-         <div className="relative z-10 space-y-6">
+      <div className="bg-slate-950 rounded-[2.5rem] shadow-2xl overflow-hidden border-b-[6px] border-blue-600">
 
-            {/* العنوان */}
-            <div className="text-center space-y-1">
-               <div className="inline-flex items-center gap-2 bg-blue-600/20 border border-blue-500/30 text-blue-300 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-2">
-                 <Scan size={13} /> وحدة التحقق السريع
-               </div>
-               <h3 className="text-2xl md:text-3xl font-black text-white">مسح رقم اللجنة أو كود الموظف</h3>
-               <p className="text-slate-400 text-sm font-bold">امسح الباركود المطبوع على بطاقة المراقب أو أدخل رقم اللجنة يدوياً</p>
-            </div>
+         {/* رأس القسم */}
+         <div className="px-6 pt-6 pb-4 text-center border-b border-white/5">
+           <div className="inline-flex items-center gap-2 bg-blue-600/20 border border-blue-500/30 text-blue-300 px-4 py-1.5 rounded-full text-xs font-black mb-3">
+             <Scan size={12} /> وحدة الاستلام السريع
+           </div>
+           <h3 className="text-xl font-black text-white">مسح رقم اللجنة أو كود الموظف</h3>
+           <p className="text-slate-500 text-xs font-bold mt-1">امسح بطاقة المراقب أو أدخل الرقم يدوياً</p>
+         </div>
 
-            {/* الأزرار — صف واحد على الجوال، جانباً على الشاشة الكبيرة */}
-            <div className="flex flex-col md:flex-row gap-4 items-stretch">
+         {/* المحتوى */}
+         <div className="p-5 space-y-4">
 
-               {/* زر المسح */}
+           {/* زر المسح — عرض كامل وبارز */}
+           <button
+             onClick={() => {
+               setIsScanning(true);
+               setTimeout(async () => {
+                 try {
+                   const scanner = new Html5Qrcode("receipt-qr-v15");
+                   qrScannerRef.current = scanner;
+                   await scanner.start(
+                     { facingMode: "environment" },
+                     { fps: 20, qrbox: { width: 260, height: 260 } },
+                     (text) => { handleStartProcess(text); },
+                     () => {}
+                   );
+                 } catch { setIsScanning(false); }
+               }, 300);
+             }}
+             className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white py-5 px-6 rounded-2xl font-black text-xl flex items-center justify-center gap-4 shadow-lg shadow-blue-900/40 transition-all"
+           >
+             <div className="bg-white/20 p-2.5 rounded-xl">
+               <Scan size={28} />
+             </div>
+             <div className="text-right">
+               <p className="font-black text-lg leading-tight">مسح باركود اللجنة</p>
+               <p className="text-blue-200 text-xs font-bold opacity-80">بطاقة المراقب أو QR اللجنة</p>
+             </div>
+           </button>
+
+           {/* فاصل "أو" */}
+           <div className="flex items-center gap-3">
+             <div className="flex-1 h-px bg-white/8" />
+             <span className="text-slate-600 text-xs font-black px-2">أو أدخل يدوياً</span>
+             <div className="flex-1 h-px bg-white/8" />
+           </div>
+
+           {/* حقل الإدخال — كبير وواضح */}
+           <div className="space-y-2">
+             <label className="text-slate-400 text-xs font-black block text-center">رقم اللجنة أو رقم هوية الموظف</label>
+             <div className="flex gap-3">
+               <input
+                 type="tel"
+                 inputMode="numeric"
+                 pattern="[0-9]*"
+                 value={searchInput}
+                 onChange={e => setSearchInput(e.target.value.replace(/\D/g, ''))}
+                 onKeyDown={e => e.key === 'Enter' && searchInput.trim() && handleStartProcess(searchInput)}
+                 placeholder="اكتب الرقم هنا"
+                 className="flex-1 bg-white/8 border-2 border-white/15 focus:border-blue-500 rounded-2xl px-5 py-4 font-black text-3xl text-center text-white outline-none transition-all placeholder:text-white/20 placeholder:text-base placeholder:font-bold"
+                 style={{ letterSpacing: '0.15em' }}
+               />
                <button
-                 onClick={() => {
-                   setIsScanning(true);
-                   setTimeout(async () => {
-                     try {
-                       const scanner = new Html5Qrcode("receipt-qr-v15");
-                       qrScannerRef.current = scanner;
-                       await scanner.start(
-                         { facingMode: "environment" },
-                         { fps: 20, qrbox: { width: 240, height: 240 } },
-                         (text) => { handleStartProcess(text); },
-                         () => {}
-                       );
-                     } catch { setIsScanning(false); }
-                   }, 300);
-                 }}
-                 className="flex-1 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white py-5 md:py-8 px-6 rounded-[2rem] font-black text-lg md:text-2xl flex items-center justify-center gap-4 shadow-xl transition-all relative overflow-hidden"
+                 onClick={() => handleStartProcess(searchInput)}
+                 disabled={!searchInput.trim()}
+                 className="bg-white text-slate-900 hover:bg-blue-500 hover:text-white active:scale-95 disabled:opacity-25 disabled:cursor-not-allowed w-16 rounded-2xl shadow-lg font-black transition-all flex items-center justify-center"
                >
-                 <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
-                 <Scan size={32} className="shrink-0" />
-                 <div className="text-right">
-                   <p className="font-black leading-tight">مسح الباركود</p>
-                   <p className="text-blue-200 text-xs font-bold opacity-80 leading-tight">بطاقة المراقب / رقم اللجنة</p>
-                 </div>
+                 <Play className="fill-current" size={24} />
                </button>
+             </div>
+           </div>
 
-               {/* فاصل */}
-               <div className="flex md:flex-col items-center gap-3">
-                 <div className="flex-1 h-px md:h-full md:w-px bg-white/10" />
-                 <span className="text-slate-500 text-xs font-black shrink-0">أو</span>
-                 <div className="flex-1 h-px md:h-full md:w-px bg-white/10" />
-               </div>
-
-               {/* حقل الإدخال اليدوي */}
-               <div className="flex-1 bg-white/5 border border-white/10 rounded-[2rem] p-4 md:p-6 flex flex-col justify-center gap-3">
-                 <p className="text-slate-400 text-xs font-black text-center">رقم اللجنة أو رقم هوية الموظف</p>
-                 <div className="flex gap-2">
-                   <input
-                     type="number"
-                     inputMode="numeric"
-                     pattern="[0-9]*"
-                     value={searchInput}
-                     onChange={e => setSearchInput(e.target.value)}
-                     onKeyDown={e => e.key === 'Enter' && handleStartProcess(searchInput)}
-                     placeholder="رقم اللجنة"
-                     className="bg-black/30 border border-white/10 rounded-2xl flex-1 px-4 py-3 md:py-4 font-black text-2xl md:text-4xl text-center text-white outline-none focus:border-blue-500 transition-all placeholder:text-white/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                   />
-                   <button
-                     onClick={() => handleStartProcess(searchInput)}
-                     disabled={!searchInput.trim()}
-                     className="bg-white text-slate-900 hover:bg-blue-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed px-5 py-3 rounded-2xl shadow-lg font-black transition-all active:scale-95 flex items-center gap-1"
-                   >
-                     <Play className="fill-current" size={22} />
-                   </button>
-                 </div>
-                 <p className="text-slate-600 text-[10px] font-bold text-center">أو اضغط Enter للتأكيد</p>
-               </div>
-            </div>
          </div>
 
          {/* شاشة المسح الكامل */}
