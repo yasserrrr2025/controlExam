@@ -419,36 +419,188 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
     const isFullyConfirmed = myLogs.length > 0 && myLogs.every(l => l.status === 'CONFIRMED');
 
     return (
-      <div className="max-w-4xl mx-auto py-12 px-6 animate-fade-in pb-48 space-y-12">
-        {/* وثيقة الإنجاز */}
-        <div className="relative group">
-          <div className={`absolute -inset-1 rounded-[5rem] blur opacity-25 group-hover:opacity-50 transition duration-1000 ${isFullyConfirmed ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 'bg-gradient-to-r from-blue-500 to-indigo-500'}`}></div>
-          <div className="relative bg-white rounded-[4.5rem] p-12 text-center shadow-2xl overflow-hidden border border-slate-100">
-            <div className={`absolute top-0 right-0 w-64 h-64 blur-[100px] rounded-full ${isFullyConfirmed ? 'bg-emerald-500/10' : 'bg-blue-500/10'}`}></div>
-            <div className="relative z-10 space-y-8">
-              <div className={`w-48 h-48 rounded-[3.5rem] flex items-center justify-center mx-auto shadow-2xl border-8 border-white/20 relative ${isFullyConfirmed ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : 'bg-gradient-to-br from-blue-500 to-blue-700'}`}>
-                {isFullyConfirmed ? <CheckCircle2 size={110} className="text-white drop-shadow-lg" /> : <Award size={110} className="text-white drop-shadow-lg" />}
-                <Sparkles
-                  size={32}
-                  className={`absolute -top-4 -right-4 animate-pulse ${isFullyConfirmed ? 'text-emerald-400' : 'text-blue-400'}`}
-                />
-              </div>
-              <div className="space-y-4">
-                <div className={`inline-flex items-center gap-2 px-6 py-2 rounded-full font-black text-xs uppercase tracking-widest border mb-2 ${isFullyConfirmed ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
-                  <ShieldCheck size={16} /> {isFullyConfirmed ? 'تمت المطابقة النهائية' : 'وثيقة إنجاز ميداني'}
+      <div className="max-w-4xl mx-auto py-10 px-4 animate-fade-in pb-48 space-y-10">
+
+        {/* ══════════════════════════════════════════════
+            بطاقة الإنجاز الملكية
+        ══════════════════════════════════════════════ */}
+        {isFullyConfirmed ? (
+          /* ── حالة مكتملة ومستلمة: بطاقة فاخرة ── */
+          <div className="relative">
+            {/* توهج خارجي ذهبي */}
+            <div className="absolute -inset-1.5 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 rounded-[4.5rem] blur-md opacity-30 animate-pulse-slow" />
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 rounded-[4.5rem] opacity-20" />
+
+            <div className="relative bg-gradient-to-br from-[#0a1628] via-[#0d1e38] to-[#060f20] rounded-[4.5rem] overflow-hidden shadow-2xl border border-amber-500/20">
+
+              {/* نجوم ونقاط ديكور */}
+              <div className="absolute top-6 right-8 w-2 h-2 bg-amber-400 rounded-full opacity-60 animate-pulse" />
+              <div className="absolute top-14 right-20 w-1 h-1 bg-amber-300 rounded-full opacity-40" />
+              <div className="absolute top-8 left-16 w-1.5 h-1.5 bg-yellow-300 rounded-full opacity-50 animate-pulse" />
+              <div className="absolute bottom-10 right-14 w-1 h-1 bg-amber-400 rounded-full opacity-30" />
+              <div className="absolute bottom-6 left-10 w-2 h-2 bg-yellow-400 rounded-full opacity-40 animate-pulse" />
+              <div className="absolute top-1/2 right-4 w-1 h-1 bg-amber-300 rounded-full opacity-20" />
+              <div className="absolute top-1/3 left-6 w-1.5 h-1.5 bg-amber-400 rounded-full opacity-30" />
+
+              {/* شريط ذهبي علوي */}
+              <div className="h-1 w-full bg-gradient-to-r from-transparent via-amber-400 to-transparent opacity-60" />
+
+              {/* ضوء خلفي */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-48 bg-amber-400/10 blur-[80px] rounded-full pointer-events-none" />
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-emerald-500/10 blur-[60px] rounded-full pointer-events-none" />
+
+              <div className="relative z-10 px-8 py-14 md:px-16 text-center space-y-8">
+
+                {/* علامة الصح ثلاثية الأبعاد (SVG) */}
+                <div className="flex justify-center mb-4">
+                  <div className="relative w-36 h-36">
+                    {/* الطبقة الخلفية (ظل/عمق) */}
+                    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 140 140" fill="none">
+                      <circle cx="72" cy="72" r="58" fill="url(#shadowGrad)" opacity="0.5"/>
+                      <defs>
+                        <radialGradient id="shadowGrad" cx="50%" cy="50%" r="50%">
+                          <stop offset="0%" stopColor="#6b7280" />
+                          <stop offset="100%" stopColor="#111827" />
+                        </radialGradient>
+                      </defs>
+                    </svg>
+
+                    {/* الطبقة الوسطى (حلقة ذهبية) */}
+                    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 140 140" fill="none">
+                      <circle cx="70" cy="68" r="58" fill="url(#ringGrad)" />
+                      <circle cx="70" cy="68" r="50" fill="url(#mainGrad)" />
+                      <defs>
+                        <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%"   stopColor="#f59e0b" />
+                          <stop offset="50%"  stopColor="#fbbf24" />
+                          <stop offset="100%" stopColor="#d97706" />
+                        </linearGradient>
+                        <linearGradient id="mainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%"   stopColor="#059669" />
+                          <stop offset="50%"  stopColor="#10b981" />
+                          <stop offset="100%" stopColor="#047857" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+
+                    {/* وميض ضوئي */}
+                    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 140 140" fill="none">
+                      <ellipse cx="55" cy="48" rx="22" ry="10" fill="white" opacity="0.15" transform="rotate(-30 55 48)" />
+                    </svg>
+
+                    {/* علامة الصح */}
+                    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 140 140" fill="none">
+                      <filter id="chkShadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="2" dy="4" stdDeviation="3" floodColor="#064e3b" floodOpacity="0.5"/>
+                      </filter>
+                      <path
+                        d="M40 70 L58 90 L100 48"
+                        stroke="white"
+                        strokeWidth="9"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        filter="url(#chkShadow)"
+                      />
+                    </svg>
+
+                    {/* نجمات حول الدائرة */}
+                    {[0, 72, 144, 216, 288].map((angle, i) => (
+                      <div
+                        key={i}
+                        className="absolute w-2.5 h-2.5 text-amber-300"
+                        style={{
+                          top:  `${50 + 46 * Math.sin((angle - 90) * Math.PI / 180)}%`,
+                          left: `${50 + 46 * Math.cos((angle - 90) * Math.PI / 180)}%`,
+                          transform: 'translate(-50%,-50%)',
+                          animationDelay: `${i * 0.2}s`
+                        }}
+                      >
+                        <Sparkles size={10} className="animate-pulse text-amber-300" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <h2 className="text-5xl font-black text-slate-900 tracking-tighter">
-                  اللجنة {activeCommittee} {isFullyConfirmed ? 'مكتملة ومستلمة' : 'منتهية ميدانياً'}
-                </h2>
-                <p className="text-slate-500 font-bold text-xl italic max-w-md mx-auto leading-relaxed">
-                  {isFullyConfirmed ? 
-                    `شكراً لجهودك أستاذ ${user.full_name}! تم إغلاق ومطابقة جميع مظاريف هذه اللجنة بواسطة الكنترول بنجاح تام.` : 
-                    `أستاذ ${user.full_name}، تم إرسال البيانات للكنترول بنجاح. يرجى التوجه للكنترول لمطابقة المظاريف.`}
-                </p>
+
+                {/* وسام / بادج */}
+                <div className="inline-flex items-center gap-2 bg-amber-500/15 border border-amber-400/30 text-amber-300 px-6 py-2 rounded-full font-black text-xs uppercase tracking-[0.3em]">
+                  <ShieldCheck size={14} />
+                  تمت المطابقة النهائية · وثيقة إنجاز رسمية
+                </div>
+
+                {/* العنوان */}
+                <div className="space-y-2">
+                  <p className="text-amber-400/70 font-black text-xs uppercase tracking-[0.4em]">اللجنة الميدانية رقم</p>
+                  <h2 className="text-7xl font-black text-white tracking-tighter leading-none" style={{textShadow: '0 0 40px rgba(251,191,36,0.3)'}}>
+                    {activeCommittee}
+                  </h2>
+                  <p className="text-2xl font-black text-emerald-400 tracking-tight">مكتملة ومستلمة بنجاح تام</p>
+                </div>
+
+                {/* الفاصل الذهبي */}
+                <div className="flex items-center gap-4 max-w-xs mx-auto">
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent to-amber-500/40"/>
+                  <div className="w-2 h-2 bg-amber-400 rounded-full"/>
+                  <div className="flex-1 h-px bg-gradient-to-l from-transparent to-amber-500/40"/>
+                </div>
+
+                {/* الرسالة الفاخرة */}
+                <div className="space-y-3 max-w-lg mx-auto">
+                  <p className="text-slate-300 font-bold text-lg leading-relaxed">
+                    يشرفنا أن نُهنئ الأستاذ
+                  </p>
+                  <p className="text-white font-black text-2xl leading-snug" style={{textShadow: '0 0 20px rgba(255,255,255,0.1)'}}>
+                    {user.full_name}
+                  </p>
+                  <p className="text-slate-400 font-bold text-base leading-relaxed italic">
+                    على إتمام مهمته الميدانية باحتراف وأمانة.
+                    وقد صادق الكنترول على استلام جميع مظاريف هذه اللجنة.
+                    جزاك الله خير الجزاء على عطائك وإخلاصك.
+                  </p>
+                </div>
+
+                {/* الوقت */}
+                <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-slate-400 px-5 py-2.5 rounded-full text-xs font-bold">
+                  <Clock size={13} />
+                  {new Date().toLocaleString('ar-SA', { weekday:'long', day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' })}
+                </div>
               </div>
+
+              {/* شريط ذهبي سفلي */}
+              <div className="h-1 w-full bg-gradient-to-r from-transparent via-amber-400 to-transparent opacity-40" />
             </div>
           </div>
-        </div>
+        ) : (
+          /* ── حالة بانتظار الكنترول: كارت أزرق بسيط ── */
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-[4.5rem] blur opacity-20 group-hover:opacity-30 transition duration-700" />
+            <div className="relative bg-gradient-to-br from-[#0d1b35] to-[#0a1220] rounded-[4.5rem] overflow-hidden shadow-2xl border border-blue-500/20">
+              <div className="h-1 w-full bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-50" />
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-blue-500/10 blur-[60px] rounded-full pointer-events-none" />
+              <div className="relative z-10 px-8 py-14 text-center space-y-6">
+                <div className="w-28 h-28 mx-auto relative">
+                  <div className="absolute inset-0 bg-blue-600/30 rounded-[2.5rem] blur-xl" />
+                  <div className="relative w-full h-full bg-gradient-to-br from-blue-500 to-blue-700 rounded-[2.5rem] flex items-center justify-center shadow-2xl border-4 border-blue-400/20">
+                    <Award size={64} className="text-white drop-shadow-lg" />
+                  </div>
+                  <Sparkles size={22} className="absolute -top-3 -right-3 text-blue-300 animate-pulse" />
+                </div>
+                <div className="inline-flex items-center gap-2 bg-blue-500/15 border border-blue-400/30 text-blue-300 px-5 py-2 rounded-full font-black text-xs uppercase tracking-widest">
+                  <ShieldCheck size={13} /> وثيقة إنجاز ميداني
+                </div>
+                <div>
+                  <h2 className="text-5xl font-black text-white tracking-tighter">اللجنة {activeCommittee}</h2>
+                  <p className="text-blue-400 font-black text-xl mt-1">منتهية ميدانياً · بانتظار الكنترول</p>
+                </div>
+                <p className="text-slate-400 font-bold text-base max-w-sm mx-auto leading-relaxed">
+                  أستاذ {user.full_name}، تم إرسال بيانات اللجنة للكنترول بنجاح.
+                  يرجى التوجه لمطابقة المظاريف في أقرب وقت.
+                </p>
+              </div>
+              <div className="h-1 w-full bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-30" />
+            </div>
+          </div>
+        )}
+
 
         {/* سجل مطابقة المظاريف المسلمة */}
         <div className="space-y-6">
