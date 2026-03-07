@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, Student, Absence, Supervision, ControlRequest, DeliveryLog, SystemConfig, CommitteeReport, EnvelopeLog, SystemNotification } from './types';
+import { User, Student, Absence, Supervision, ControlRequest, DeliveryLog, SystemConfig, CommitteeReport } from './types';
 import Sidebar from './components/Sidebar';
 import Login from './screens/Login';
 import AdminDashboardOverview from './screens/admin/DashboardOverview';
@@ -22,8 +22,6 @@ import CounselorAbsenceMonitor from './screens/counselor/AbsenceMonitor';
 import ControlReceiptView from './screens/control/ReceiptView';
 import ReceiptLogsView from './screens/control/ReceiptLogsView';
 import AssistantControlView from './screens/control/AssistantControlView';
-import CommitteeLiveStatus from './screens/public/CommitteeLiveStatus';
-import EnvelopeOpeningAction from './screens/public/EnvelopeOpeningAction';
 import { BellRing, Menu, X, CheckCircle2, AlertCircle, Info, AlertTriangle, Loader2 } from 'lucide-react';
 import { db, supabase } from './supabase';
 
@@ -34,10 +32,6 @@ const App: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(window.innerWidth < 1024);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   
-  // Public Routing
-  const [publicCommittee, setPublicCommittee] = useState<string | null>(null);
-  const [envelopeActionData, setEnvelopeActionData] = useState<{grade: string, subject: string, period: string} | null>(null);
-  
   const [users, setUsers] = useState<User[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [supervisions, setSupervisions] = useState<Supervision[]>([]);
@@ -46,8 +40,6 @@ const App: React.FC = () => {
   const [controlRequests, setControlRequests] = useState<ControlRequest[]>([]);
   const [deliveryLogs, setDeliveryLogs] = useState<DeliveryLog[]>([]);
   const [committeeReports, setCommitteeReports] = useState<CommitteeReport[]>([]);
-  const [envelopeLogs, setEnvelopeLogs] = useState<EnvelopeLog[]>([]);
-  const [systemBroadcasts, setSystemBroadcasts] = useState<SystemNotification[]>([]);
   const [systemConfig, setSystemConfig] = useState<SystemConfig>({ 
     id: 'main_config', 
     exam_start_time: '08:00', 
@@ -71,7 +63,7 @@ const App: React.FC = () => {
         setSystemConfig(prev => ({ ...prev, ...cfg }));
         filterDate = cfg.active_exam_date || filterDate;
       }
-      const [u, s, sv, ab, cr, dl, reports, env, broadcasts] = await Promise.all([
+      const [u, s, sv, ab, cr, dl, reports] = await Promise.all([
         db.users.getAll(),
         db.students.getAll(),
         db.supervision.getAll(),
@@ -79,12 +71,9 @@ const App: React.FC = () => {
         db.controlRequests.getAll(),
         db.deliveryLogs.getAll(),
         db.committeeReports.getAll(),
-        db.envelopeLogs.getAll(),
-        db.notifications.getAll(),
       ]);
       setUsers(u);
       setStudents(s);
-      setSystemBroadcasts(broadcasts);
       
       if (filterDate) {
         setSupervisions(sv.filter(i => i.date && i.date.startsWith(filterDate))); 
@@ -92,7 +81,6 @@ const App: React.FC = () => {
         setDeliveryLogs(dl.filter(i => i.time && i.time.startsWith(filterDate)));
         setControlRequests(cr.filter(i => i.time && i.time.startsWith(filterDate)));
         setCommitteeReports(reports.filter(r => r.date && r.date.startsWith(filterDate)));
-        setEnvelopeLogs(env.filter(e => e.time && e.time.startsWith(filterDate)));
       }
     } catch (err: any) {
       console.warn("Sync Warning:", err.message);
@@ -102,39 +90,13 @@ const App: React.FC = () => {
   }, [systemConfig.active_exam_date]);
 
   useEffect(() => {
-    const handleRoute = () => {
-      const hash = window.location.hash;
-      if (hash.startsWith('#status-')) {
-        const com = hash.replace('#status-', '');
-        setPublicCommittee(com);
-        setEnvelopeActionData(null);
-      } else if (hash.startsWith('#open-env')) {
-        const queryStr = hash.split('?')[1];
-        if (queryStr) {
-            const params = new URLSearchParams(queryStr);
-            setEnvelopeActionData({
-                grade: params.get('grade') || '',
-                subject: params.get('subject') || '',
-                period: params.get('period') || ''
-            });
-            setPublicCommittee(null);
-        }
-      } else {
-        setPublicCommittee(null);
-        setEnvelopeActionData(null);
-      }
-    };
-
-    handleRoute();
-    window.addEventListener('hashchange', handleRoute);
-
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
       try { 
         const user = JSON.parse(savedUser);
         setCurrentUser(user);
         if (!activeTab) {
-          const defaultTab = user.role === 'ADMIN' ? 'head-dash' : 
+          const defaultTab = user.role === 'ADMIN' ? 'dashboard' : 
                            user.role === 'CONTROL_MANAGER' ? 'head-dash' : 
                            user.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' : 'my-tasks';
           setActiveTab(defaultTab);
@@ -144,12 +106,9 @@ const App: React.FC = () => {
       }
     }
     fetchData();
-    const interval = setInterval(fetchData, 8000); // تقليل وقت التحديث قليلاً لزيادة الاستجابة
-    return () => {
-      window.removeEventListener('hashchange', handleRoute);
-      clearInterval(interval);
-    };
-  }, [fetchData, activeTab]);
+    const interval = setInterval(fetchData, 10000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   const handleLogout = () => {
     setCurrentUser(null);
@@ -161,7 +120,7 @@ const App: React.FC = () => {
   const handleLoginSuccess = (u: User) => {
     setCurrentUser(u);
     localStorage.setItem('currentUser', JSON.stringify(u));
-    const defaultTab = u.role === 'ADMIN' ? 'head-dash' : 
+    const defaultTab = u.role === 'ADMIN' ? 'dashboard' : 
                      u.role === 'CONTROL_MANAGER' ? 'head-dash' : 
                      u.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' : 'my-tasks';
     setActiveTab(defaultTab);
@@ -169,30 +128,20 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
-    if (publicCommittee) {
-      return <CommitteeLiveStatus committeeNumber={publicCommittee} students={students} absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} onBack={() => {
-        window.location.hash = '';
-        setPublicCommittee(null);
-      }} />;
-    }
-
-    if (envelopeActionData) {
-        return <EnvelopeOpeningAction {...envelopeActionData} currentUser={currentUser} onBack={() => {
-            window.location.hash = '';
-            setEnvelopeActionData(null);
-        }} onAlert={addLocalNotification} />;
-    }
-
     if (!currentUser) return null;
     
-    const tabToRender = activeTab;
+    const tabToRender = activeTab || (
+      currentUser.role === 'ADMIN' ? 'dashboard' : 
+      currentUser.role === 'CONTROL_MANAGER' ? 'head-dash' : 
+      currentUser.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' : 'my-tasks'
+    );
 
     switch (tabToRender) {
       case 'dashboard': return <AdminDashboardOverview stats={{ students: students.length, users: users.length, activeSupervisions: supervisions.length }} absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} studentsList={students} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} systemConfig={systemConfig} />;
       case 'head-dash': return <ControlHeadDashboard users={users} students={students} absences={absences} deliveryLogs={deliveryLogs} requests={controlRequests} supervisions={supervisions} systemConfig={systemConfig} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} />;
       case 'control-monitor': return (
         <div className="fixed inset-0 z-[200] bg-slate-950 no-print">
-           <button onClick={() => setActiveTab('head-dash')} className="fixed top-6 left-6 z-[210] bg-white/10 text-white p-3 rounded-full hover:bg-white/20">
+           <button onClick={() => setActiveTab('dashboard')} className="fixed top-6 left-6 z-[210] bg-white/10 text-white p-3 rounded-full hover:bg-white/20">
               <X size={32} />
            </button>
            <ControlRoomMonitor absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} students={students} requests={controlRequests} />
@@ -213,18 +162,12 @@ const App: React.FC = () => {
       case 'digital-id': return <TeacherBadgeView user={currentUser} />;
       case 'proctor-alerts': return <ProctorAlertsHistory requests={controlRequests} userFullName={currentUser.full_name} />;
       case 'student-absences': return <CounselorAbsenceMonitor absences={absences} students={students} supervisions={supervisions} users={users} />;
-      case 'my-tasks': return <ProctorDailyAssignmentFlow user={currentUser} supervisions={supervisions} setSupervisions={fetchData} students={students} absences={absences} setAbsences={fetchData} deliveryLogs={deliveryLogs} setDeliveryLogs={async (log) => { await db.deliveryLogs.upsert(log); await fetchData(); }} sendRequest={async (txt, com) => { 
-        // استخدام الوقت المحلي المدمج مع التاريخ النشط لضمان الظهور في الفلتر
-        const timePart = new Date().toLocaleTimeString('en-GB'); 
-        const combinedTime = `${systemConfig.active_exam_date}T${timePart}`;
-        await db.controlRequests.insert({ from: currentUser.full_name, committee: com, text: txt, time: combinedTime, status: 'PENDING' }); 
-        await fetchData(); 
-      }} controlRequests={controlRequests} users={users} systemConfig={systemConfig} committeeReports={committeeReports} onReportUpsert={async (report) => { await db.committeeReports.upsert(report); await fetchData(); }} onAlert={addLocalNotification} broadcasts={systemBroadcasts} />;
+      case 'my-tasks': return <ProctorDailyAssignmentFlow user={currentUser} supervisions={supervisions} setSupervisions={fetchData} students={students} absences={absences} setAbsences={fetchData} deliveryLogs={deliveryLogs} setDeliveryLogs={async (log) => { await db.deliveryLogs.upsert(log); await fetchData(); }} sendRequest={async (txt, com) => { await db.controlRequests.insert({ from: currentUser.full_name, committee: com, text: txt, time: new Date().toISOString(), status: 'PENDING' }); await fetchData(); }} controlRequests={controlRequests} users={users} systemConfig={systemConfig} committeeReports={committeeReports} onReportUpsert={async (report) => { await db.committeeReports.upsert(report); await fetchData(); }} onAlert={addLocalNotification} />;
       default: return <div className="p-20 text-center animate-pulse text-slate-400 font-bold">جاري تحميل المحتوى المخصص...</div>;
     }
   };
 
-  if (isInitialLoading && (currentUser || publicCommittee || envelopeActionData)) {
+  if (isInitialLoading && currentUser) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-6">
         <Loader2 size={64} className="text-blue-600 animate-spin" />
@@ -235,6 +178,7 @@ const App: React.FC = () => {
 
   return (
     <div id="app-root" className="min-h-screen bg-[#f8fafc] font-['Tajawal'] overflow-x-hidden text-right selection:bg-blue-100" dir="rtl">
+      {/* التنبيهات الذكية */}
       <div className="fixed top-24 left-6 right-6 lg:right-auto lg:left-8 z-[1000] flex flex-col gap-3 max-w-sm pointer-events-none no-print">
         {notifications.map(n => (
           <div key={n.id} className={`p-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-slide-in pointer-events-auto border-r-[6px] ${
@@ -255,7 +199,7 @@ const App: React.FC = () => {
         ))}
       </div>
 
-      {currentUser && !publicCommittee && !envelopeActionData && (
+      {currentUser && (
         <>
           <header className="fixed top-0 right-0 left-0 bg-white/80 backdrop-blur-md z-[90] lg:hidden border-b px-6 py-4 flex justify-between items-center no-print shadow-sm">
              <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 rounded-xl hover:bg-blue-50 transition-colors">
@@ -280,8 +224,8 @@ const App: React.FC = () => {
         </>
       )}
 
-      <main className={`transition-all duration-300 min-h-screen ${(currentUser && !publicCommittee && !envelopeActionData) ? (isSidebarCollapsed ? 'lg:mr-24' : 'lg:mr-80') : ''} ${(currentUser || publicCommittee || envelopeActionData) ? 'p-6 lg:p-10 pt-24 lg:pt-10' : ''}`}>
-        {(currentUser || publicCommittee || envelopeActionData) ? renderContent() : <Login users={users} onLogin={handleLoginSuccess} onAlert={addLocalNotification} />}
+      <main className={`transition-all duration-300 min-h-screen ${currentUser ? (isSidebarCollapsed ? 'lg:mr-24' : 'lg:mr-80') : ''} ${currentUser ? 'p-6 lg:p-10 pt-24 lg:pt-10' : ''}`}>
+        {currentUser ? renderContent() : <Login users={users} onLogin={handleLoginSuccess} onAlert={addLocalNotification} />}
       </main>
 
       <style>{`

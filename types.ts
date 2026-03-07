@@ -23,17 +23,6 @@ export interface Student {
   location?: string;
 }
 
-export interface EnvelopeLog {
-  id: string;
-  grade: string;
-  subject: string;
-  opened_by_name: string;
-  opened_by_id: string;
-  time: string;
-  status: 'INTACT' | 'DAMAGED'; // سليم أو غير سليم
-  period: string;
-}
-
 export interface Supervision {
   id: string;
   teacher_id: string;
@@ -94,12 +83,4 @@ export interface SystemConfig {
   exam_date: string;
   active_exam_date?: string;
   allow_manual_join?: boolean;
-}
-
-export interface SystemNotification {
-  id: string;
-  message: string;
-  target: string;
-  sender: string;
-  created_at: string;
 }
