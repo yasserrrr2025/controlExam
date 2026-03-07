@@ -64,7 +64,7 @@ const AdminDailyReports: React.FC<Props> = ({
         receiptTime: formatTime(receiptLog?.time),
         detailed: detailedReport
       };
-    }).filter(row => row.committee.includes(searchTerm) || row.proctorName.includes(searchTerm));
+    }).filter(row => String(row.committee).includes(searchTerm) || row.proctorName.includes(searchTerm));
   }, [students, supervisions, users, deliveryLogs, reportDate, searchTerm, committeeReports]);
 
   return (
