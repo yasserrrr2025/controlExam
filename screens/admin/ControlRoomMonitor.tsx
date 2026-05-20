@@ -1,4 +1,4 @@
-
+﻿
 import React, { useMemo, useEffect, useState } from 'react';
 import { 
   Activity, Monitor, ShieldAlert, Timer, 
@@ -54,33 +54,39 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
     const comNums = Array.from(new Set(students.map(s => s.committee_number))).filter(Boolean).sort((a: any, b: any) => Number(a) - Number(b));
     
     return comNums.map(num => {
-      // جلب الصفوف المتوقعة لهذه اللجنة
+      // ط¬ظ„ط¨ ط§ظ„طµظپظˆظپ ط§ظ„ظ…طھظˆظ‚ط¹ط© ظ„ظ‡ط°ظ‡ ط§ظ„ظ„ط¬ظ†ط©
       const committeeGrades = Array.from(new Set(students.filter(s => s.committee_number === num).map(s => s.grade)));
       
-      // جلب سجلات الاستلام لهذه اللجنة اليوم
+      // ط¬ظ„ط¨ ط³ط¬ظ„ط§طھ ط§ظ„ط§ط³طھظ„ط§ظ… ظ„ظ‡ط°ظ‡ ط§ظ„ظ„ط¬ظ†ط© ط§ظ„ظٹظˆظ…
       const committeeLogs = deliveryLogs.filter(l => l.committee_number === num && l.time.startsWith(activeDate));
       
-      // اللجنة مكتملة (أخضر) إذا كان كل الصفوف مسجلة كـ CONFIRMED
+      // ط§ظ„ظ„ط¬ظ†ط© ظ…ظƒطھظ…ظ„ط© (ط£ط®ط¶ط±) ط¥ط°ط§ ظƒط§ظ† ظƒظ„ ط§ظ„طµظپظˆظپ ظ…ط³ط¬ظ„ط© ظƒظ€ CONFIRMED
       const isDone = committeeGrades.length > 0 && committeeGrades.every(g => 
         committeeLogs.some(l => l.grade === g && l.status === 'CONFIRMED')
       );
 
-      // اللجنة "متجهة للكنترول" (برتقالي) إذا كانت منتهية ميدانياً (PENDING) ولكن لم تكتمل مطابقتها بعد
+      // ط§ظ„ظ„ط¬ظ†ط© "ظ…طھط¬ظ‡ط© ظ„ظ„ظƒظ†طھط±ظˆظ„" (ط¨ط±طھظ‚ط§ظ„ظٹ) ط¥ط°ط§ ظƒط§ظ†طھ ظ…ظ†طھظ‡ظٹط© ظ…ظٹط¯ط§ظ†ظٹط§ظ‹ (PENDING) ظˆظ„ظƒظ† ظ„ظ… طھظƒطھظ…ظ„ ظ…ط·ط§ط¨ظ‚طھظ‡ط§ ط¨ط¹ط¯
       const isSubmitted = !isDone && committeeGrades.length > 0 && committeeGrades.every(g => 
         committeeLogs.some(l => l.grade === g)
       );
 
-      const hasAlert = requests.some(r => r.committee === num && r.status === 'PENDING');
-      const inProgress = requests.some(r => r.committee === num && r.status === 'IN_PROGRESS');
+      const hasAlert = !isSubmitted && !isDone && requests.some(r => r.committee === num && r.status === 'PENDING');
+      const inProgress = !isSubmitted && !isDone && requests.some(r => r.committee === num && r.status === 'IN_PROGRESS');
       const isOccupied = supervisions.some(s => s.committee_number === num);
 
       return { num, isDone, isSubmitted, hasAlert, inProgress, isOccupied };
     });
   }, [students, deliveryLogs, requests, supervisions, activeDate]);
 
+  const submittedCommittees = useMemo(() => {
+    return new Set(committeeGrid.filter(c => c.isSubmitted || c.isDone).map(c => c.num));
+  }, [committeeGrid]);
+
   const sortedRequests = useMemo(() => {
-    return [...requests].sort((a, b) => b.time.localeCompare(a.time));
-  }, [requests]);
+    return requests
+      .filter(req => req.status === 'DONE' || !submittedCommittees.has(req.committee))
+      .sort((a, b) => b.time.localeCompare(a.time));
+  }, [requests, submittedCommittees]);
 
   const toggleMaximize = (panel: 'MAP' | 'ABSENCES' | 'REPORTS') => {
     setMaximizedPanel(maximizedPanel === panel ? null : panel);
@@ -92,13 +98,15 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
          <div className="flex items-center gap-4">
             <div className="bg-orange-500/10 p-4 rounded-[1.5rem] text-orange-300"><LayoutGrid size={isFull ? 40 : 28} /></div>
             <div>
-              <h2 className={`${isFull ? 'text-5xl' : 'text-3xl'} font-black tracking-tighter`}>خريطة اللجان الحية</h2>
-              <p className="text-slate-500 text-[10px] font-black uppercase mt-1">تزامن لحظي مع الميدان لليوم</p>
+              <h2 className={`${isFull ? 'text-5xl' : 'text-3xl'} font-black tracking-tighter`}>ط®ط±ظٹط·ط© ط§ظ„ظ„ط¬ط§ظ† ط§ظ„ط­ظٹط©</h2>
+              <p className="text-slate-500 text-[10px] font-black uppercase mt-1">طھط²ط§ظ…ظ† ظ„ط­ط¸ظٹ ظ…ط¹ ط§ظ„ظ…ظٹط¯ط§ظ† ظ„ظ„ظٹظˆظ…</p>
             </div>
          </div>
          <div className="flex gap-4 items-center">
             <div className="flex gap-6 items-center bg-black/40 px-6 py-2 rounded-full border border-white/5 text-[8px] font-black uppercase tracking-widest">
                 <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"></div><span>مكتملة</span></div>
+                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div><span>نشطة</span></div>
+                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-slate-500"></div><span>غير مسندة</span></div>
                 <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></div><span>متجه للكنترول</span></div>
                 <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></div><span>بلاغ عاجل</span></div>
             </div>
@@ -115,9 +123,9 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
                 ${c.isDone ? 'bg-emerald-600 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 
                   c.hasAlert ? 'bg-red-600 border-red-400 shadow-[0_0_40px_rgba(220,38,38,0.5)] animate-pulse scale-110 z-20' : 
                   c.isSubmitted ? 'bg-orange-500 border-orange-200 shadow-[0_0_55px_rgba(249,115,22,0.95)] animate-[orangeFlash_1.2s_ease-in-out_infinite] scale-105' :
-                  c.inProgress ? 'bg-orange-600/35 border-orange-300' :
-                  c.isOccupied ? 'bg-white/10 border-orange-400/30' : 
-                  'bg-white/5 border-white/5 opacity-20'}
+                  c.inProgress ? 'bg-blue-600/70 border-blue-300 shadow-[0_0_28px_rgba(37,99,235,0.35)]' :
+                  c.isOccupied ? 'bg-blue-600 border-blue-300 shadow-[0_0_22px_rgba(37,99,235,0.3)]' : 
+                  'bg-slate-700/40 border-slate-500/30 text-slate-300 opacity-70'}
               `}>
                 {c.isSubmitted && (
                    <div className="absolute inset-0 flex items-center justify-center opacity-10">
@@ -125,9 +133,9 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
                    </div>
                 )}
                 {c.isSubmitted && <Truck size={isFull ? 26 : 20} className="absolute top-3 right-3 text-white animate-bounce drop-shadow-xl" />}
-                <span className="text-[8px] font-black opacity-40 uppercase relative z-10">لجنة</span>
+                <span className="text-[8px] font-black opacity-40 uppercase relative z-10">ظ„ط¬ظ†ط©</span>
                 <span className={`${isFull ? 'text-4xl' : isCompact ? 'text-2xl' : 'text-3xl'} font-black tabular-nums tracking-tighter relative z-10`}>{c.num}</span>
-                {c.isSubmitted && <span className="relative z-10 mt-1 rounded-full bg-white/20 px-2 py-1 text-[7px] font-black">إلى الكنترول</span>}
+                {c.isSubmitted && <span className="relative z-10 mt-1 rounded-full bg-white/20 px-2 py-1 text-[7px] font-black">ط¥ظ„ظ‰ ط§ظ„ظƒظ†طھط±ظˆظ„</span>}
               </div>
             ))}
          </div>
@@ -141,8 +149,8 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
           <div className="flex items-center gap-4">
              <div className="p-4 bg-orange-500/10 text-orange-300 rounded-2xl"><Users size={isFull ? 40 : 28} /></div>
              <div>
-                <h3 className={`${isFull ? 'text-5xl' : 'text-2xl'} font-black text-white tracking-tight`}>بيانات غياب وتأخر اللجان</h3>
-                <p className="text-slate-500 text-[10px] font-black uppercase mt-1">رصد يومي دقيق للحالات</p>
+                <h3 className={`${isFull ? 'text-5xl' : 'text-2xl'} font-black text-white tracking-tight`}>ط¨ظٹط§ظ†ط§طھ ط؛ظٹط§ط¨ ظˆطھط£ط®ط± ط§ظ„ظ„ط¬ط§ظ†</h3>
+                <p className="text-slate-500 text-[10px] font-black uppercase mt-1">ط±طµط¯ ظٹظˆظ…ظٹ ط¯ظ‚ظٹظ‚ ظ„ظ„ط­ط§ظ„ط§طھ</p>
              </div>
           </div>
           <button onClick={() => toggleMaximize('ABSENCES')} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all">
@@ -153,27 +161,27 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
           <table className="w-full text-right border-collapse">
              <thead className={`sticky top-0 bg-[#020617] font-black text-slate-500 uppercase tracking-widest border-b border-white/10 ${isFull ? 'text-base' : 'text-[11px]'}`}>
                 <tr>
-                  <th className="py-4 px-6">الطالب</th>
-                  <th className="py-4 px-6">اللجنة</th>
-                  <th className="py-4 px-6">الصف</th>
-                  <th className="py-4 px-6">الحالة</th>
-                  <th className="py-4 px-6 text-left">الوقت</th>
+                  <th className="py-4 px-6">ط§ظ„ط·ط§ظ„ط¨</th>
+                  <th className="py-4 px-6">ط§ظ„ظ„ط¬ظ†ط©</th>
+                  <th className="py-4 px-6">ط§ظ„طµظپ</th>
+                  <th className="py-4 px-6">ط§ظ„ط­ط§ظ„ط©</th>
+                  <th className="py-4 px-6 text-left">ط§ظ„ظˆظ‚طھ</th>
                 </tr>
              </thead>
              <tbody className="divide-y divide-white/5">
                 {absences.length === 0 ? (
-                  <tr><td colSpan={5} className="py-20 text-center text-slate-700 font-black italic text-xl opacity-20">لا يوجد غيابات مرصودة لهذا اليوم</td></tr>
+                  <tr><td colSpan={5} className="py-20 text-center text-slate-700 font-black italic text-xl opacity-20">ظ„ط§ ظٹظˆط¬ط¯ ط؛ظٹط§ط¨ط§طھ ظ…ط±طµظˆط¯ط© ظ„ظ‡ط°ط§ ط§ظ„ظٹظˆظ…</td></tr>
                 ) : (
                   absences.map(a => {
                     const student = students.find(s => s.national_id === a.student_id);
                     return (
                       <tr key={a.id} className={`${isFull ? 'text-2xl h-24' : 'text-base'} hover:bg-white/[0.02]`}>
                          <td className="py-5 px-6 font-black text-white">{a.student_name}</td>
-                         <td className="py-5 px-6 font-black text-slate-300">لجنة {a.committee_number}</td>
+                         <td className="py-5 px-6 font-black text-slate-300">ظ„ط¬ظ†ط© {a.committee_number}</td>
                          <td className="py-5 px-6 font-bold text-slate-400">{student?.grade}</td>
                          <td className="py-5 px-6">
                             <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black ${a.type === 'ABSENT' ? 'bg-red-500' : 'bg-amber-500'} text-white`}>
-                               {a.type === 'ABSENT' ? 'غائب' : 'متأخر'}
+                               {a.type === 'ABSENT' ? 'ط؛ط§ط¦ط¨' : 'ظ…طھط£ط®ط±'}
                             </span>
                           </td>
                          <td className="py-5 px-6 text-left font-black text-orange-300 font-mono">
@@ -194,7 +202,7 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
        <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
              <ShieldAlert size={isFull ? 40 : 24} className="text-red-500 animate-pulse" />
-             <h2 className={`${isFull ? 'text-4xl' : 'text-xl'} font-black text-white tracking-tighter`}>بلاغات العمليات اليومية</h2>
+             <h2 className={`${isFull ? 'text-4xl' : 'text-xl'} font-black text-white tracking-tighter`}>ط¨ظ„ط§ط؛ط§طھ ط§ظ„ط¹ظ…ظ„ظٹط§طھ ط§ظ„ظٹظˆظ…ظٹط©</h2>
           </div>
           <button onClick={() => toggleMaximize('REPORTS')} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all">
              {isFull ? <Minimize2 size={24} className="text-orange-300" /> : <Maximize2 size={24} />}
@@ -204,13 +212,13 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
           {sortedRequests.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-700 opacity-20">
                <CheckCircle2 size={isFull ? 120 : 64} />
-               <p className="font-black italic mt-4">لا توجد بلاغات اليوم</p>
+               <p className="font-black italic mt-4">ظ„ط§ طھظˆط¬ط¯ ط¨ظ„ط§ط؛ط§طھ ط§ظ„ظٹظˆظ…</p>
             </div>
           ) : (
             sortedRequests.map((req) => (
               <div key={req.id} className={`p-6 rounded-[2.5rem] border-2 transition-all duration-700 ${req.status === 'DONE' ? 'opacity-30' : 'bg-red-600/10 border-red-500/30 shadow-[0_0_20px_rgba(220,38,38,0.1)]'}`}>
                  <div className="flex justify-between items-start mb-3">
-                    <div className="bg-slate-900 text-white px-4 py-2 rounded-xl font-black text-lg">لجنة {req.committee}</div>
+                    <div className="bg-slate-900 text-white px-4 py-2 rounded-xl font-black text-lg">ظ„ط¬ظ†ط© {req.committee}</div>
                     <span className="text-[10px] font-mono text-slate-500">{new Date(req.time).toLocaleTimeString('ar-SA')}</span>
                  </div>
                  <p className={`${isFull ? 'text-3xl' : 'text-lg'} font-black text-white leading-relaxed`}>{req.text}</p>
@@ -228,7 +236,7 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
         <div className="bg-white/[0.03] border border-white/10 rounded-[2rem] px-8 py-3 flex items-center gap-6 shadow-2xl backdrop-blur-md">
            <MonitorPlay className="text-orange-400" size={32} />
            <div className="text-4xl font-black tabular-nums tracking-widest text-orange-300 font-mono">
-              {currentTime.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/[صم]/, '')}
+              {currentTime.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/[طµظ…]/, '')}
            </div>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center">
@@ -238,14 +246,14 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
                  <div className="h-full bg-gradient-to-l from-orange-600 via-amber-400 to-emerald-400 transition-all duration-1000 shadow-[0_0_24px_rgba(249,115,22,0.55)]" style={{ width: `${stats.progress}%` }}></div>
               </div>
            </div>
-           <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] mt-2">معدل الإنجاز الميداني النشط</p>
+           <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] mt-2">ظ…ط¹ط¯ظ„ ط§ظ„ط¥ظ†ط¬ط§ط² ط§ظ„ظ…ظٹط¯ط§ظ†ظٹ ط§ظ„ظ†ط´ط·</p>
         </div>
         <div className="flex items-center gap-6">
            <div className="hidden xl:flex bg-white/[0.03] border border-white/10 rounded-[2rem] p-2 gap-2">
               {[
-                { id: 'split', label: 'تقسيم', icon: LayoutPanelTop },
-                { id: 'map', label: 'الخريطة', icon: LayoutGrid },
-                { id: 'alerts', label: 'البلاغات', icon: Bell },
+                { id: 'split', label: 'طھظ‚ط³ظٹظ…', icon: LayoutPanelTop },
+                { id: 'map', label: 'ط§ظ„ط®ط±ظٹط·ط©', icon: LayoutGrid },
+                { id: 'alerts', label: 'ط§ظ„ط¨ظ„ط§ط؛ط§طھ', icon: Bell },
               ].map(item => (
                 <button key={item.id} onClick={() => { setScreenMode(item.id as any); setMaximizedPanel(null); }} className={`px-4 py-3 rounded-2xl text-[10px] font-black flex items-center gap-2 transition-all ${screenMode === item.id ? 'bg-orange-500 text-white shadow-[0_0_24px_rgba(249,115,22,0.35)]' : 'text-slate-400 hover:bg-white/5'}`}>
                   <item.icon size={16} />
@@ -253,17 +261,17 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
                 </button>
               ))}
               <button onClick={() => setIsCompact(v => !v)} className={`px-4 py-3 rounded-2xl text-[10px] font-black transition-all ${isCompact ? 'bg-white text-slate-950' : 'text-slate-400 hover:bg-white/5'}`}>
-                تكثيف
+                طھظƒط«ظٹظپ
               </button>
               <button onClick={() => setShowTicker(v => !v)} className={`px-4 py-3 rounded-2xl text-[10px] font-black transition-all ${showTicker ? 'bg-white text-slate-950' : 'text-slate-400 hover:bg-white/5'}`}>
-                الشريط
+                ط§ظ„ط´ط±ظٹط·
               </button>
            </div>
            <div className="text-right">
               <span className="bg-emerald-400/10 text-emerald-400 px-6 py-2 rounded-full border border-emerald-400/20 text-[10px] font-black flex items-center gap-3">
-                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div> البث المباشر نشط
+                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div> ط§ظ„ط¨ط« ط§ظ„ظ…ط¨ط§ط´ط± ظ†ط´ط·
               </span>
-              <p className="text-slate-500 font-bold text-[10px] mt-2 mr-2">تاريخ اليوم: {activeDate}</p>
+              <p className="text-slate-500 font-bold text-[10px] mt-2 mr-2">طھط§ط±ظٹط® ط§ظ„ظٹظˆظ…: {activeDate}</p>
            </div>
         </div>
       </div>
@@ -271,9 +279,9 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
         <div className="mb-4 flex items-center gap-4 overflow-hidden rounded-[1.5rem] border border-orange-400/20 bg-orange-500/10 px-5 py-3 text-orange-100">
           <Truck size={26} className="text-orange-300 animate-bounce" />
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-black uppercase tracking-widest text-orange-300">حالة متجه للكنترول</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-orange-300">ط­ط§ظ„ط© ظ…طھط¬ظ‡ ظ„ظ„ظƒظ†طھط±ظˆظ„</p>
             <p className="truncate text-sm font-black">
-              اللون البرتقالي الوامض يعني أن أوراق اللجنة في طريقها للكنترول ولم تكتمل المطابقة النهائية بعد.
+              ط§ظ„ظ„ظˆظ† ط§ظ„ط¨ط±طھظ‚ط§ظ„ظٹ ط§ظ„ظˆط§ظ…ط¶ ظٹط¹ظ†ظٹ ط£ظ† ط£ظˆط±ط§ظ‚ ط§ظ„ظ„ط¬ظ†ط© ظپظٹ ط·ط±ظٹظ‚ظ‡ط§ ظ„ظ„ظƒظ†طھط±ظˆظ„ ظˆظ„ظ… طھظƒطھظ…ظ„ ط§ظ„ظ…ط·ط§ط¨ظ‚ط© ط§ظ„ظ†ظ‡ط§ط¦ظٹط© ط¨ط¹ط¯.
             </p>
           </div>
         </div>
@@ -284,10 +292,10 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
         <div className={`${screenMode === 'alerts' ? 'col-span-4' : 'col-span-3'} flex flex-col gap-6 overflow-hidden`}>
           <div className="grid grid-cols-1 gap-4">
              {[
-               { icon: Users, color: 'text-orange-300', bg: 'bg-orange-500/10', val: stats.totalComs, label: 'إجمالي اللجان' },
-               { icon: PackageCheck, color: 'text-emerald-500', bg: 'bg-emerald-600/10', val: stats.completed, label: 'لجان منتهية' },
-               { icon: Timer, color: 'text-amber-500', bg: 'bg-amber-600/10', val: stats.lates, label: 'حالات تأخر' },
-               { icon: UserX, color: 'text-red-500', bg: 'bg-red-600/10', val: stats.absents, label: 'حالات غياب' }
+               { icon: Users, color: 'text-orange-300', bg: 'bg-orange-500/10', val: stats.totalComs, label: 'ط¥ط¬ظ…ط§ظ„ظٹ ط§ظ„ظ„ط¬ط§ظ†' },
+               { icon: PackageCheck, color: 'text-emerald-500', bg: 'bg-emerald-600/10', val: stats.completed, label: 'ظ„ط¬ط§ظ† ظ…ظ†طھظ‡ظٹط©' },
+               { icon: Timer, color: 'text-amber-500', bg: 'bg-amber-600/10', val: stats.lates, label: 'ط­ط§ظ„ط§طھ طھط£ط®ط±' },
+               { icon: UserX, color: 'text-red-500', bg: 'bg-red-600/10', val: stats.absents, label: 'ط­ط§ظ„ط§طھ ط؛ظٹط§ط¨' }
              ].map((s, i) => (
                 <div key={i} className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-6 flex items-center justify-between group hover:bg-white/[0.05] transition-all shadow-xl">
                    <div className="text-right">
@@ -316,3 +324,5 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
 };
 
 export default ControlRoomMonitor;
+
+
