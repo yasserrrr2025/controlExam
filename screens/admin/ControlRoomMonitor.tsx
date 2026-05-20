@@ -93,17 +93,17 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
   };
 
   const MapPanel = ({ isFull = false }) => (
-    <div className={`bg-white/[0.02] border border-white/5 rounded-[3.5rem] p-8 flex flex-col shadow-inner transition-all duration-500 ${isFull ? 'h-full' : 'h-[55%]'}`}>
-      <div className="flex items-center justify-between mb-8">
+    <div className={`tv-panel tv-map-panel bg-white/[0.02] border border-white/5 rounded-[3.5rem] p-8 flex flex-col shadow-inner transition-all duration-500 ${isFull ? 'h-full' : 'h-[55%]'}`}>
+      <div className="tv-panel-head flex items-center justify-between mb-8">
          <div className="flex items-center gap-4">
             <div className="bg-orange-500/10 p-4 rounded-[1.5rem] text-orange-300"><LayoutGrid size={isFull ? 40 : 28} /></div>
             <div>
-              <h2 className={`${isFull ? 'text-5xl' : 'text-3xl'} font-black tracking-tighter`}>ط®ط±ظٹط·ط© ط§ظ„ظ„ط¬ط§ظ† ط§ظ„ط­ظٹط©</h2>
-              <p className="text-slate-500 text-[10px] font-black uppercase mt-1">طھط²ط§ظ…ظ† ظ„ط­ط¸ظٹ ظ…ط¹ ط§ظ„ظ…ظٹط¯ط§ظ† ظ„ظ„ظٹظˆظ…</p>
+              <h2 className={`${isFull ? 'text-5xl' : 'text-3xl'} font-black tracking-normal`}>خريطة اللجان الحية</h2>
+              <p className="text-slate-300 text-xs font-black mt-2">تزامن لحظي مع الميدان لهذا اليوم</p>
             </div>
          </div>
          <div className="flex gap-4 items-center">
-            <div className="flex gap-6 items-center bg-black/40 px-6 py-2 rounded-full border border-white/5 text-[8px] font-black uppercase tracking-widest">
+            <div className="tv-legend flex gap-6 items-center bg-black/40 px-6 py-2 rounded-full border border-white/5 text-[8px] font-black uppercase tracking-widest">
                 <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"></div><span>مكتملة</span></div>
                 <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div><span>نشطة</span></div>
                 <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-slate-500"></div><span>غير مسندة</span></div>
@@ -116,9 +116,9 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
          </div>
       </div>
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-         <div className={`grid ${isFull ? 'grid-cols-8 md:grid-cols-10 lg:grid-cols-12' : isCompact ? 'grid-cols-8 md:grid-cols-10 lg:grid-cols-12' : 'grid-cols-6 md:grid-cols-8 lg:grid-cols-9'} gap-4 p-2`}>
+         <div className={`tv-committee-grid grid ${isFull ? 'grid-cols-8 md:grid-cols-10 lg:grid-cols-12' : isCompact ? 'grid-cols-8 md:grid-cols-10 lg:grid-cols-12' : 'grid-cols-6 md:grid-cols-8 lg:grid-cols-9'} gap-4 p-2`}>
             {committeeGrid.map(c => (
-              <div key={c.num} className={`
+              <div key={c.num} className={`tv-committee-cell
                 aspect-square rounded-[2rem] border-2 flex flex-col items-center justify-center transition-all duration-700 relative overflow-hidden
                 ${c.isDone ? 'bg-emerald-600 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 
                   c.hasAlert ? 'bg-red-600 border-red-400 shadow-[0_0_40px_rgba(220,38,38,0.5)] animate-pulse scale-110 z-20' : 
@@ -133,9 +133,9 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
                    </div>
                 )}
                 {c.isSubmitted && <Truck size={isFull ? 26 : 20} className="absolute top-3 right-3 text-white animate-bounce drop-shadow-xl" />}
-                <span className="text-[8px] font-black opacity-40 uppercase relative z-10">ظ„ط¬ظ†ط©</span>
+                <span className="text-[9px] font-black opacity-70 relative z-10">لجنة</span>
                 <span className={`${isFull ? 'text-4xl' : isCompact ? 'text-2xl' : 'text-3xl'} font-black tabular-nums tracking-tighter relative z-10`}>{c.num}</span>
-                {c.isSubmitted && <span className="relative z-10 mt-1 rounded-full bg-white/20 px-2 py-1 text-[7px] font-black">ط¥ظ„ظ‰ ط§ظ„ظƒظ†طھط±ظˆظ„</span>}
+                {c.isSubmitted && <span className="relative z-10 mt-1 rounded-full bg-white/20 px-2 py-1 text-[8px] font-black">إلى الكنترول</span>}
               </div>
             ))}
          </div>
@@ -144,13 +144,13 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
   );
 
   const AbsencesPanel = ({ isFull = false }) => (
-    <div className={`bg-white/[0.03] border border-white/10 rounded-[3.5rem] p-10 flex flex-col shadow-2xl transition-all duration-500 ${isFull ? 'h-full' : 'h-[45%]'}`}>
-       <div className="flex items-center justify-between mb-6">
+    <div className={`tv-panel tv-absences-panel bg-white/[0.03] border border-white/10 rounded-[3.5rem] p-10 flex flex-col shadow-2xl transition-all duration-500 ${isFull ? 'h-full' : 'h-[45%]'}`}>
+       <div className="tv-panel-head flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
              <div className="p-4 bg-orange-500/10 text-orange-300 rounded-2xl"><Users size={isFull ? 40 : 28} /></div>
              <div>
-                <h3 className={`${isFull ? 'text-5xl' : 'text-2xl'} font-black text-white tracking-tight`}>ط¨ظٹط§ظ†ط§طھ ط؛ظٹط§ط¨ ظˆطھط£ط®ط± ط§ظ„ظ„ط¬ط§ظ†</h3>
-                <p className="text-slate-500 text-[10px] font-black uppercase mt-1">ط±طµط¯ ظٹظˆظ…ظٹ ط¯ظ‚ظٹظ‚ ظ„ظ„ط­ط§ظ„ط§طھ</p>
+                <h3 className={`${isFull ? 'text-5xl' : 'text-2xl'} font-black text-white tracking-normal`}>غياب وتأخر اللجان</h3>
+                <p className="text-slate-300 text-xs font-black mt-2">رصد يومي دقيق للحالات</p>
              </div>
           </div>
           <button onClick={() => toggleMaximize('ABSENCES')} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all">
@@ -161,27 +161,27 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
           <table className="w-full text-right border-collapse">
              <thead className={`sticky top-0 bg-[#020617] font-black text-slate-500 uppercase tracking-widest border-b border-white/10 ${isFull ? 'text-base' : 'text-[11px]'}`}>
                 <tr>
-                  <th className="py-4 px-6">ط§ظ„ط·ط§ظ„ط¨</th>
-                  <th className="py-4 px-6">ط§ظ„ظ„ط¬ظ†ط©</th>
-                  <th className="py-4 px-6">ط§ظ„طµظپ</th>
-                  <th className="py-4 px-6">ط§ظ„ط­ط§ظ„ط©</th>
-                  <th className="py-4 px-6 text-left">ط§ظ„ظˆظ‚طھ</th>
+                  <th className="py-4 px-6">الطالب</th>
+                  <th className="py-4 px-6">اللجنة</th>
+                  <th className="py-4 px-6">الصف</th>
+                  <th className="py-4 px-6">الحالة</th>
+                  <th className="py-4 px-6 text-left">الوقت</th>
                 </tr>
              </thead>
              <tbody className="divide-y divide-white/5">
                 {absences.length === 0 ? (
-                  <tr><td colSpan={5} className="py-20 text-center text-slate-700 font-black italic text-xl opacity-20">ظ„ط§ ظٹظˆط¬ط¯ ط؛ظٹط§ط¨ط§طھ ظ…ط±طµظˆط¯ط© ظ„ظ‡ط°ط§ ط§ظ„ظٹظˆظ…</td></tr>
+                  <tr><td colSpan={5} className="py-20 text-center text-slate-600 font-black text-xl opacity-70">لا توجد غيابات مرصودة لهذا اليوم</td></tr>
                 ) : (
                   absences.map(a => {
                     const student = students.find(s => s.national_id === a.student_id);
                     return (
                       <tr key={a.id} className={`${isFull ? 'text-2xl h-24' : 'text-base'} hover:bg-white/[0.02]`}>
                          <td className="py-5 px-6 font-black text-white">{a.student_name}</td>
-                         <td className="py-5 px-6 font-black text-slate-300">ظ„ط¬ظ†ط© {a.committee_number}</td>
+                         <td className="py-5 px-6 font-black text-slate-300">لجنة {a.committee_number}</td>
                          <td className="py-5 px-6 font-bold text-slate-400">{student?.grade}</td>
                          <td className="py-5 px-6">
                             <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black ${a.type === 'ABSENT' ? 'bg-red-500' : 'bg-amber-500'} text-white`}>
-                               {a.type === 'ABSENT' ? 'ط؛ط§ط¦ط¨' : 'ظ…طھط£ط®ط±'}
+                               {a.type === 'ABSENT' ? 'غائب' : 'متأخر'}
                             </span>
                           </td>
                          <td className="py-5 px-6 text-left font-black text-orange-300 font-mono">
@@ -198,11 +198,11 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
   );
 
   const ReportsPanel = ({ isFull = false }) => (
-    <div className={`bg-white/[0.03] border border-white/10 rounded-[3.5rem] p-8 flex flex-col shadow-2xl transition-all duration-500 ${isFull ? 'h-full' : 'flex-1 overflow-hidden'}`}>
+    <div className={`tv-panel tv-reports-panel bg-white/[0.03] border border-white/10 rounded-[3.5rem] p-8 flex flex-col shadow-2xl transition-all duration-500 ${isFull ? 'h-full' : 'flex-1 overflow-hidden'}`}>
        <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
              <ShieldAlert size={isFull ? 40 : 24} className="text-red-500 animate-pulse" />
-             <h2 className={`${isFull ? 'text-4xl' : 'text-xl'} font-black text-white tracking-tighter`}>ط¨ظ„ط§ط؛ط§طھ ط§ظ„ط¹ظ…ظ„ظٹط§طھ ط§ظ„ظٹظˆظ…ظٹط©</h2>
+             <h2 className={`${isFull ? 'text-4xl' : 'text-xl'} font-black text-white tracking-normal`}>بلاغات العمليات اليومية</h2>
           </div>
           <button onClick={() => toggleMaximize('REPORTS')} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all">
              {isFull ? <Minimize2 size={24} className="text-orange-300" /> : <Maximize2 size={24} />}
@@ -212,13 +212,13 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
           {sortedRequests.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-700 opacity-20">
                <CheckCircle2 size={isFull ? 120 : 64} />
-               <p className="font-black italic mt-4">ظ„ط§ طھظˆط¬ط¯ ط¨ظ„ط§ط؛ط§طھ ط§ظ„ظٹظˆظ…</p>
+               <p className="font-black mt-4">لا توجد بلاغات اليوم</p>
             </div>
           ) : (
             sortedRequests.map((req) => (
               <div key={req.id} className={`p-6 rounded-[2.5rem] border-2 transition-all duration-700 ${req.status === 'DONE' ? 'opacity-30' : 'bg-red-600/10 border-red-500/30 shadow-[0_0_20px_rgba(220,38,38,0.1)]'}`}>
                  <div className="flex justify-between items-start mb-3">
-                    <div className="bg-slate-900 text-white px-4 py-2 rounded-xl font-black text-lg">ظ„ط¬ظ†ط© {req.committee}</div>
+                    <div className="bg-slate-900 text-white px-4 py-2 rounded-xl font-black text-lg">لجنة {req.committee}</div>
                     <span className="text-[10px] font-mono text-slate-500">{new Date(req.time).toLocaleTimeString('ar-SA')}</span>
                  </div>
                  <p className={`${isFull ? 'text-3xl' : 'text-lg'} font-black text-white leading-relaxed`}>{req.text}</p>
@@ -231,29 +231,29 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
   );
 
   return (
-    <div className="fixed inset-0 bg-[#020617] text-white overflow-hidden font-['Tajawal'] z-[100] flex flex-col p-4 dir-rtl text-right">
-      <div className="flex justify-between items-center h-24 mb-4 border-b border-white/5 pb-4">
-        <div className="bg-white/[0.03] border border-white/10 rounded-[2rem] px-8 py-3 flex items-center gap-6 shadow-2xl backdrop-blur-md">
+    <div className="tv-monitor fixed inset-0 bg-[#020617] text-white overflow-hidden font-['Tajawal'] z-[100] flex flex-col p-4 dir-rtl text-right">
+      <div className="tv-topbar flex justify-between items-center h-24 mb-4 border-b border-white/5 pb-4">
+        <div className="tv-time-card bg-white/[0.03] border border-white/10 rounded-[2rem] px-8 py-3 flex items-center gap-6 shadow-2xl backdrop-blur-md">
            <MonitorPlay className="text-orange-400" size={32} />
-           <div className="text-4xl font-black tabular-nums tracking-widest text-orange-300 font-mono">
-              {currentTime.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/[طµظ…]/, '')}
+           <div className="tv-clock text-4xl font-black tabular-nums tracking-widest text-orange-300 font-mono">
+              {currentTime.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
            </div>
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="tv-progress flex-1 flex flex-col items-center justify-center">
            <div className="flex items-center gap-6">
-              <span className="text-4xl font-black text-white">{stats.progress}%</span>
-              <div className="w-96 h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 shadow-inner">
+              <span className="tv-progress-number text-4xl font-black text-white">{stats.progress}%</span>
+              <div className="tv-progress-bar w-96 h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 shadow-inner">
                  <div className="h-full bg-gradient-to-l from-orange-600 via-amber-400 to-emerald-400 transition-all duration-1000 shadow-[0_0_24px_rgba(249,115,22,0.55)]" style={{ width: `${stats.progress}%` }}></div>
               </div>
            </div>
-           <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] mt-2">ظ…ط¹ط¯ظ„ ط§ظ„ط¥ظ†ط¬ط§ط² ط§ظ„ظ…ظٹط¯ط§ظ†ظٹ ط§ظ„ظ†ط´ط·</p>
+           <p className="text-sm font-black text-slate-200 mt-2">معدل الإنجاز الميداني النشط</p>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="tv-status flex items-center gap-6">
            <div className="hidden xl:flex bg-white/[0.03] border border-white/10 rounded-[2rem] p-2 gap-2">
               {[
-                { id: 'split', label: 'طھظ‚ط³ظٹظ…', icon: LayoutPanelTop },
-                { id: 'map', label: 'ط§ظ„ط®ط±ظٹط·ط©', icon: LayoutGrid },
-                { id: 'alerts', label: 'ط§ظ„ط¨ظ„ط§ط؛ط§طھ', icon: Bell },
+                { id: 'split', label: 'تقسيم', icon: LayoutPanelTop },
+                { id: 'map', label: 'الخريطة', icon: LayoutGrid },
+                { id: 'alerts', label: 'البلاغات', icon: Bell },
               ].map(item => (
                 <button key={item.id} onClick={() => { setScreenMode(item.id as any); setMaximizedPanel(null); }} className={`px-4 py-3 rounded-2xl text-[10px] font-black flex items-center gap-2 transition-all ${screenMode === item.id ? 'bg-orange-500 text-white shadow-[0_0_24px_rgba(249,115,22,0.35)]' : 'text-slate-400 hover:bg-white/5'}`}>
                   <item.icon size={16} />
@@ -261,43 +261,43 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
                 </button>
               ))}
               <button onClick={() => setIsCompact(v => !v)} className={`px-4 py-3 rounded-2xl text-[10px] font-black transition-all ${isCompact ? 'bg-white text-slate-950' : 'text-slate-400 hover:bg-white/5'}`}>
-                طھظƒط«ظٹظپ
+                تكثيف
               </button>
               <button onClick={() => setShowTicker(v => !v)} className={`px-4 py-3 rounded-2xl text-[10px] font-black transition-all ${showTicker ? 'bg-white text-slate-950' : 'text-slate-400 hover:bg-white/5'}`}>
-                ط§ظ„ط´ط±ظٹط·
+                الشريط
               </button>
            </div>
            <div className="text-right">
               <span className="bg-emerald-400/10 text-emerald-400 px-6 py-2 rounded-full border border-emerald-400/20 text-[10px] font-black flex items-center gap-3">
-                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div> ط§ظ„ط¨ط« ط§ظ„ظ…ط¨ط§ط´ط± ظ†ط´ط·
+                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div> البث المباشر نشط
               </span>
-              <p className="text-slate-500 font-bold text-[10px] mt-2 mr-2">طھط§ط±ظٹط® ط§ظ„ظٹظˆظ…: {activeDate}</p>
+              <p className="text-slate-300 font-bold text-xs mt-2 mr-2">تاريخ اليوم: {activeDate}</p>
            </div>
         </div>
       </div>
       {showTicker && (
-        <div className="mb-4 flex items-center gap-4 overflow-hidden rounded-[1.5rem] border border-orange-400/20 bg-orange-500/10 px-5 py-3 text-orange-100">
+        <div className="tv-ticker mb-4 flex items-center gap-4 overflow-hidden rounded-[1.5rem] border border-orange-400/20 bg-orange-500/10 px-5 py-3 text-orange-100">
           <Truck size={26} className="text-orange-300 animate-bounce" />
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-black uppercase tracking-widest text-orange-300">ط­ط§ظ„ط© ظ…طھط¬ظ‡ ظ„ظ„ظƒظ†طھط±ظˆظ„</p>
+            <p className="text-xs font-black tracking-normal text-orange-300">حالة متجه للكنترول</p>
             <p className="truncate text-sm font-black">
-              ط§ظ„ظ„ظˆظ† ط§ظ„ط¨ط±طھظ‚ط§ظ„ظٹ ط§ظ„ظˆط§ظ…ط¶ ظٹط¹ظ†ظٹ ط£ظ† ط£ظˆط±ط§ظ‚ ط§ظ„ظ„ط¬ظ†ط© ظپظٹ ط·ط±ظٹظ‚ظ‡ط§ ظ„ظ„ظƒظ†طھط±ظˆظ„ ظˆظ„ظ… طھظƒطھظ…ظ„ ط§ظ„ظ…ط·ط§ط¨ظ‚ط© ط§ظ„ظ†ظ‡ط§ط¦ظٹط© ط¨ط¹ط¯.
+              اللون البرتقالي الوامض يعني أن أوراق اللجنة في طريقها للكنترول ولم تكتمل المطابقة النهائية بعد.
             </p>
           </div>
         </div>
       )}
 
-      <div className={`${screenMode === 'map' ? 'flex-1 overflow-hidden' : screenMode === 'alerts' ? 'flex-1 grid grid-cols-12 gap-6 overflow-hidden' : 'flex-1 grid grid-cols-12 gap-6 overflow-hidden'}`}>
+      <div className={`tv-layout ${screenMode === 'map' ? 'flex-1 overflow-hidden' : screenMode === 'alerts' ? 'flex-1 grid grid-cols-12 gap-6 overflow-hidden' : 'flex-1 grid grid-cols-12 gap-6 overflow-hidden'}`}>
         {screenMode !== 'map' && (
-        <div className={`${screenMode === 'alerts' ? 'col-span-4' : 'col-span-3'} flex flex-col gap-6 overflow-hidden`}>
-          <div className="grid grid-cols-1 gap-4">
+        <div className={`tv-sidebar ${screenMode === 'alerts' ? 'col-span-4' : 'col-span-3'} flex flex-col gap-6 overflow-hidden`}>
+          <div className="tv-stats-grid grid grid-cols-1 gap-4">
              {[
-               { icon: Users, color: 'text-orange-300', bg: 'bg-orange-500/10', val: stats.totalComs, label: 'ط¥ط¬ظ…ط§ظ„ظٹ ط§ظ„ظ„ط¬ط§ظ†' },
-               { icon: PackageCheck, color: 'text-emerald-500', bg: 'bg-emerald-600/10', val: stats.completed, label: 'ظ„ط¬ط§ظ† ظ…ظ†طھظ‡ظٹط©' },
-               { icon: Timer, color: 'text-amber-500', bg: 'bg-amber-600/10', val: stats.lates, label: 'ط­ط§ظ„ط§طھ طھط£ط®ط±' },
-               { icon: UserX, color: 'text-red-500', bg: 'bg-red-600/10', val: stats.absents, label: 'ط­ط§ظ„ط§طھ ط؛ظٹط§ط¨' }
+               { icon: Users, color: 'text-orange-300', bg: 'bg-orange-500/10', val: stats.totalComs, label: 'إجمالي اللجان' },
+               { icon: PackageCheck, color: 'text-emerald-500', bg: 'bg-emerald-600/10', val: stats.completed, label: 'لجان منتهية' },
+               { icon: Timer, color: 'text-amber-500', bg: 'bg-amber-600/10', val: stats.lates, label: 'حالات تأخر' },
+               { icon: UserX, color: 'text-red-500', bg: 'bg-red-600/10', val: stats.absents, label: 'حالات غياب' }
              ].map((s, i) => (
-                <div key={i} className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-6 flex items-center justify-between group hover:bg-white/[0.05] transition-all shadow-xl">
+                <div key={i} className="tv-stat-card bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-6 flex items-center justify-between group hover:bg-white/[0.05] transition-all shadow-xl">
                    <div className="text-right">
                       <p className="text-5xl font-black tabular-nums leading-none tracking-tighter mb-2">{s.val}</p>
                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">{s.label}</p>
@@ -309,14 +309,202 @@ const ControlRoomMonitor: React.FC<Props> = ({ absences, supervisions, users, de
           {screenMode !== 'alerts' && maximizedPanel !== 'REPORTS' && <ReportsPanel />}
         </div>
         )}
-        <div className={`${screenMode === 'map' ? 'h-full' : screenMode === 'alerts' ? 'col-span-8' : 'col-span-9'} flex flex-col gap-6 overflow-hidden`}>
+        <div className={`tv-main-area ${screenMode === 'map' ? 'h-full' : screenMode === 'alerts' ? 'col-span-8' : 'col-span-9'} flex flex-col gap-6 overflow-hidden`}>
           {screenMode === 'map' ? <MapPanel isFull /> : screenMode === 'alerts' ? <ReportsPanel isFull /> : maximizedPanel === 'MAP' ? <MapPanel isFull /> : maximizedPanel === 'ABSENCES' ? <AbsencesPanel isFull /> : maximizedPanel === 'REPORTS' ? <ReportsPanel isFull /> : <><MapPanel /><AbsencesPanel /></>}
         </div>
       </div>
       <style>{`
+        .tv-monitor {
+          padding: clamp(10px, 1.15vw, 22px);
+          gap: clamp(8px, 0.8vw, 16px);
+          inset: 0 !important;
+          width: 100vw;
+          height: 100dvh;
+          max-width: 100vw;
+        }
+        .tv-topbar {
+          display: grid;
+          grid-template-columns: minmax(240px, 0.95fr) minmax(280px, 1.2fr) minmax(220px, 0.9fr);
+          gap: clamp(10px, 1.2vw, 24px);
+          height: auto;
+          min-height: clamp(72px, 8.5vh, 112px);
+          align-items: center;
+          margin-bottom: clamp(8px, 0.8vw, 16px);
+          padding-bottom: clamp(8px, 0.8vw, 16px);
+        }
+        .tv-time-card {
+          padding: clamp(10px, 1vw, 18px) clamp(16px, 1.8vw, 32px);
+          border-radius: clamp(20px, 2vw, 32px);
+          gap: clamp(10px, 1vw, 24px);
+          justify-self: end;
+        }
+        .tv-clock {
+          font-size: clamp(1.55rem, 2.8vw, 3.15rem);
+          letter-spacing: 0;
+          white-space: nowrap;
+        }
+        .tv-progress-number {
+          font-size: clamp(1.7rem, 2.8vw, 3.2rem);
+          line-height: 1;
+        }
+        .tv-progress-bar {
+          width: clamp(170px, 28vw, 430px);
+        }
+        .tv-status {
+          justify-self: start;
+          min-width: 0;
+        }
+        .tv-ticker {
+          min-height: clamp(44px, 5vh, 64px);
+          padding: clamp(10px, 1vw, 16px) clamp(14px, 1.6vw, 24px);
+        }
+        .tv-layout {
+          min-height: 0;
+          gap: clamp(12px, 1.25vw, 28px);
+        }
+        .tv-sidebar,
+        .tv-main-area {
+          min-height: 0;
+          gap: clamp(12px, 1.15vw, 24px);
+        }
+        .tv-panel {
+          border-radius: clamp(24px, 3vw, 56px);
+          padding: clamp(16px, 1.7vw, 40px);
+          min-height: 0;
+        }
+        .tv-map-panel:not(.h-full) {
+          height: auto !important;
+          flex: 1.15 1 0;
+        }
+        .tv-absences-panel:not(.h-full) {
+          height: auto !important;
+          flex: 0.85 1 0;
+        }
+        .tv-panel-head {
+          gap: clamp(10px, 1vw, 18px);
+          margin-bottom: clamp(14px, 1.6vw, 32px);
+        }
+        .tv-panel-head h2,
+        .tv-panel-head h3 {
+          font-size: clamp(1.45rem, 2.5vw, 3.6rem);
+          line-height: 1.1;
+        }
+        .tv-legend {
+          flex-wrap: wrap;
+          justify-content: center;
+          row-gap: 8px;
+          column-gap: clamp(12px, 1.5vw, 24px);
+          font-size: clamp(0.5rem, 0.62vw, 0.72rem);
+          padding: 8px clamp(12px, 1.4vw, 24px);
+          letter-spacing: 0;
+        }
+        .tv-committee-grid {
+          gap: clamp(8px, 1vw, 18px);
+        }
+        .tv-committee-cell {
+          border-radius: clamp(18px, 2vw, 32px);
+          min-width: 0;
+        }
+        .tv-stat-card {
+          padding: clamp(16px, 1.45vw, 28px);
+          border-radius: clamp(22px, 2.4vw, 40px);
+        }
+        .tv-stat-card p:first-child {
+          font-size: clamp(2rem, 3.2vw, 4rem);
+        }
+        .tv-stat-card p:last-child {
+          color: rgb(203 213 225);
+          font-size: clamp(0.62rem, 0.75vw, 0.9rem);
+          letter-spacing: 0;
+        }
         @keyframes orangeFlash {
           0%, 100% { filter: brightness(1); transform: scale(1.03); }
           50% { filter: brightness(1.35); transform: scale(1.09); }
+        }
+        @media (min-width: 1500px) {
+          .tv-layout {
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+          }
+          .tv-committee-grid {
+            grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+          }
+        }
+        @media (max-width: 1280px) {
+          .tv-topbar {
+            grid-template-columns: minmax(210px, 0.92fr) minmax(230px, 1fr) minmax(190px, 0.78fr);
+          }
+          .tv-time-card,
+          .tv-status {
+            justify-self: stretch;
+          }
+          .tv-layout {
+            grid-template-columns: minmax(210px, 26%) minmax(0, 1fr) !important;
+          }
+          .tv-sidebar {
+            grid-column: auto / span 1 !important;
+          }
+          .tv-main-area {
+            grid-column: auto / span 1 !important;
+          }
+          .tv-committee-grid {
+            grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+          }
+          .tv-sidebar .tv-reports-panel {
+            display: none;
+          }
+        }
+        @media (max-width: 980px) {
+          .tv-monitor {
+            overflow-y: auto;
+          }
+          .tv-topbar {
+            grid-template-columns: 1fr;
+          }
+          .tv-progress {
+            grid-column: 1 / -1;
+          }
+          .tv-layout {
+            display: flex !important;
+            flex-direction: column;
+            overflow: visible;
+          }
+          .tv-sidebar,
+          .tv-main-area {
+            overflow: visible;
+          }
+          .tv-stats-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+          }
+          .tv-stat-card {
+            min-height: 110px;
+          }
+          .tv-map-panel,
+          .tv-absences-panel,
+          .tv-reports-panel {
+            height: auto !important;
+            min-height: 360px;
+          }
+          .tv-committee-grid {
+            grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+          }
+          .tv-ticker p:last-child {
+            white-space: normal;
+          }
+        }
+        @media (max-width: 760px) {
+          .tv-stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+          .tv-committee-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+          }
+          .tv-panel-head {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+          .tv-legend {
+            width: 100%;
+          }
         }
       `}</style>
     </div>
