@@ -1158,50 +1158,51 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
           const isLate = status?.type === "LATE";
           const receipt = getAbsenceReceipt(status);
           const isReceivedStatus = Boolean(status && receipt);
+          const receivedTone = status?.type === "LATE" ? "late" : "absent";
           return (
             <div
               key={s.id}
               className={`p-6 md:p-8 rounded-[3.5rem] border transition-all duration-300 relative flex flex-col justify-between min-h-[300px] overflow-hidden group 
-                ${isReceivedStatus ? "bg-gradient-to-br from-red-50 via-white to-red-50 border-red-200 shadow-2xl shadow-red-500/15 scale-100" :
+                ${isReceivedStatus ? (receivedTone === "late" ? "bg-gradient-to-br from-amber-50 via-white to-amber-50 border-amber-200 shadow-2xl shadow-amber-500/15 scale-100" : "bg-gradient-to-br from-red-50 via-white to-red-50 border-red-200 shadow-2xl shadow-red-500/15 scale-100") :
                   isAbsent ? "bg-slate-50 opacity-60 grayscale-[0.5] border-transparent shadow-none scale-95" : 
                   isLate ? "bg-gradient-to-br from-amber-50 to-white shadow-xl shadow-amber-500/10 border-amber-100" : 
                   "bg-white/80 backdrop-blur-3xl shadow-2xl border-white hover:border-blue-100"}`}
             >
-              {isReceivedStatus && <div className="absolute inset-x-0 top-0 h-2 bg-red-600"></div>}
+              {isReceivedStatus && <div className={`absolute inset-x-0 top-0 h-2 ${receivedTone === "late" ? "bg-amber-500" : "bg-red-600"}`}></div>}
               {isLate && <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 blur-3xl rounded-full"></div>}
-              {isReceivedStatus && <div className="absolute top-0 right-0 w-44 h-44 bg-red-500/10 blur-3xl rounded-full"></div>}
+              {isReceivedStatus && <div className={`absolute top-0 right-0 w-44 h-44 ${receivedTone === "late" ? "bg-amber-500/10" : "bg-red-500/10"} blur-3xl rounded-full`}></div>}
               {(!isAbsent && !isLate) && <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-3xl rounded-full"></div>}
 
               <div className="relative z-10 flex justify-between items-start mb-6">
                 <div
-                  className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform ${isReceivedStatus ? "bg-red-600 text-white shadow-red-500/30" : isAbsent ? "bg-slate-300 text-slate-500 shadow-none" : isLate ? "bg-amber-500 text-white shadow-amber-500/30" : "bg-emerald-500 text-white shadow-emerald-500/30"}`}
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform ${isReceivedStatus ? (receivedTone === "late" ? "bg-amber-500 text-white shadow-amber-500/30" : "bg-red-600 text-white shadow-red-500/30") : isAbsent ? "bg-slate-300 text-slate-500 shadow-none" : isLate ? "bg-amber-500 text-white shadow-amber-500/30" : "bg-emerald-500 text-white shadow-emerald-500/30"}`}
                 >
                   <GraduationCap size={28} />
                 </div>
                 <span
-                  className={`px-4 py-1.5 rounded-xl font-black text-[10px] shadow-lg uppercase tracking-widest ${isReceivedStatus ? "bg-red-600 text-white shadow-red-500/20" : isAbsent ? "bg-slate-300 text-slate-600 shadow-none" : isLate ? "bg-amber-500 text-white shadow-amber-500/20" : "bg-emerald-100 text-emerald-700 shadow-none border border-emerald-200"}`}
+                  className={`px-4 py-1.5 rounded-xl font-black text-[10px] shadow-lg uppercase tracking-widest ${isReceivedStatus ? (receivedTone === "late" ? "bg-amber-500 text-white shadow-amber-500/20" : "bg-red-600 text-white shadow-red-500/20") : isAbsent ? "bg-slate-300 text-slate-600 shadow-none" : isLate ? "bg-amber-500 text-white shadow-amber-500/20" : "bg-emerald-100 text-emerald-700 shadow-none border border-emerald-200"}`}
                 >
                   {status ? (receipt ? `مستلم - ${getAbsenceKindLabel(status.type)}` : isAbsent ? "تم طي القيد - غائب" : "متأخر") : "حاضر"}
                 </span>
               </div>
               <div className="relative z-10 flex-1 text-right space-y-3 px-2">
-                <h4 className={`text-2xl font-black break-words leading-tight ${isReceivedStatus ? "text-red-950" : isAbsent ? "text-slate-500 line-through decoration-slate-300 decoration-2" : "text-slate-900"}`}>
+                <h4 className={`text-2xl font-black break-words leading-tight ${isReceivedStatus ? (receivedTone === "late" ? "text-amber-950" : "text-red-950") : isAbsent ? "text-slate-500 line-through decoration-slate-300 decoration-2" : "text-slate-900"}`}>
                   {s.name}
                 </h4>
                 <div className="flex items-center gap-2">
-                  <span className={`px-3 py-1 rounded-lg text-[9px] font-black ${isReceivedStatus ? "bg-red-100 text-red-700" : isAbsent ? "bg-slate-200 text-slate-400" : "bg-slate-100 text-slate-500"}`}>
+                  <span className={`px-3 py-1 rounded-lg text-[9px] font-black ${isReceivedStatus ? (receivedTone === "late" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700") : isAbsent ? "bg-slate-200 text-slate-400" : "bg-slate-100 text-slate-500"}`}>
                     {s.grade} - فصل {s.section}
                   </span>
-                  <span className={`px-3 py-1 rounded-lg text-[9px] font-black tabular-nums border ${isReceivedStatus ? "bg-white text-red-700 border-red-100" : isAbsent ? "bg-slate-200 text-slate-400 border-transparent" : "bg-white text-slate-600 border-slate-200"}`}>
+                  <span className={`px-3 py-1 rounded-lg text-[9px] font-black tabular-nums border ${isReceivedStatus ? (receivedTone === "late" ? "bg-white text-amber-700 border-amber-100" : "bg-white text-red-700 border-red-100") : isAbsent ? "bg-slate-200 text-slate-400 border-transparent" : "bg-white text-slate-600 border-slate-200"}`}>
                     جلوس: {s.seating_number || '-'}
                   </span>
                 </div>
                 {status && (
                   receipt ? (
-                    <div className="rounded-3xl border-2 border-red-200 bg-red-600 px-5 py-4 text-white shadow-xl shadow-red-500/20">
+                    <div className={`rounded-3xl border-2 px-5 py-4 text-white shadow-xl ${receivedTone === "late" ? "border-amber-200 bg-amber-500 shadow-amber-500/20" : "border-red-200 bg-red-600 shadow-red-500/20"}`}>
                       <p className="text-xs font-black">تم استلام {getAbsenceKindLabel(status.type)}</p>
                       <p className="mt-2 text-sm font-black leading-6">المستلم: {receipt.role} - {receipt.by}</p>
-                      <p className="mt-1 text-xs font-bold text-red-100">الوقت: {new Date(receipt.at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</p>
+                      <p className={`mt-1 text-xs font-bold ${receivedTone === "late" ? "text-amber-50" : "text-red-100"}`}>الوقت: {new Date(receipt.at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
                   ) : (
                     <div className="rounded-2xl border px-4 py-3 text-[10px] font-black bg-orange-50 text-orange-700 border-orange-100">
