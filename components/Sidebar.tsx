@@ -54,6 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'daily-reports', label: 'التقارير اليومية', icon: FileSpreadsheet },
     { id: 'official-forms', label: 'النماذج (الغياب والتأخير)', icon: FileText },
     { id: 'envelope-opening', label: 'فتح المظاريف', icon: Inbox },
+    { id: 'paper-logs', label: 'استلام المظاريف', icon: Inbox },
     { id: 'envelope-labels', label: 'ملصقات المظاريف', icon: QrCode },
     { id: 'settings', label: 'إعدادات النظام', icon: Settings },
   ];
