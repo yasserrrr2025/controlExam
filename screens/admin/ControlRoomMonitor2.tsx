@@ -478,7 +478,7 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
                     {c.status === 'submitted' && <Truck className="absolute left-4 top-4 animate-bounce text-white/80" size={26} />}
                     {c.status === 'alert' && <BellRing className="absolute left-4 top-4 animate-pulse text-white" size={26} />}
                     {c.status === 'submitted' && (c.hasPendingAlert || c.hasInProgressAlert) && (
-                      <div className="absolute right-4 top-4 flex items-center gap-1 rounded-full bg-red-600 px-3 py-1 text-[10px] font-black text-white shadow-[0_0_18px_rgba(220,38,38,.55)]">
+                      <div className="absolute left-3 top-12 flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 text-[9px] font-black text-white shadow-[0_0_18px_rgba(220,38,38,.55)]">
                         <BellRing size={12} />
                         بلاغ
                       </div>
