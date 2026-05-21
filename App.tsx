@@ -28,6 +28,7 @@ import EnvelopeLabelsPrint from './screens/admin/EnvelopeLabelsPrint';
 import DoorLabelsPrint from './screens/admin/DoorLabelsPrint';
 import CommitteePublicView from './screens/public/CommitteePublicView';
 import StudentCommitteeInquiry from './screens/public/StudentCommitteeInquiry';
+import SupervisionVerification from './screens/public/SupervisionVerification';
 import { buildAbsenceReceiptNote, getAbsenceKindLabel } from './services/absenceReceipt';
 import {
   BrowserNotificationPermission,
@@ -397,7 +398,7 @@ const App: React.FC = () => {
 
   if (isInitialLoading) {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('public_committee') || params.get('student_inquiry')) {
+    if (params.get('public_committee') || params.get('student_inquiry') || params.get('supervision_verify') || params.get('sv')) {
        return (
          <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-6 font-['Tajawal']" dir="rtl">
            <Loader2 size={48} className="text-blue-600 animate-spin" />
@@ -422,6 +423,12 @@ const App: React.FC = () => {
   const isStudentInquiry = new URLSearchParams(window.location.search).get('student_inquiry');
   if (isStudentInquiry) {
     return <StudentCommitteeInquiry students={students} />;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const isSupervisionVerification = params.get('supervision_verify') || params.get('sv');
+  if (isSupervisionVerification) {
+    return <SupervisionVerification supervisions={supervisions} users={users} students={students} absences={absences} deliveryLogs={deliveryLogs} />;
   }
 
   return (
