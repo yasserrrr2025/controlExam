@@ -133,7 +133,7 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
       const pendingAlert = requests.some(r => r.committee === num && r.status === 'PENDING');
       const inProgressAlert = requests.some(r => r.committee === num && r.status === 'IN_PROGRESS');
       const committeeAbsences = absences.filter(a => a.committee_number === num);
-      const status = confirmed ? 'confirmed' : pendingAlert ? 'alert' : submitted ? 'submitted' : inProgressAlert ? 'progress' : supervision ? 'active' : 'idle';
+      const status = confirmed ? 'confirmed' : submitted ? 'submitted' : pendingAlert ? 'alert' : inProgressAlert ? 'progress' : supervision ? 'active' : 'idle';
       const receiptLog = logs.find(l => l.status === 'CONFIRMED');
       const closeLog = logs.find(l => l.status === 'PENDING');
 
@@ -144,6 +144,8 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
         totalStudents: committeeStudents.length,
         absents: committeeAbsences.filter(a => a.type === 'ABSENT').length,
         lates: committeeAbsences.filter(a => a.type === 'LATE').length,
+        hasPendingAlert: pendingAlert,
+        hasInProgressAlert: inProgressAlert,
         status,
         joinedAt: supervision?.date,
         closedAt: closeLog?.time,
@@ -475,6 +477,12 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
                     <div className="absolute -left-8 -top-8 h-24 w-24 rounded-full bg-white/20 blur-2xl" />
                     {c.status === 'submitted' && <Truck className="absolute left-4 top-4 animate-bounce text-white/80" size={26} />}
                     {c.status === 'alert' && <BellRing className="absolute left-4 top-4 animate-pulse text-white" size={26} />}
+                    {c.status === 'submitted' && (c.hasPendingAlert || c.hasInProgressAlert) && (
+                      <div className="absolute right-4 top-4 flex items-center gap-1 rounded-full bg-red-600 px-3 py-1 text-[10px] font-black text-white shadow-[0_0_18px_rgba(220,38,38,.55)]">
+                        <BellRing size={12} />
+                        بلاغ
+                      </div>
+                    )}
                     <div className="relative z-10 flex h-full flex-col justify-between">
                       <div>
                         <p className="text-sm font-black opacity-75">لجنة</p>
