@@ -177,6 +177,10 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
     const activeRequests = requests.filter(r => r.status !== 'DONE').length;
     const absentCount = absences.filter(a => a.type === 'ABSENT').length;
     const lateCount = absences.filter(a => a.type === 'LATE').length;
+    const totalStudents = students.length;
+    const presentCount = Math.max(0, totalStudents - absentCount);
+    const attendanceRate = totalStudents ? Math.round((presentCount / totalStudents) * 100) : 0;
+    const absenceRate = totalStudents ? Math.round((absentCount / totalStudents) * 100) : 0;
     const progress = total ? Math.round((confirmed / total) * 100) : 0;
 
     const receiptDurations = committees
@@ -213,13 +217,17 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
       activeRequests,
       absentCount,
       lateCount,
+      totalStudents,
+      presentCount,
+      attendanceRate,
+      absenceRate,
       progress,
       fastest,
       delayed,
       topAlert: topAlert ? { committee: topAlert[0], count: topAlert[1] } : null,
       attendanceHotspot,
     };
-  }, [absences, committees, requests]);
+  }, [absences, committees, requests, students.length]);
 
   const recentEvents = useMemo(() => {
     const deliveryEvents = deliveryLogs.map(log => ({
@@ -683,6 +691,24 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
                     <Timer size={54} className="mx-auto mb-4" />
                     <p className="text-7xl font-black">{insights.lateCount}</p>
                     <p className="text-sm font-black">تأخير</p>
+                  </div>
+                </div>
+                <div className="mt-5 rounded-[3rem] border border-emerald-300/20 bg-emerald-500/12 p-8 text-center text-emerald-50 shadow-[0_0_45px_rgba(16,185,129,.08)]">
+                  <UserCheck size={58} className="mx-auto mb-4 text-emerald-200" />
+                  <p className="text-[11px] font-black uppercase tracking-[0.25em] text-emerald-200/75">إجمالي الحضور</p>
+                  <p className="mt-2 text-8xl font-black leading-none tabular-nums">{insights.presentCount}</p>
+                  <p className="mt-3 text-sm font-black text-emerald-100/70">من أصل {insights.totalStudents} طالب</p>
+                </div>
+                <div className="mt-5 grid grid-cols-2 gap-5">
+                  <div className="rounded-[2.5rem] border border-cyan-300/20 bg-cyan-500/12 p-6 text-center text-cyan-50">
+                    <Gauge size={40} className="mx-auto mb-3 text-cyan-200" />
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100/70">نسبة الحضور</p>
+                    <p className="mt-2 text-6xl font-black tabular-nums">{insights.attendanceRate}%</p>
+                  </div>
+                  <div className="rounded-[2.5rem] border border-rose-300/20 bg-rose-500/12 p-6 text-center text-rose-50">
+                    <UserX size={40} className="mx-auto mb-3 text-rose-200" />
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-100/70">نسبة الغياب</p>
+                    <p className="mt-2 text-6xl font-black tabular-nums">{insights.absenceRate}%</p>
                   </div>
                 </div>
               </div>
