@@ -130,6 +130,11 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   );
 
   const activeCommittee = activeAssignment?.committee_number || null;
+  const isAssignmentStarted = (value?: string | null) => {
+    if (!value) return false;
+    const d = new Date(value);
+    return !Number.isNaN(d.getTime()) && !(d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0);
+  };
   const [confirmedAssignments, setConfirmedAssignments] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(`confirmed_assignments_${user.id}`) || '[]');
@@ -144,7 +149,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
       return {};
     }
   });
-  const activeAssignmentConfirmed = !!activeAssignment && confirmedAssignments.includes(activeAssignment.id);
+  const activeAssignmentConfirmed = !!activeAssignment && (confirmedAssignments.includes(activeAssignment.id) || isAssignmentStarted(activeAssignment.date));
   const activeAssignmentStartTime = activeAssignment
     ? assignmentStartTimes[activeAssignment.id] || activeAssignment.date
     : null;

@@ -32,6 +32,7 @@ export interface SmartDistributionItem {
   committeeNumber: string;
   teacherId: string;
   teacherName: string;
+  assignedCount: number;
   previousCount: number;
   forcedRepeat: boolean;
 }
@@ -76,9 +77,17 @@ const SmartProctorDistribution: React.FC<Props> = ({
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
 
-  const previousCounts = useMemo(() => {
+  const assignedCounts = useMemo(() => {
     return supervisions.reduce<Record<string, number>>((acc, item) => {
       acc[item.teacher_id] = (acc[item.teacher_id] || 0) + 1;
+      return acc;
+    }, {});
+  }, [supervisions]);
+  const previousCounts = useMemo(() => {
+    return supervisions.reduce<Record<string, number>>((acc, item) => {
+      const d = new Date(item.date);
+      const started = item.date && !Number.isNaN(d.getTime()) && !(d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0);
+      if (started) acc[item.teacher_id] = (acc[item.teacher_id] || 0) + 1;
       return acc;
     }, {});
   }, [supervisions]);
@@ -137,7 +146,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
       return;
     }
 
-    const runningCounts = { ...previousCounts };
+    const runningCounts = { ...assignedCounts };
     const draft: SmartDistributionItem[] = [];
 
     slots.forEach(slot => {
@@ -170,6 +179,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
           committeeNumber,
           teacherId: selected.user.id,
           teacherName: selected.user.full_name,
+          assignedCount: assignedCounts[selected.user.id] || 0,
           previousCount: previousCounts[selected.user.id] || 0,
           forcedRepeat,
         });
@@ -189,10 +199,10 @@ const SmartProctorDistribution: React.FC<Props> = ({
       if (!source || !target) return prev;
       return prev.map(item => {
         if (item.id === sourceId) {
-          return { ...item, teacherId: target.teacherId, teacherName: target.teacherName, previousCount: target.previousCount, forcedRepeat: target.forcedRepeat };
+          return { ...item, teacherId: target.teacherId, teacherName: target.teacherName, assignedCount: target.assignedCount, previousCount: target.previousCount, forcedRepeat: target.forcedRepeat };
         }
         if (item.id === targetId) {
-          return { ...item, teacherId: source.teacherId, teacherName: source.teacherName, previousCount: source.previousCount, forcedRepeat: source.forcedRepeat };
+          return { ...item, teacherId: source.teacherId, teacherName: source.teacherName, assignedCount: source.assignedCount, previousCount: source.previousCount, forcedRepeat: source.forcedRepeat };
         }
         return item;
       });
@@ -203,7 +213,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
     const usedInSlot = new Set(preview.filter(p => p.slotId === item.slotId && p.id !== item.id).map(p => p.teacherId));
     const candidate = getEligibleProctors(item.date)
       .filter(p => p.id !== item.teacherId)
-      .map(p => ({ user: p, count: previousCounts[p.id] || 0, used: usedInSlot.has(p.id) }))
+      .map(p => ({ user: p, count: assignedCounts[p.id] || 0, previous: previousCounts[p.id] || 0, used: usedInSlot.has(p.id) }))
       .sort((a, b) => {
         if (a.used !== b.used) return a.used ? 1 : -1;
         if (a.count !== b.count) return a.count - b.count;
@@ -215,7 +225,8 @@ const SmartProctorDistribution: React.FC<Props> = ({
       ...p,
       teacherId: candidate.user.id,
       teacherName: candidate.user.full_name,
-      previousCount: candidate.count,
+      assignedCount: candidate.count,
+      previousCount: candidate.previous,
       forcedRepeat: candidate.used,
     } : p));
   };
@@ -244,7 +255,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
             <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl"><Wand2 size={28} /></div>
             <div>
               <h3 className="text-2xl font-black text-slate-900">التوزيع الذكي للمراقبين</h3>
-              <p className="text-xs font-bold text-slate-400 mt-1">توزيع عادل حسب أقل عدد دخول سابق، مع استبعاد يومي ومعاينة قبل الاعتماد.</p>
+              <p className="text-xs font-bold text-slate-400 mt-1">توزيع عادل حسب عدد الإسنادات الحالية، مع إظهار المباشرات الفعلية فقط عند اعتماد اللجنة.</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -349,7 +360,8 @@ const SmartProctorDistribution: React.FC<Props> = ({
                   <th className="p-4 border-b">الفترة</th>
                   <th className="p-4 border-b">اللجنة</th>
                   <th className="p-4 border-b">اسم المراقب</th>
-                  <th className="p-4 border-b">دخول سابق</th>
+                  <th className="p-4 border-b">مسند له وقت التوزيع</th>
+                  <th className="p-4 border-b">مباشرات سابقة</th>
                   <th className="p-4 border-b">ملاحظة</th>
                   <th className="p-4 border-b print:hidden">إجراء</th>
                   <th className="p-4 border-b hidden print:table-cell">توقيع المراقب</th>
@@ -373,6 +385,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
                     <td className="p-4 font-bold tabular-nums">{item.period}</td>
                     <td className="p-4 font-black tabular-nums">{item.committeeNumber}</td>
                     <td className="p-4 font-black">{item.teacherName}</td>
+                    <td className="p-4 font-black tabular-nums">{item.assignedCount}</td>
                     <td className="p-4 font-black tabular-nums">{item.previousCount}</td>
                     <td className="p-4">
                       {item.forcedRepeat ? <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black"><Repeat size={12} className="inline ml-1" /> تكرار اضطراري</span> : <span className="text-emerald-600 text-[10px] font-black">توزيع عادل</span>}
@@ -386,7 +399,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={9} className="p-12 text-center text-slate-400 font-black">لم يتم توليد توزيع بعد.</td>
+                    <td colSpan={10} className="p-12 text-center text-slate-400 font-black">لم يتم توليد توزيع بعد.</td>
                   </tr>
                 )}
               </tbody>

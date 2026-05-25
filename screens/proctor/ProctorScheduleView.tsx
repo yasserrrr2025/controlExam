@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { CalendarDays, CheckCircle2, Clock, ListChecks, ShieldCheck, Timer } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Clock, ListChecks, ShieldCheck, UserPlus } from 'lucide-react';
 import { Supervision, SystemConfig, User } from '../../types';
 
 interface Props {
@@ -21,6 +21,17 @@ const formatDate = (value: string) => {
   });
 };
 
+const isStartedAssignment = (value: string) => {
+  const d = new Date(value);
+  return value && !Number.isNaN(d.getTime()) && !(d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0);
+};
+
+const formatTime = (value: string) => {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return 'غير محدد';
+  return d.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+};
+
 const ProctorScheduleView: React.FC<Props> = ({ user, supervisions, systemConfig }) => {
   const today = systemConfig?.active_exam_date || new Date().toISOString().slice(0, 10);
   const myAssignments = useMemo(
@@ -36,15 +47,15 @@ const ProctorScheduleView: React.FC<Props> = ({ user, supervisions, systemConfig
   );
 
   const todayAssignments = myAssignments.filter(item => dateKey(item.date) === today);
-  const upcomingAssignments = myAssignments.filter(item => dateKey(item.date) > today);
   const pastAssignments = myAssignments.filter(item => dateKey(item.date) < today);
-  const totalDates = new Set(myAssignments.map(item => dateKey(item.date))).size;
+  const startedAssignments = myAssignments.filter(item => isStartedAssignment(item.date));
+  const emergencyAssignments = myAssignments.filter(item => String(item.subject || '').includes('بديل'));
 
   const stats = [
     { label: 'إجمالي لجانك', value: myAssignments.length, icon: ListChecks, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'اختبارات قادمة', value: upcomingAssignments.length, icon: CalendarDays, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'مباشرات فعلية', value: startedAssignments.length, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { label: 'لجان اليوم', value: todayAssignments.length, icon: ShieldCheck, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { label: 'أيام مراقبة', value: totalDates, icon: Timer, color: 'text-violet-600', bg: 'bg-violet-50' },
+    { label: 'بديل طارئ', value: emergencyAssignments.length, icon: UserPlus, color: 'text-violet-600', bg: 'bg-violet-50' },
   ];
 
   return (
@@ -100,7 +111,9 @@ const ProctorScheduleView: React.FC<Props> = ({ user, supervisions, systemConfig
             const key = dateKey(item.date);
             const isToday = key === today;
             const isPast = key < today;
-            const status = isToday ? 'لجنة اليوم' : isPast ? 'منتهية' : 'قادمة';
+            const isEmergency = String(item.subject || '').includes('بديل');
+            const isStarted = isStartedAssignment(item.date);
+            const status = isEmergency ? 'بديل طارئ' : isStarted ? 'تمت المباشرة' : isToday ? 'لجنة اليوم' : isPast ? 'منتهية' : 'قادمة';
             return (
               <div
                 key={item.id}
@@ -123,10 +136,13 @@ const ProctorScheduleView: React.FC<Props> = ({ user, supervisions, systemConfig
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400">المادة / الفترة</p>
-                  <p className="font-black text-slate-900">{item.subject || 'اختبار'} - فترة {item.period || 1}</p>
+                  <p className="font-black text-slate-900">{String(item.subject || 'اختبار').replace(' - بديل طارئ', '')} - فترة {item.period || 1}</p>
+                  <p className={`text-[11px] font-black mt-2 ${isStarted ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {isStarted ? `وقت المباشرة: ${formatTime(item.date)}` : 'لم تعتمد المباشرة بعد'}
+                  </p>
                 </div>
                 <div className="flex lg:justify-end items-center">
-                  <span className={`px-4 py-2 rounded-full text-xs font-black ${isToday ? 'bg-blue-600 text-white' : isPast ? 'bg-slate-200 text-slate-600' : 'bg-emerald-100 text-emerald-700'}`}>
+                  <span className={`px-4 py-2 rounded-full text-xs font-black ${isEmergency ? 'bg-amber-500 text-white' : isStarted ? 'bg-emerald-600 text-white' : isToday ? 'bg-blue-600 text-white' : isPast ? 'bg-slate-200 text-slate-600' : 'bg-emerald-100 text-emerald-700'}`}>
                     {status}
                   </span>
                 </div>
