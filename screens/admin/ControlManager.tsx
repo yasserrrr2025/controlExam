@@ -38,10 +38,11 @@ interface ControlManagerProps {
   onRemoveSupervision: (teacherId: string) => Promise<void>;
   onAssignProctor: (teacherId: string, committeeNumber: string) => Promise<void>;
   onCommitSmartDistribution: (items: SmartDistributionItem[], replaceExisting: boolean) => Promise<void>;
+  onDeleteSmartDistributions?: (ids: string[]) => Promise<void>;
 }
 
 const ControlManager: React.FC<ControlManagerProps> = ({ 
-  users, deliveryLogs, students, onBroadcast, onUpdateUserGrades, systemConfig, absences, supervisions, smartSupervisions, requests = [], setDeliveryLogs, setSystemConfig, onRemoveSupervision, onAssignProctor, onCommitSmartDistribution
+  users, deliveryLogs, students, onBroadcast, onUpdateUserGrades, systemConfig, absences, supervisions, smartSupervisions, requests = [], setDeliveryLogs, setSystemConfig, onRemoveSupervision, onAssignProctor, onCommitSmartDistribution, onDeleteSmartDistributions
 }) => {
   const [activeTab, setActiveTab] = useState<'cockpit' | 'ops-center' | 'assignments' | 'emergency-receipt' | 'comms' | 'proctors-mgmt'>('cockpit');
   const [broadcastTarget, setBroadcastTarget] = useState<UserRole | 'ALL'>('ALL');
@@ -83,8 +84,19 @@ const ControlManager: React.FC<ControlManagerProps> = ({
   }, [users, supervisions]);
 
   const proctorsListForModal = useMemo(() => {
-    return users.filter(u => u.role === 'PROCTOR' && (u.full_name.includes(proctorSearchInModal) || u.national_id.includes(proctorSearchInModal)));
-  }, [users, proctorSearchInModal]);
+    const q = proctorSearchInModal.trim();
+    return users
+      .filter(u => u.role === 'PROCTOR' && (!q || u.full_name.includes(q) || u.national_id.includes(q)))
+      .sort((a, b) => {
+        const aActive = supervisions.some(s => s.teacher_id === a.id);
+        const bActive = supervisions.some(s => s.teacher_id === b.id);
+        if (aActive !== bActive) return aActive ? 1 : -1;
+        const aCount = (smartSupervisions || supervisions).filter(s => s.teacher_id === a.id).length;
+        const bCount = (smartSupervisions || supervisions).filter(s => s.teacher_id === b.id).length;
+        if (aCount !== bCount) return aCount - bCount;
+        return a.full_name.localeCompare(b.full_name, 'ar');
+      });
+  }, [users, proctorSearchInModal, supervisions, smartSupervisions]);
 
   const handleStartNewDay = async () => {
     const today = new Date().toISOString().split('T')[0];
@@ -308,6 +320,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
              supervisions={smartSupervisions || supervisions}
              activeDate={systemConfig.active_exam_date}
              onCommit={onCommitSmartDistribution}
+             onDeleteSupervisions={onDeleteSmartDistributions}
            />
 
            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -417,6 +430,12 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                      {proctorsListForModal.map(u => {
                         const currentSv = supervisions.find(s => s.teacher_id === u.id);
                         const isCurrentInThisCom = currentSv?.committee_number === targetCommittee;
+                        const totalAssignments = (smartSupervisions || supervisions).filter(s => s.teacher_id === u.id).length;
+                        const startedAssignments = (smartSupervisions || supervisions).filter(s => {
+                          if (s.teacher_id !== u.id) return false;
+                          const d = new Date(s.date);
+                          return s.date && !Number.isNaN(d.getTime()) && !(d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0);
+                        }).length;
                         
                         return (
                            <button 
@@ -440,6 +459,10 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                                        {currentSv ? `سيتم نقله من لجنة ${currentSv.committee_number}` : 'مراقب احتياط جاهز للبدء'}
                                     </p>
                                  </div>
+                              </div>
+                              <div className="hidden md:flex flex-col gap-2 text-[10px] font-black text-slate-500">
+                                <span className="px-3 py-1 rounded-full bg-white border border-slate-100">مسند: {totalAssignments}</span>
+                                <span className="px-3 py-1 rounded-full bg-white border border-slate-100">باشر: {startedAssignments}</span>
                               </div>
                               <CheckCircle className="text-blue-600 opacity-0 group-hover:opacity-100 transition-all" size={32}/>
                            </button>

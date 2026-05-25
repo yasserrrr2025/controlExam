@@ -15,6 +15,7 @@ import {
   Wand2,
 } from 'lucide-react';
 import { Student, Supervision, User } from '../../types';
+import { supabase } from '../../supabase';
 
 export interface SmartExamSlot {
   id: string;
@@ -43,6 +44,7 @@ interface Props {
   supervisions: Supervision[];
   activeDate?: string;
   onCommit: (items: SmartDistributionItem[], replaceExisting: boolean) => Promise<void>;
+  onDeleteSupervisions?: (ids: string[]) => Promise<void>;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -53,6 +55,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
   supervisions,
   activeDate,
   onCommit,
+  onDeleteSupervisions,
 }) => {
   const committees = useMemo(
     () => Array.from(new Set(students.map(s => s.committee_number).filter(Boolean))).sort((a, b) => Number(a) - Number(b)),
@@ -74,6 +77,8 @@ const SmartProctorDistribution: React.FC<Props> = ({
   });
   const [preview, setPreview] = useState<SmartDistributionItem[]>([]);
   const [replaceExisting, setReplaceExisting] = useState(false);
+  const [distributionDateFilter, setDistributionDateFilter] = useState(activeDate || today());
+  const [distributionSubjectFilter, setDistributionSubjectFilter] = useState('');
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
 
@@ -114,6 +119,41 @@ const SmartProctorDistribution: React.FC<Props> = ({
     return proctors.filter(p => !excluded.includes(p.id));
   };
   const eligibleProctors = getEligibleProctors(selectedExclusionDate);
+  const subjectOptions = useMemo(
+    () => Array.from(new Set(supervisions.map(s => s.subject || 'اختبار').filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ar')),
+    [supervisions],
+  );
+  const committedRows = useMemo(() => {
+    return supervisions
+      .filter(s => !distributionDateFilter || s.date?.slice(0, 10) === distributionDateFilter)
+      .filter(s => !distributionSubjectFilter || (s.subject || 'اختبار') === distributionSubjectFilter)
+      .map(s => {
+        const teacher = users.find(u => u.id === s.teacher_id);
+        const assignedCount = supervisions.filter(x => x.teacher_id === s.teacher_id).length;
+        const previousCount = supervisions.filter(x => {
+          if (x.teacher_id !== s.teacher_id) return false;
+          const d = new Date(x.date);
+          return x.date && !Number.isNaN(d.getTime()) && !(d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0);
+        }).length;
+        return {
+          id: s.id,
+          date: s.date?.slice(0, 10) || '',
+          subject: s.subject || 'اختبار',
+          period: s.period || 1,
+          committeeNumber: s.committee_number,
+          teacherName: teacher?.full_name || 'مراقب غير معروف',
+          assignedCount,
+          previousCount,
+        };
+      })
+      .sort((a, b) => {
+        const byDate = a.date.localeCompare(b.date);
+        if (byDate !== 0) return byDate;
+        const byPeriod = a.period - b.period;
+        if (byPeriod !== 0) return byPeriod;
+        return Number(a.committeeNumber) - Number(b.committeeNumber);
+      });
+  }, [supervisions, users, distributionDateFilter, distributionSubjectFilter]);
   const toggleExcluded = (date: string, userId: string) => {
     setExcludedByDate(prev => {
       const current = prev[date] || [];
@@ -153,23 +193,27 @@ const SmartProctorDistribution: React.FC<Props> = ({
       const usedThisDay = new Set<string>();
       const eligibleProctors = getEligibleProctors(slot.date);
       if (!eligibleProctors.length) return;
-      committees.forEach(committeeNumber => {
+      const randomizedCommittees = [...committees].sort(() => Math.random() - 0.5);
+      randomizedCommittees.forEach(committeeNumber => {
         const pool = eligibleProctors
           .map(p => ({
             user: p,
             count: runningCounts[p.id] || 0,
             usedToday: usedThisDay.has(p.id),
+            sameCommittee: supervisions.some(s => s.teacher_id === p.id && s.committee_number === committeeNumber),
+            random: Math.random(),
           }))
           .sort((a, b) => {
             if (a.usedToday !== b.usedToday) return a.usedToday ? 1 : -1;
+            if (a.sameCommittee !== b.sameCommittee) return a.sameCommittee ? 1 : -1;
             if (a.count !== b.count) return a.count - b.count;
-            return a.user.full_name.localeCompare(b.user.full_name, 'ar');
+            return a.random - b.random;
           });
 
         const selected = pool[0];
         if (!selected) return;
 
-        const forcedRepeat = selected.usedToday;
+        const forcedRepeat = selected.usedToday || selected.sameCommittee;
         draft.push({
           id: crypto.randomUUID(),
           slotId: slot.id,
@@ -213,11 +257,19 @@ const SmartProctorDistribution: React.FC<Props> = ({
     const usedInSlot = new Set(preview.filter(p => p.slotId === item.slotId && p.id !== item.id).map(p => p.teacherId));
     const candidate = getEligibleProctors(item.date)
       .filter(p => p.id !== item.teacherId)
-      .map(p => ({ user: p, count: assignedCounts[p.id] || 0, previous: previousCounts[p.id] || 0, used: usedInSlot.has(p.id) }))
+      .map(p => ({
+        user: p,
+        count: assignedCounts[p.id] || 0,
+        previous: previousCounts[p.id] || 0,
+        used: usedInSlot.has(p.id),
+        sameCommittee: supervisions.some(s => s.teacher_id === p.id && s.committee_number === item.committeeNumber),
+        random: Math.random(),
+      }))
       .sort((a, b) => {
         if (a.used !== b.used) return a.used ? 1 : -1;
+        if (a.sameCommittee !== b.sameCommittee) return a.sameCommittee ? 1 : -1;
         if (a.count !== b.count) return a.count - b.count;
-        return a.user.full_name.localeCompare(b.user.full_name, 'ar');
+        return a.random - b.random;
       })[0];
 
     if (!candidate) return;
@@ -227,12 +279,26 @@ const SmartProctorDistribution: React.FC<Props> = ({
       teacherName: candidate.user.full_name,
       assignedCount: candidate.count,
       previousCount: candidate.previous,
-      forcedRepeat: candidate.used,
+      forcedRepeat: candidate.used || candidate.sameCommittee,
     } : p));
   };
 
   const printReport = () => {
     window.print();
+  };
+
+  const deleteSupervisionRows = async (ids: string[]) => {
+    if (!ids.length) return;
+    if (onDeleteSupervisions) {
+      await onDeleteSupervisions(ids);
+      return;
+    }
+    const { error } = await supabase.from('supervision').delete().in('id', ids);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    window.location.reload();
   };
 
   const commitPreview = async () => {
@@ -412,6 +478,96 @@ const SmartProctorDistribution: React.FC<Props> = ({
             </div>
           )}
         </div>
+      </div>
+
+      <div className="bg-white rounded-[3rem] border border-slate-100 shadow-xl overflow-hidden print:shadow-none print:rounded-none print:border-black">
+        <div className="p-6 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4 no-print">
+          <div>
+            <h3 className="text-xl font-black flex items-center gap-2"><Users size={22} /> التوزيعات المعتمدة</h3>
+            <p className="text-xs font-bold text-slate-400 mt-1">تبقى محفوظة بعد تحديث الصفحة، ويمكن فلترتها أو حذفها أو طباعتها رسميًا.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <input type="date" value={distributionDateFilter} onChange={e => setDistributionDateFilter(e.target.value)} className="p-3 rounded-xl bg-slate-50 border border-slate-100 font-black text-sm" />
+            <select value={distributionSubjectFilter} onChange={e => setDistributionSubjectFilter(e.target.value)} className="p-3 rounded-xl bg-slate-50 border border-slate-100 font-black text-sm min-w-[180px]">
+              <option value="">كل المواد</option>
+              {subjectOptions.map(subject => <option key={subject} value={subject}>{subject}</option>)}
+            </select>
+            <button onClick={printReport} disabled={!committedRows.length} className="px-5 py-3 rounded-2xl bg-slate-950 text-white font-black text-xs flex items-center gap-2 disabled:opacity-40"><Printer size={18} /> طباعة التقرير</button>
+            <button
+              onClick={() => {
+                if (!committedRows.length) return;
+                if (confirm('هل تريد حذف جميع التوزيعات الظاهرة في الفلتر الحالي؟')) deleteSupervisionRows(committedRows.map(r => r.id));
+              }}
+              disabled={!committedRows.length}
+              className="px-5 py-3 rounded-2xl bg-red-50 text-red-600 font-black text-xs flex items-center gap-2 disabled:opacity-40"
+            >
+              <Trash2 size={18} /> حذف الظاهر
+            </button>
+          </div>
+        </div>
+
+        <div className="hidden print:block text-center mb-6 p-6">
+          <div className="grid grid-cols-3 items-start text-xs font-black mb-4">
+            <div className="text-right leading-6">المملكة العربية السعودية<br />وزارة التعليم<br />نظام كنترول الاختبارات</div>
+            <div className="text-center text-slate-500">شعار المدرسة</div>
+            <div className="text-left leading-6">التاريخ: {distributionDateFilter || today()}<br />المادة: {distributionSubjectFilter || 'الكل'}</div>
+          </div>
+          <h1 className="text-2xl font-black border-y-2 border-black py-2">تقرير توزيع المراقبين الرسمي</h1>
+          <p className="font-bold mt-2">اعتماد توزيع اللجان والفترات وتوقيع المراقبين</p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-right border-collapse">
+            <thead>
+              <tr className="bg-slate-50 text-[10px] font-black text-slate-500 print:text-black">
+                <th className="p-4 border-b">التاريخ</th>
+                <th className="p-4 border-b">المادة</th>
+                <th className="p-4 border-b">الفترة</th>
+                <th className="p-4 border-b">اللجنة</th>
+                <th className="p-4 border-b">اسم المراقب</th>
+                <th className="p-4 border-b">مسند له</th>
+                <th className="p-4 border-b">مباشرات</th>
+                <th className="p-4 border-b print:hidden">إجراء</th>
+                <th className="p-4 border-b hidden print:table-cell">توقيع المراقب</th>
+              </tr>
+            </thead>
+            <tbody>
+              {committedRows.length ? committedRows.map(row => (
+                <tr key={row.id} className="border-b border-slate-100 print:border-black">
+                  <td className="p-4 font-bold">{row.date}</td>
+                  <td className="p-4 font-bold">{row.subject}</td>
+                  <td className="p-4 font-bold tabular-nums">{row.period}</td>
+                  <td className="p-4 font-black tabular-nums">{row.committeeNumber}</td>
+                  <td className="p-4 font-black">{row.teacherName}</td>
+                  <td className="p-4 font-black tabular-nums">{row.assignedCount}</td>
+                  <td className="p-4 font-black tabular-nums">{row.previousCount}</td>
+                  <td className="p-4 print:hidden">
+                    <button
+                      onClick={() => {
+                        if (confirm(`حذف توزيع لجنة ${row.committeeNumber}؟`)) deleteSupervisionRows([row.id]);
+                      }}
+                      className="px-3 py-2 rounded-xl bg-red-50 text-red-600 text-[10px] font-black flex items-center gap-2"
+                    >
+                      <Trash2 size={14} /> حذف
+                    </button>
+                  </td>
+                  <td className="p-4 hidden print:table-cell h-12"></td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={9} className="p-12 text-center text-slate-400 font-black">لا توجد توزيعات معتمدة حسب الفلتر الحالي.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {committedRows.length > 0 && (
+          <div className="hidden print:grid grid-cols-2 gap-10 mt-10 p-8">
+            <div className="border-t border-black pt-3 font-black text-right">رئيس الكنترول</div>
+            <div className="border-t border-black pt-3 font-black text-left">مدير المدرسة</div>
+          </div>
+        )}
       </div>
     </div>
   );

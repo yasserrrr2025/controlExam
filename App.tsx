@@ -263,6 +263,14 @@ const App: React.FC = () => {
     addLocalNotification(`تم اعتماد ${rows.length} ربط للمراقبين بنجاح.`, 'success');
   };
 
+  const deleteSmartDistributions = async (ids: string[]) => {
+    if (!ids.length) return;
+    const { error } = await supabase.from('supervision').delete().in('id', ids);
+    if (error) throw new Error(error.message);
+    await fetchData();
+    addLocalNotification(`تم حذف ${ids.length} توزيع بنجاح.`, 'success');
+  };
+
   const acknowledgeAbsenceReceipt = async (absence: Absence, receiver: User) => {
     const note = buildAbsenceReceiptNote(
       receiver.full_name,
