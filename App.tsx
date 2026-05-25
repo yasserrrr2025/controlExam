@@ -67,6 +67,7 @@ const App: React.FC = () => {
     active_exam_date: new Date().toISOString().split('T')[0],
     allow_manual_join: false
   });
+  const todayKey = () => new Date().toISOString().split('T')[0];
 
   const addLocalNotification = (input: any, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
     const id = Math.random().toString(36).substr(2, 9);
@@ -97,10 +98,22 @@ const App: React.FC = () => {
   const fetchData = useCallback(async () => {
     try {
       const cfg = await db.config.get();
-      let filterDate = systemConfig.active_exam_date;
+      const currentToday = todayKey();
+      let filterDate = currentToday;
       if (cfg) {
-        setSystemConfig(prev => ({ ...prev, ...cfg }));
-        filterDate = cfg.active_exam_date || filterDate;
+        if (cfg.active_exam_date !== currentToday) {
+          const nextCfg = { ...cfg, active_exam_date: currentToday };
+          const lastAutoActiveDate = localStorage.getItem('last_auto_active_exam_date');
+          if (lastAutoActiveDate !== currentToday) {
+            await db.config.upsert(nextCfg);
+            localStorage.setItem('last_auto_active_exam_date', currentToday);
+          }
+          setSystemConfig(prev => ({ ...prev, ...nextCfg }));
+          filterDate = currentToday;
+        } else {
+          setSystemConfig(prev => ({ ...prev, ...cfg }));
+          filterDate = cfg.active_exam_date || currentToday;
+        }
       }
       const [u, s, sv, ab, cr, dl, reports] = await Promise.all([
         db.users.getAll(),
@@ -148,7 +161,7 @@ const App: React.FC = () => {
     } finally {
       setIsInitialLoading(false);
     }
-  }, [systemConfig.active_exam_date]);
+  }, []);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('currentUser');

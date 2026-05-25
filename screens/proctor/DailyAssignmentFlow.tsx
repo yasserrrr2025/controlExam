@@ -352,7 +352,12 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
     try {
       const assignmentId = crypto.randomUUID();
       const startedAt = new Date().toISOString();
-      await db.supervision.deleteByTeacherId(user.id);
+      await supabase
+        .from('supervision')
+        .delete()
+        .eq('teacher_id', user.id)
+        .gte('date', `${activeDate}T00:00:00`)
+        .lt('date', `${activeDate}T23:59:59.999Z`);
       await db.supervision.insert({
         id: assignmentId,
         teacher_id: user.id,
