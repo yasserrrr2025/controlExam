@@ -6,6 +6,7 @@ import {
   Printer,
   RefreshCcw,
   Repeat,
+  Search,
   Shuffle,
   Sparkles,
   Trash2,
@@ -61,7 +62,15 @@ const SmartProctorDistribution: React.FC<Props> = ({
   const [slots, setSlots] = useState<SmartExamSlot[]>([
     { id: crypto.randomUUID(), date: activeDate || today(), subject: 'اختبار', period: 1 },
   ]);
-  const [excludedIds, setExcludedIds] = useState<string[]>([]);
+  const [selectedExclusionDate, setSelectedExclusionDate] = useState(activeDate || today());
+  const [exclusionSearch, setExclusionSearch] = useState('');
+  const [excludedByDate, setExcludedByDate] = useState<Record<string, string[]>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('smart_proctor_exclusions_by_date') || '{}');
+    } catch {
+      return {};
+    }
+  });
   const [preview, setPreview] = useState<SmartDistributionItem[]>([]);
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -74,16 +83,46 @@ const SmartProctorDistribution: React.FC<Props> = ({
     }, {});
   }, [supervisions]);
 
-  const eligibleProctors = useMemo(
-    () => proctors.filter(p => !excludedIds.includes(p.id)),
-    [proctors, excludedIds],
+  const slotDates = useMemo(
+    () => Array.from(new Set(slots.map(slot => slot.date || today()))).sort(),
+    [slots],
   );
+  const excludedIdsForSelectedDate = excludedByDate[selectedExclusionDate] || [];
+  const sortedProctors = useMemo(
+    () => [...proctors].sort((a, b) => a.full_name.localeCompare(b.full_name, 'ar')),
+    [proctors],
+  );
+  const filteredProctors = useMemo(() => {
+    const q = exclusionSearch.trim().toLowerCase();
+    if (!q) return sortedProctors;
+    return sortedProctors.filter(p =>
+      p.full_name.toLowerCase().includes(q) ||
+      String(p.national_id || '').includes(q),
+    );
+  }, [sortedProctors, exclusionSearch]);
+  const getEligibleProctors = (date: string) => {
+    const excluded = excludedByDate[date] || [];
+    return proctors.filter(p => !excluded.includes(p.id));
+  };
+  const eligibleProctors = getEligibleProctors(selectedExclusionDate);
+  const toggleExcluded = (date: string, userId: string) => {
+    setExcludedByDate(prev => {
+      const current = prev[date] || [];
+      const nextIds = current.includes(userId)
+        ? current.filter(id => id !== userId)
+        : [...current, userId];
+      const next = { ...prev, [date]: nextIds };
+      localStorage.setItem('smart_proctor_exclusions_by_date', JSON.stringify(next));
+      return next;
+    });
+  };
 
   const addSlot = () => {
     setSlots(prev => [...prev, { id: crypto.randomUUID(), date: activeDate || today(), subject: 'اختبار', period: 1 }]);
   };
 
   const updateSlot = (id: string, patch: Partial<SmartExamSlot>) => {
+    if (patch.date) setSelectedExclusionDate(patch.date);
     setSlots(prev => prev.map(slot => slot.id === id ? { ...slot, ...patch } : slot));
   };
 
@@ -93,7 +132,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
   };
 
   const generateDistribution = () => {
-    if (!committees.length || !eligibleProctors.length || !slots.length) {
+    if (!committees.length || !slots.length) {
       setPreview([]);
       return;
     }
@@ -103,6 +142,8 @@ const SmartProctorDistribution: React.FC<Props> = ({
 
     slots.forEach(slot => {
       const usedThisDay = new Set<string>();
+      const eligibleProctors = getEligibleProctors(slot.date);
+      if (!eligibleProctors.length) return;
       committees.forEach(committeeNumber => {
         const pool = eligibleProctors
           .map(p => ({
@@ -160,7 +201,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
 
   const replaceOne = (item: SmartDistributionItem) => {
     const usedInSlot = new Set(preview.filter(p => p.slotId === item.slotId && p.id !== item.id).map(p => p.teacherId));
-    const candidate = eligibleProctors
+    const candidate = getEligibleProctors(item.date)
       .filter(p => p.id !== item.teacherId)
       .map(p => ({ user: p, count: previousCounts[p.id] || 0, used: usedInSlot.has(p.id) }))
       .sort((a, b) => {
@@ -236,18 +277,42 @@ const SmartProctorDistribution: React.FC<Props> = ({
 
           <div className="p-5 rounded-2xl bg-slate-950 text-white">
             <div className="flex items-center justify-between gap-3 mb-4">
-              <h4 className="font-black flex items-center gap-2"><UserMinus size={18} /> مستبعدون اليوم</h4>
-              <span className="text-[10px] font-black text-slate-400">{excludedIds.length} / {proctors.length}</span>
+              <h4 className="font-black flex items-center gap-2"><UserMinus size={18} /> المستبعدون حسب تاريخ الاختبار</h4>
+              <span className="text-[10px] font-black text-slate-400">{excludedIdsForSelectedDate.length} / {proctors.length}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.2fr] gap-2 mb-3">
+              <select
+                value={selectedExclusionDate}
+                onChange={e => setSelectedExclusionDate(e.target.value)}
+                className="w-full p-3 rounded-xl bg-white/10 border border-white/10 text-xs font-black outline-none"
+              >
+                {slotDates.map(date => <option key={date} value={date} className="text-slate-900">{date}</option>)}
+              </select>
+              <div className="relative">
+                <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={exclusionSearch}
+                  onChange={e => setExclusionSearch(e.target.value)}
+                  placeholder="بحث سريع بالاسم أو الهوية"
+                  className="w-full pr-9 pl-3 py-3 rounded-xl bg-white/10 border border-white/10 text-xs font-black outline-none placeholder:text-slate-500"
+                />
+              </div>
             </div>
             <div className="max-h-52 overflow-y-auto custom-scrollbar space-y-2">
-              {proctors.map(p => {
-                const excluded = excludedIds.includes(p.id);
+              {filteredProctors.map(p => {
+                const excluded = excludedIdsForSelectedDate.includes(p.id);
                 return (
-                  <button key={p.id} onClick={() => setExcludedIds(prev => excluded ? prev.filter(id => id !== p.id) : [...prev, p.id])} className={`w-full p-3 rounded-xl text-right text-xs font-black border transition-all ${excluded ? 'bg-red-500/15 border-red-400/30 text-red-100' : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'}`}>
-                    {p.full_name}
+                  <button key={p.id} onClick={() => toggleExcluded(selectedExclusionDate, p.id)} className={`w-full p-3 rounded-xl text-right text-xs font-black border transition-all ${excluded ? 'bg-red-500/15 border-red-400/30 text-red-100' : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'}`}>
+                    <span className="block">{p.full_name}</span>
+                    <span className="block text-[9px] mt-1 opacity-60">{p.national_id}</span>
                   </button>
                 );
               })}
+              {!filteredProctors.length && (
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-center text-xs font-black text-slate-400">
+                  لا توجد نتائج مطابقة
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -111,6 +111,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   const [elapsedTime, setElapsedTime] = useState('00:00');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [localPendingCount, setLocalPendingCount] = useState(0);
+  const [gateNow, setGateNow] = useState(new Date());
 
   const qrScannerRef = useRef<Html5Qrcode | null>(null);
   const activeDate = useMemo(
@@ -148,6 +149,28 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
     ? assignmentStartTimes[activeAssignment.id] || activeAssignment.date
     : null;
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setGateNow(new Date()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const assignmentGate = useMemo(() => {
+    const [hours, minutes] = String(systemConfig?.exam_start_time || '08:00').split(':').map(Number);
+    const examStart = new Date(`${activeDate}T00:00:00`);
+    examStart.setHours(Number.isFinite(hours) ? hours : 8, Number.isFinite(minutes) ? minutes : 0, 0, 0);
+    const opensAt = new Date(examStart.getTime() - 15 * 60 * 1000);
+    return {
+      examStart,
+      opensAt,
+      canConfirm: gateNow.getTime() >= opensAt.getTime(),
+    };
+  }, [activeDate, systemConfig?.exam_start_time, gateNow]);
+
+  const gateTimeLabel = assignmentGate.opensAt.toLocaleTimeString('ar-SA', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
   const markAssignmentStarted = (assignmentId: string, startedAt: string) => {
     const nextConfirmed = Array.from(new Set([...confirmedAssignments, assignmentId]));
     const nextStartTimes = { ...assignmentStartTimes, [assignmentId]: startedAt };
@@ -159,6 +182,10 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
 
   const confirmActiveAssignment = async () => {
     if (!activeAssignment) return;
+    if (!assignmentGate.canConfirm) {
+      onAlert(`يفتح اعتماد اللجنة قبل بداية الاختبار بـ 15 دقيقة، عند ${gateTimeLabel}`, 'warning');
+      return;
+    }
     const startedAt = new Date().toISOString();
     try {
       const { error } = await supabase
@@ -573,11 +600,15 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
           </div>
           <button
             onClick={confirmActiveAssignment}
-            className="w-full p-8 bg-emerald-600 text-white rounded-[2.5rem] font-black text-2xl shadow-2xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-4 active:scale-95"
+            disabled={!assignmentGate.canConfirm}
+            className="w-full p-8 bg-emerald-600 text-white rounded-[2.5rem] font-black text-2xl shadow-2xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-4 active:scale-95 disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none disabled:cursor-not-allowed"
           >
             <UserCheck size={32} />
-            تأكيد المباشرة
+            {assignmentGate.canConfirm ? 'تأكيد اعتماد اللجنة' : `يفتح الاعتماد عند ${gateTimeLabel}`}
           </button>
+          <p className="mt-4 text-xs font-black text-slate-400">
+            اعتماد اللجنة يظهر قبل بداية الاختبار بـ 15 دقيقة حسب وقت بداية الجلسة في إعدادات النظام.
+          </p>
         </div>
       </div>
     );
