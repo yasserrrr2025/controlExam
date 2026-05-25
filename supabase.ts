@@ -26,7 +26,10 @@ export const db = {
       return (data || []) as User[];
     },
     getById: async (nationalId: string) => {
-      const { data, error } = await supabase.from('users').select('*').eq('national_id', nationalId).maybeSingle();
+      const { data, error } = await supabase.rpc('login_by_national_id', {
+        p_national_id: nationalId,
+        p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      }).maybeSingle();
       const err = handleError(error, "users.getById");
       if (err) throw new Error(err);
       return data as User;

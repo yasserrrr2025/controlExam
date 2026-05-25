@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, Student, Absence, Supervision, ControlRequest, DeliveryLog, SystemConfig, CommitteeReport } from './types';
+import { User, UserRole, Student, Absence, Supervision, ControlRequest, DeliveryLog, SystemConfig, CommitteeReport } from './types';
 import Sidebar from './components/Sidebar';
 import Login from './screens/Login';
 import AdminDashboardOverview from './screens/admin/DashboardOverview';
@@ -42,6 +42,48 @@ import {
 import GlobalQRScanner from './components/GlobalQRScanner';
 import { BellRing, Menu, X, CheckCircle2, AlertCircle, Info, AlertTriangle, Loader2 } from 'lucide-react';
 import { db, supabase } from './supabase';
+
+const ROLE_TABS: Record<UserRole, string[]> = {
+  ADMIN: [
+    'head-dash',
+    'dashboard',
+    'control-monitor',
+    'control-monitor-2',
+    'control-manager',
+    'proctor-excellence',
+    'committee-labels',
+    'door-labels',
+    'teachers',
+    'students',
+    'committees',
+    'daily-reports',
+    'official-forms',
+    'envelope-opening',
+    'paper-logs',
+    'receipt-history',
+    'envelope-labels',
+    'settings',
+  ],
+  CONTROL_MANAGER: ['head-dash', 'control-manager', 'envelope-opening', 'paper-logs', 'receipt-history'],
+  PROCTOR: ['my-tasks', 'my-schedule', 'proctor-alerts', 'digital-id'],
+  CONTROL: ['envelope-opening', 'paper-logs', 'receipt-history'],
+  ASSISTANT_CONTROL: ['assigned-requests'],
+  COUNSELOR: ['student-absences'],
+};
+
+const getDefaultTab = (role: UserRole) => {
+  const defaults: Record<UserRole, string> = {
+    ADMIN: 'dashboard',
+    CONTROL_MANAGER: 'head-dash',
+    PROCTOR: 'my-tasks',
+    CONTROL: 'paper-logs',
+    ASSISTANT_CONTROL: 'assigned-requests',
+    COUNSELOR: 'student-absences',
+  };
+  return defaults[role] || 'my-tasks';
+};
+
+const canOpenTab = (user: User, tab: string) => ROLE_TABS[user.role]?.includes(tab) ?? false;
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -133,6 +175,12 @@ const App: React.FC = () => {
           if (freshUser) {
             setCurrentUser(freshUser);
             localStorage.setItem('currentUser', JSON.stringify(freshUser));
+            const storedTab = localStorage.getItem('activeTab') || '';
+            if (!storedTab || !canOpenTab(freshUser, storedTab)) {
+              const defaultTab = getDefaultTab(freshUser.role);
+              setActiveTab(defaultTab);
+              localStorage.setItem('activeTab', defaultTab);
+            }
           } else {
             setCurrentUser(null);
             localStorage.removeItem('currentUser');
@@ -167,20 +215,16 @@ const App: React.FC = () => {
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
       try { 
-        const user = JSON.parse(savedUser);
+        const user = JSON.parse(savedUser) as User;
         setCurrentUser(user);
-        if (!activeTab) {
-          const defaultTab = 
-            user.role === 'ADMIN'             ? 'dashboard' :
-            user.role === 'CONTROL_MANAGER'   ? 'head-dash' :
-            user.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' :
-            user.role === 'CONTROL'           ? 'paper-logs' :
-            user.role === 'COUNSELOR'         ? 'student-absences' :
-            'my-tasks';
+        if (!activeTab || !canOpenTab(user, activeTab)) {
+          const defaultTab = getDefaultTab(user.role);
           setActiveTab(defaultTab);
+          localStorage.setItem('activeTab', defaultTab);
         }
       } catch (e) { 
         localStorage.removeItem('currentUser'); 
+        localStorage.removeItem('activeTab');
       }
     }
     fetchData();
@@ -198,13 +242,7 @@ const App: React.FC = () => {
   const handleLoginSuccess = (u: User) => {
     setCurrentUser(u);
     localStorage.setItem('currentUser', JSON.stringify(u));
-    const defaultTab =
-      u.role === 'ADMIN'             ? 'dashboard' :
-      u.role === 'CONTROL_MANAGER'   ? 'head-dash' :
-      u.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' :
-      u.role === 'CONTROL'           ? 'paper-logs' :
-      u.role === 'COUNSELOR'         ? 'student-absences' :
-      'my-tasks';
+    const defaultTab = getDefaultTab(u.role);
     setActiveTab(defaultTab);
     localStorage.setItem('activeTab', defaultTab);
   };
@@ -376,14 +414,9 @@ const App: React.FC = () => {
   const renderContent = () => {
     if (!currentUser) return null;
     
-    const tabToRender = activeTab || (
-      currentUser.role === 'ADMIN'             ? 'dashboard' :
-      currentUser.role === 'CONTROL_MANAGER'   ? 'head-dash' :
-      currentUser.role === 'ASSISTANT_CONTROL' ? 'assigned-requests' :
-      currentUser.role === 'CONTROL'           ? 'paper-logs' :
-      currentUser.role === 'COUNSELOR'         ? 'student-absences' :
-      'my-tasks'
-    );
+    const tabToRender = activeTab && canOpenTab(currentUser, activeTab)
+      ? activeTab
+      : getDefaultTab(currentUser.role);
 
     switch (tabToRender) {
       case 'dashboard': return <AdminDashboardOverview stats={{ students: students.length, users: users.length, activeSupervisions: supervisions.length }} absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} studentsList={students} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} systemConfig={systemConfig} />;
@@ -523,7 +556,16 @@ const App: React.FC = () => {
               user={currentUser} 
               onLogout={handleLogout} 
               activeTab={activeTab} 
-              setActiveTab={(t) => { setActiveTab(t); localStorage.setItem('activeTab', t); }} 
+              setActiveTab={(t) => {
+                if (!canOpenTab(currentUser, t)) {
+                  const defaultTab = getDefaultTab(currentUser.role);
+                  setActiveTab(defaultTab);
+                  localStorage.setItem('activeTab', defaultTab);
+                  return;
+                }
+                setActiveTab(t);
+                localStorage.setItem('activeTab', t);
+              }} 
               isOpen={isSidebarOpen} 
               setIsOpen={setIsSidebarOpen} 
               isCollapsed={isSidebarCollapsed} 
