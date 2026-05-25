@@ -111,6 +111,11 @@ const SmartProctorDistribution: React.FC<Props> = ({
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [distributionDateFilter, setDistributionDateFilter] = useState(activeDate || today());
   const [distributionSubjectFilter, setDistributionSubjectFilter] = useState('');
+  const [previewDateFilter, setPreviewDateFilter] = useState('');
+  const [previewSubjectFilter, setPreviewSubjectFilter] = useState('');
+  const [previewPeriodFilter, setPreviewPeriodFilter] = useState('');
+  const [previewCommitteeFilter, setPreviewCommitteeFilter] = useState('');
+  const [previewTeacherFilter, setPreviewTeacherFilter] = useState('');
   const [isPrintingDistribution, setIsPrintingDistribution] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
@@ -195,6 +200,77 @@ const SmartProctorDistribution: React.FC<Props> = ({
     for (let i = 0; i < committedRows.length; i += pageSize) pages.push(committedRows.slice(i, i + pageSize));
     return pages.length ? pages : [[]];
   }, [committedRows]);
+
+  const sortedPreview = useMemo(() => {
+    const q = previewTeacherFilter.trim().toLowerCase();
+    return preview
+      .filter(item => !previewDateFilter || item.date === previewDateFilter)
+      .filter(item => !previewSubjectFilter || item.subject === previewSubjectFilter)
+      .filter(item => !previewPeriodFilter || String(item.period) === previewPeriodFilter)
+      .filter(item => !previewCommitteeFilter || String(item.committeeNumber).includes(previewCommitteeFilter.trim()))
+      .filter(item => !q || item.teacherName.toLowerCase().includes(q))
+      .sort((a, b) => {
+        const byDate = a.date.localeCompare(b.date);
+        if (byDate !== 0) return byDate;
+        const bySubject = a.subject.localeCompare(b.subject, 'ar');
+        if (bySubject !== 0) return bySubject;
+        const byPeriod = a.period - b.period;
+        if (byPeriod !== 0) return byPeriod;
+        return Number(a.committeeNumber) - Number(b.committeeNumber);
+      });
+  }, [preview, previewDateFilter, previewSubjectFilter, previewPeriodFilter, previewCommitteeFilter, previewTeacherFilter]);
+
+  const previewSubjects = useMemo(
+    () => Array.from(new Set(preview.map(item => item.subject))).sort((a, b) => a.localeCompare(b, 'ar')),
+    [preview],
+  );
+  const previewDates = useMemo(
+    () => Array.from(new Set(preview.map(item => item.date))).sort(),
+    [preview],
+  );
+  const previewPeriods = useMemo(
+    () => Array.from(new Set(preview.map(item => String(item.period)))).sort((a, b) => Number(a) - Number(b)),
+    [preview],
+  );
+
+  const fairnessRows = useMemo(() => {
+    const additions = preview.reduce<Record<string, number>>((acc, item) => {
+      acc[item.teacherId] = (acc[item.teacherId] || 0) + 1;
+      return acc;
+    }, {});
+    return proctors
+      .map(p => {
+        const before = assignedCounts[p.id] || 0;
+        const added = additions[p.id] || 0;
+        const after = before + added;
+        return { id: p.id, name: p.full_name, before, added, after };
+      })
+      .sort((a, b) => {
+        if (b.added !== a.added) return b.added - a.added;
+        if (b.after !== a.after) return b.after - a.after;
+        return a.name.localeCompare(b.name, 'ar');
+      });
+  }, [preview, proctors, assignedCounts]);
+
+  const fairnessSummary = useMemo(() => {
+    if (!fairnessRows.length) return { min: 0, max: 0, diff: 0, status: 'لا توجد بيانات' };
+    const activeRows = fairnessRows.filter(row => row.added > 0 || row.before > 0);
+    const source = activeRows.length ? activeRows : fairnessRows;
+    const values = source.map(row => row.after);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const diff = max - min;
+    return {
+      min,
+      max,
+      diff,
+      status: diff <= 1 ? 'متوازن' : diff === 2 ? 'يحتاج مراجعة بسيطة' : 'غير متوازن',
+    };
+  }, [fairnessRows]);
+  const fairnessAfterById = useMemo(
+    () => Object.fromEntries(fairnessRows.map(row => [row.id, row.after])),
+    [fairnessRows],
+  );
   const toggleExcluded = (date: string, userId: string) => {
     setExcludedByDate(prev => {
       const current = prev[date] || [];
@@ -230,8 +306,20 @@ const SmartProctorDistribution: React.FC<Props> = ({
     const runningCounts = { ...assignedCounts };
     const draft: SmartDistributionItem[] = [];
 
-    slots.forEach(slot => {
-      const usedThisDay = new Set<string>();
+    const orderedSlots = [...slots].sort((a, b) => {
+      const byDate = a.date.localeCompare(b.date);
+      if (byDate !== 0) return byDate;
+      const bySubject = a.subject.localeCompare(b.subject, 'ar');
+      if (bySubject !== 0) return bySubject;
+      return Number(a.period) - Number(b.period);
+    });
+
+    orderedSlots.forEach(slot => {
+      const usedThisPeriod = new Set(
+        supervisions
+          .filter(s => s.date?.slice(0, 10) === slot.date && Number(s.period || 1) === Number(slot.period || 1))
+          .map(s => s.teacher_id),
+      );
       const eligibleProctors = getEligibleProctors(slot.date);
       if (!eligibleProctors.length) return;
       const randomizedCommittees = [...committees].sort(() => Math.random() - 0.5);
@@ -240,14 +328,14 @@ const SmartProctorDistribution: React.FC<Props> = ({
           .map(p => ({
             user: p,
             count: runningCounts[p.id] || 0,
-            usedToday: usedThisDay.has(p.id),
+            usedToday: usedThisPeriod.has(p.id),
             sameCommittee: supervisions.some(s => s.teacher_id === p.id && s.committee_number === committeeNumber),
             random: Math.random(),
           }))
           .sort((a, b) => {
+            if (a.count !== b.count) return a.count - b.count;
             if (a.usedToday !== b.usedToday) return a.usedToday ? 1 : -1;
             if (a.sameCommittee !== b.sameCommittee) return a.sameCommittee ? 1 : -1;
-            if (a.count !== b.count) return a.count - b.count;
             return a.random - b.random;
           });
 
@@ -268,7 +356,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
           previousCount: previousCounts[selected.user.id] || 0,
           forcedRepeat,
         });
-        usedThisDay.add(selected.user.id);
+        usedThisPeriod.add(selected.user.id);
         runningCounts[selected.user.id] = (runningCounts[selected.user.id] || 0) + 1;
       });
     });
@@ -463,6 +551,46 @@ const SmartProctorDistribution: React.FC<Props> = ({
         <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-sm"><p className="text-[10px] font-black text-slate-400">تكرار اضطراري</p><p className="text-3xl font-black text-amber-600">{forcedRepeatCount}</p></div>
       </div>
 
+      <div className="bg-white rounded-[3rem] border border-slate-100 shadow-xl overflow-hidden no-print">
+        <div className="p-6 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-black text-slate-950">ميزان العدالة قبل الاعتماد</h3>
+            <p className="text-xs font-bold text-slate-400 mt-1">يوضح كم لدى كل مراقب قبل التوزيع، وما سيضاف له، والإجمالي بعد التوزيع.</p>
+          </div>
+          <div className={`px-5 py-3 rounded-2xl text-xs font-black ${fairnessSummary.diff <= 1 ? 'bg-emerald-50 text-emerald-700' : fairnessSummary.diff === 2 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`}>
+            الحالة: {fairnessSummary.status} | الأقل {fairnessSummary.min} | الأعلى {fairnessSummary.max} | الفرق {fairnessSummary.diff}
+          </div>
+        </div>
+        <div className="overflow-x-auto max-h-[360px]">
+          <table className="w-full text-right border-collapse">
+            <thead className="sticky top-0 bg-slate-50 z-10">
+              <tr className="text-[10px] font-black text-slate-500">
+                <th className="p-4 border-b">المراقب</th>
+                <th className="p-4 border-b">قبل التوزيع</th>
+                <th className="p-4 border-b">سيضاف له</th>
+                <th className="p-4 border-b">بعد التوزيع</th>
+                <th className="p-4 border-b">ملاحظة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fairnessRows.map(row => (
+                <tr key={row.id} className="border-b border-slate-100">
+                  <td className="p-4 font-black text-slate-900">{row.name}</td>
+                  <td className="p-4 font-black tabular-nums">{row.before}</td>
+                  <td className={`p-4 font-black tabular-nums ${row.added ? 'text-blue-600' : 'text-slate-300'}`}>{row.added}</td>
+                  <td className="p-4 font-black tabular-nums">{row.after}</td>
+                  <td className="p-4">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black ${row.after - fairnessSummary.min <= 1 ? 'bg-emerald-50 text-emerald-700' : row.after - fairnessSummary.min === 2 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`}>
+                      {row.after - fairnessSummary.min <= 1 ? 'متوازن' : row.after - fairnessSummary.min === 2 ? 'راجع' : 'مرتفع'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div className="print:block">
         <div className="hidden print:block text-center mb-6">
           <h1 className="text-2xl font-black">تقرير التوزيع الرسمي للمراقبين</h1>
@@ -472,6 +600,22 @@ const SmartProctorDistribution: React.FC<Props> = ({
           <div className="p-6 border-b border-slate-100 flex items-center justify-between gap-4 no-print">
             <h3 className="text-xl font-black flex items-center gap-2"><Users size={22} /> معاينة التوزيع</h3>
             <p className="text-xs font-bold text-slate-400">اسحب بطاقة مراقب على بطاقة أخرى لتبديلهما.</p>
+          </div>
+          <div className="p-4 border-b border-slate-100 grid grid-cols-1 md:grid-cols-5 gap-3 no-print">
+            <select value={previewDateFilter} onChange={e => setPreviewDateFilter(e.target.value)} className="p-3 rounded-xl bg-slate-50 border border-slate-100 font-black text-xs">
+              <option value="">كل التواريخ</option>
+              {previewDates.map(date => <option key={date} value={date}>{date}</option>)}
+            </select>
+            <select value={previewSubjectFilter} onChange={e => setPreviewSubjectFilter(e.target.value)} className="p-3 rounded-xl bg-slate-50 border border-slate-100 font-black text-xs">
+              <option value="">كل المواد</option>
+              {previewSubjects.map(subject => <option key={subject} value={subject}>{subject}</option>)}
+            </select>
+            <select value={previewPeriodFilter} onChange={e => setPreviewPeriodFilter(e.target.value)} className="p-3 rounded-xl bg-slate-50 border border-slate-100 font-black text-xs">
+              <option value="">كل الفترات</option>
+              {previewPeriods.map(period => <option key={period} value={period}>{period}</option>)}
+            </select>
+            <input value={previewCommitteeFilter} onChange={e => setPreviewCommitteeFilter(e.target.value)} placeholder="فلتر اللجنة" className="p-3 rounded-xl bg-slate-50 border border-slate-100 font-black text-xs outline-none" />
+            <input value={previewTeacherFilter} onChange={e => setPreviewTeacherFilter(e.target.value)} placeholder="فلتر المراقب" className="p-3 rounded-xl bg-slate-50 border border-slate-100 font-black text-xs outline-none" />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-right border-collapse">
@@ -483,6 +627,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
                   <th className="p-4 border-b">اللجنة</th>
                   <th className="p-4 border-b">اسم المراقب</th>
                   <th className="p-4 border-b">مسند له وقت التوزيع</th>
+                  <th className="p-4 border-b">بعد التوزيع</th>
                   <th className="p-4 border-b">مباشرات سابقة</th>
                   <th className="p-4 border-b">ملاحظة</th>
                   <th className="p-4 border-b print:hidden">إجراء</th>
@@ -490,7 +635,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
                 </tr>
               </thead>
               <tbody>
-                {preview.length ? preview.map(item => (
+                {sortedPreview.length ? sortedPreview.map(item => (
                   <tr
                     key={item.id}
                     draggable
@@ -508,6 +653,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
                     <td className="p-4 font-black tabular-nums">{item.committeeNumber}</td>
                     <td className="p-4 font-black">{item.teacherName}</td>
                     <td className="p-4 font-black tabular-nums">{item.assignedCount}</td>
+                    <td className="p-4 font-black tabular-nums text-blue-600">{fairnessAfterById[item.teacherId] ?? item.assignedCount + 1}</td>
                     <td className="p-4 font-black tabular-nums">{item.previousCount}</td>
                     <td className="p-4">
                       {item.forcedRepeat ? <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black"><Repeat size={12} className="inline ml-1" /> تكرار اضطراري</span> : <span className="text-emerald-600 text-[10px] font-black">توزيع عادل</span>}
@@ -521,7 +667,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={10} className="p-12 text-center text-slate-400 font-black">لم يتم توليد توزيع بعد.</td>
+                    <td colSpan={11} className="p-12 text-center text-slate-400 font-black">لم يتم توليد توزيع بعد.</td>
                   </tr>
                 )}
               </tbody>
