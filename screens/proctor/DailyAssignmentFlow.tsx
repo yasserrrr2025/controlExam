@@ -133,7 +133,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   const isAssignmentStarted = (value?: string | null) => {
     if (!value) return false;
     const d = new Date(value);
-    return !Number.isNaN(d.getTime()) && !(d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0);
+    return !Number.isNaN(d.getTime()) && !(d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0);
   };
   const [confirmedAssignments, setConfirmedAssignments] = useState<string[]>(() => {
     try {

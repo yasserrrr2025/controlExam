@@ -442,7 +442,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                         const startedAssignments = (smartSupervisions || supervisions).filter(s => {
                           if (s.teacher_id !== u.id) return false;
                           const d = new Date(s.date);
-                          return s.date && !Number.isNaN(d.getTime()) && !(d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0);
+                          return s.date && !Number.isNaN(d.getTime()) && !(d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0);
                         }).length;
                         
                         return (
