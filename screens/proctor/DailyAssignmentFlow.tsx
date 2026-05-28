@@ -119,14 +119,21 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
       systemConfig?.active_exam_date || new Date().toISOString().split("T")[0],
     [systemConfig],
   );
+  const [optimisticAssignment, setOptimisticAssignment] = useState<Supervision | null>(null);
 
   const activeAssignment = useMemo(
-    () =>
-      supervisions.find(
+    () => {
+      const fromServer = supervisions.find(
         (s: any) =>
           s.teacher_id === user.id && matchesActiveDate(s.date),
-      ),
-    [supervisions, user.id, activeDate],
+      );
+      if (fromServer) return fromServer;
+      if (optimisticAssignment?.teacher_id === user.id && matchesActiveDate(optimisticAssignment.date)) {
+        return optimisticAssignment;
+      }
+      return undefined;
+    },
+    [supervisions, user.id, activeDate, optimisticAssignment],
   );
 
   const activeCommittee = activeAssignment?.committee_number || null;
@@ -222,6 +229,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
         .update({ date: startedAt })
         .eq('id', activeAssignment.id);
       if (error) throw new Error(error.message);
+      setOptimisticAssignment({ ...activeAssignment, date: startedAt });
       markAssignmentStarted(activeAssignment.id, startedAt);
       setElapsedTime('00:00');
       await setSupervisions();
@@ -383,6 +391,14 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
         .gte('date', `${activeDate}T00:00:00`)
         .lt('date', `${activeDate}T23:59:59.999Z`);
       await db.supervision.insert({
+        id: assignmentId,
+        teacher_id: user.id,
+        committee_number: cleanedNum,
+        date: startedAt,
+        period: 1,
+        subject: "اختبار",
+      });
+      setOptimisticAssignment({
         id: assignmentId,
         teacher_id: user.id,
         committee_number: cleanedNum,
