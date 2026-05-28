@@ -96,6 +96,31 @@ const getRiyadhDateKey = () => {
   return `${get('year')}-${get('month')}-${get('day')}`;
 };
 
+const getRiyadhDateKeyFromValue = (value?: string | null) => {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value).slice(0, 10);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Riyadh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(d);
+  const get = (type: string) => parts.find(part => part.type === type)?.value || '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+};
+
+const matchesExamDate = (value: string | undefined | null, examDate: string) => {
+  if (!value || !examDate) return false;
+  return String(value).startsWith(examDate) || getRiyadhDateKeyFromValue(value) === examDate;
+};
+
+const buildExamDateTimestamp = (examDate: string) => {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${examDate}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+};
+
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>(localStorage.getItem('activeTab') || '');
@@ -209,11 +234,11 @@ const App: React.FC = () => {
       setAllSupervisions(sv);
       
       if (filterDate) {
-        setSupervisions(sv.filter(i => i.date && i.date.startsWith(filterDate) && !isReserveSupervision(i))); 
-        setAbsences(ab.filter(i => i.date && i.date.startsWith(filterDate))); 
-        setDeliveryLogs(dl.filter(i => i.time && i.time.startsWith(filterDate)));
-        setControlRequests(cr.filter(i => i.time && i.time.startsWith(filterDate)));
-        setCommitteeReports(reports.filter(r => r.date && r.date.startsWith(filterDate)));
+        setSupervisions(sv.filter(i => matchesExamDate(i.date, filterDate) && !isReserveSupervision(i))); 
+        setAbsences(ab.filter(i => matchesExamDate(i.date, filterDate))); 
+        setDeliveryLogs(dl.filter(i => matchesExamDate(i.time, filterDate)));
+        setControlRequests(cr.filter(i => matchesExamDate(i.time, filterDate)));
+        setCommitteeReports(reports.filter(r => matchesExamDate(r.date, filterDate)));
       }
     } catch (err: any) {
       console.warn("Sync Warning:", err.message);
@@ -454,7 +479,7 @@ const App: React.FC = () => {
       );
       case 'proctor-excellence': return <AdminProctorPerformance users={users} supervisions={supervisions} deliveryLogs={deliveryLogs} absences={absences} systemConfig={systemConfig} />;
       case 'committee-labels': return <CommitteeLabelsPrint students={students} />;
-      case 'control-manager': return <ControlManager users={users} deliveryLogs={deliveryLogs} students={students} requests={controlRequests} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} onUpdateUserGrades={async (userId, grades) => { const uMatch = users.find(u => u.id === userId); if (uMatch) { await db.users.upsert([{ ...uMatch, assigned_grades: grades }]); await fetchData(); } }} systemConfig={systemConfig} absences={absences} supervisions={supervisions} smartSupervisions={allSupervisions} setDeliveryLogs={async (log) => { await db.deliveryLogs.upsert(log); await fetchData(); }} setSystemConfig={async (cfg) => { await db.config.upsert(cfg); await fetchData(); }} onRemoveSupervision={async (id) => { await deleteSameDayTeacherAssignment(id, systemConfig.active_exam_date || new Date().toISOString().slice(0, 10)); await fetchData(); }} onAssignProctor={async (tid, cid) => { const date = systemConfig.active_exam_date || new Date().toISOString().slice(0, 10); await deleteSameDayTeacherAssignment(tid, date); await deleteSameDayCommitteeAssignment(cid, date); await db.supervision.insert({ id: crypto.randomUUID(), teacher_id: tid, committee_number: cid, date: new Date().toISOString(), period: 1, subject: 'اختبار - بديل طارئ' }); await fetchData(); }} onCommitSmartDistribution={handleCommitSmartDistribution} onDeleteSmartDistributions={deleteSmartDistributions} />;
+      case 'control-manager': return <ControlManager users={users} deliveryLogs={deliveryLogs} students={students} requests={controlRequests} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} onUpdateUserGrades={async (userId, grades) => { const uMatch = users.find(u => u.id === userId); if (uMatch) { await db.users.upsert([{ ...uMatch, assigned_grades: grades }]); await fetchData(); } }} systemConfig={systemConfig} absences={absences} supervisions={supervisions} smartSupervisions={allSupervisions} setDeliveryLogs={async (log) => { await db.deliveryLogs.upsert(log); await fetchData(); }} setSystemConfig={async (cfg) => { await db.config.upsert(cfg); await fetchData(); }} onRemoveSupervision={async (id) => { await deleteSameDayTeacherAssignment(id, systemConfig.active_exam_date || new Date().toISOString().slice(0, 10)); await fetchData(); }} onAssignProctor={async (tid, cid) => { const date = systemConfig.active_exam_date || new Date().toISOString().slice(0, 10); await deleteSameDayTeacherAssignment(tid, date); await deleteSameDayCommitteeAssignment(cid, date); await db.supervision.insert({ id: crypto.randomUUID(), teacher_id: tid, committee_number: cid, date: buildExamDateTimestamp(date), period: 1, subject: 'اختبار - بديل طارئ' }); await fetchData(); }} onCommitSmartDistribution={handleCommitSmartDistribution} onDeleteSmartDistributions={deleteSmartDistributions} />;
       case 'teachers': return <AdminUsersManager users={users} setUsers={saveUsersOptimistic} students={students} onDeleteUser={async (id: string) => { if(confirm('حذف؟')) { await db.users.delete(id); await fetchData(); } }} onAlert={addLocalNotification} />;
       case 'students': return <AdminStudentsManager students={students} setStudents={async (s: any) => { await db.students.upsert(typeof s === 'function' ? s(students) : s); await fetchData(); }} onDeleteStudent={async (id: string) => { if(confirm('حذف؟')) { await db.students.delete(id); await fetchData(); } }} onAlert={addLocalNotification} />;
       case 'committees': return <AdminSupervisionMonitor supervisions={supervisions} users={users} students={students} absences={absences} deliveryLogs={deliveryLogs} />;

@@ -124,7 +124,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
     () =>
       supervisions.find(
         (s: any) =>
-          s.teacher_id === user.id && s.date && s.date.startsWith(activeDate),
+          s.teacher_id === user.id && matchesActiveDate(s.date),
       ),
     [supervisions, user.id, activeDate],
   );
@@ -181,6 +181,24 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
     const pad = (value: number) => String(value).padStart(2, '0');
     return `${activeDate}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
   };
+
+  function getRiyadhDateKeyFromValue(value?: string | null) {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value).slice(0, 10);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Riyadh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(d);
+    const get = (type: string) => parts.find(part => part.type === type)?.value || '';
+    return `${get('year')}-${get('month')}-${get('day')}`;
+  }
+
+  function matchesActiveDate(value?: string | null) {
+    return !!value && (String(value).startsWith(activeDate) || getRiyadhDateKeyFromValue(value) === activeDate);
+  }
 
   const markAssignmentStarted = (assignmentId: string, startedAt: string) => {
     const nextConfirmed = Array.from(new Set([...confirmedAssignments, assignmentId]));
@@ -300,7 +318,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
       .filter(
         (l) =>
           l.committee_number === activeCommittee &&
-          l.time.startsWith(activeDate),
+          matchesActiveDate(l.time),
       )
       .map((l) => l.grade);
 
@@ -328,7 +346,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
       absences.filter(
         (a) =>
           a.committee_number === activeCommittee &&
-          a.date.startsWith(activeDate),
+          matchesActiveDate(a.date),
       ),
     [absences, activeCommittee, activeDate],
   );
@@ -401,7 +419,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   ) => {
     if (isCommitteeFinished) return;
     const existing = absences.find(
-      (a) => a.student_id === student.national_id && a.date.startsWith(activeDate),
+      (a) => a.student_id === student.national_id && matchesActiveDate(a.date),
     );
     const isRemoving = existing && existing.type === type;
 
@@ -633,7 +651,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   if (isCommitteeFinished) {
     const committeeLogs = deliveryLogs.filter(
       (l) =>
-        l.committee_number === activeCommittee && l.time.startsWith(activeDate),
+        l.committee_number === activeCommittee && matchesActiveDate(l.time),
     );
     
     // منع التكرار: نحتفظ بسجل واحد لكل صف، مع أولوية السجل المؤكد (CONFIRMED)
@@ -848,7 +866,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
               const comAbsences = absences.filter(
                 (a) =>
                   a.committee_number === activeCommittee &&
-                  a.date.startsWith(activeDate) &&
+                  matchesActiveDate(a.date) &&
                   students.find((s) => s.national_id === a.student_id)
                     ?.grade === log.grade,
               );
