@@ -40,6 +40,7 @@ export interface SmartDistributionItem {
   forcedRepeat: boolean;
   assignmentType?: 'PRIMARY' | 'RESERVE';
   reserveOrder?: number;
+  reserveReason?: string;
 }
 
 interface Props {
@@ -381,6 +382,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
           .map(s => s.teacher_id),
       );
       const randomizedCommittees = [...committees].sort(() => Math.random() - 0.5);
+      const primaryByCommittee = new Map<string, { teacherId: string; teacherName: string; loadAfter: number; forcedRepeat: boolean; studentCount: number }>();
 
       randomizedCommittees.forEach(committeeNumber => {
         const selected = eligible
@@ -416,7 +418,30 @@ const SmartProctorDistribution: React.FC<Props> = ({
         });
         usedThisSlot.add(selected.user.id);
         runningPrimaryCounts[selected.user.id] = (runningPrimaryCounts[selected.user.id] || 0) + 1;
+        primaryByCommittee.set(committeeNumber, {
+          teacherId: selected.user.id,
+          teacherName: selected.user.full_name,
+          loadAfter: runningPrimaryCounts[selected.user.id] || 0,
+          forcedRepeat: selected.usedThisSlot || selected.sameCommittee,
+          studentCount: students.filter(s => s.committee_number === committeeNumber).length,
+        });
       });
+
+      const rankedReserveCommittees = committees
+        .map(committeeNumber => {
+          const primary = primaryByCommittee.get(committeeNumber);
+          const studentCount = primary?.studentCount ?? students.filter(s => s.committee_number === committeeNumber).length;
+          const primaryLoad = primary?.loadAfter ?? 0;
+          const repeatRisk = primary?.forcedRepeat ? 1 : 0;
+          const score = studentCount + (primaryLoad * 7) + (repeatRisk * 18) + Math.random();
+          const reasonParts = [
+            `حجم اللجنة ${studentCount} طالب`,
+            primary ? `مراقبها الأساسي لديه ${primaryLoad} إسناد` : 'لا يوجد مراقب أساسي واضح',
+            repeatRisk ? 'يوجد تكرار يستحق دعم احتياطي' : 'دعم احتياطي متوازن',
+          ];
+          return { committeeNumber, score, reason: reasonParts.join(' - ') };
+        })
+        .sort((a, b) => b.score - a.score);
 
       const remaining = eligible
         .filter(p => !usedThisSlot.has(p.id))
@@ -433,7 +458,8 @@ const SmartProctorDistribution: React.FC<Props> = ({
         });
 
       remaining.forEach((candidate, index) => {
-        const committeeNumber = committees[index % committees.length];
+        const reserveTarget = rankedReserveCommittees[index % rankedReserveCommittees.length];
+        const committeeNumber = reserveTarget?.committeeNumber || committees[index % committees.length];
         draft.push({
           id: crypto.randomUUID(),
           slotId: slot.id,
@@ -449,6 +475,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
           forcedRepeat: false,
           assignmentType: 'RESERVE',
           reserveOrder: index + 1,
+          reserveReason: reserveTarget?.reason || 'احتياط موزع تلقائياً بعد التوزيع الأساسي',
         });
         runningReserveCounts[candidate.user.id] = (runningReserveCounts[candidate.user.id] || 0) + 1;
       });
@@ -714,6 +741,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
                 <th className="p-4 border-b">مسند له</th>
                 <th className="p-4 border-b">بعد التوزيع</th>
                 <th className="p-4 border-b">احتياط له</th>
+                <th className="p-4 border-b">سبب الاختيار</th>
                 <th className="p-4 border-b">إجراء</th>
               </tr>
             </thead>
@@ -743,6 +771,9 @@ const SmartProctorDistribution: React.FC<Props> = ({
                   <td className="p-4 font-black tabular-nums">{item.assignedCount}</td>
                   <td className="p-4 font-black tabular-nums text-blue-600">{fairnessAfterById[item.teacherId] ?? item.assignedCount + 1}</td>
                   <td className="p-4 font-black tabular-nums text-violet-600">{item.reserveCount}</td>
+                  <td className="p-4 text-[11px] font-bold text-slate-500 max-w-[260px]">
+                    {item.assignmentType === 'RESERVE' ? (item.reserveReason || 'احتياط موزع تلقائياً') : (item.forcedRepeat ? 'إسناد للضرورة مع مراعاة العدالة' : 'إسناد أساسي متوازن')}
+                  </td>
                   <td className="p-4">
                     <button onClick={() => replaceOne(item)} className="px-3 py-2 rounded-xl bg-slate-900 text-white text-[10px] font-black flex items-center gap-2">
                       <Shuffle size={14} /> استبدال
@@ -751,7 +782,7 @@ const SmartProctorDistribution: React.FC<Props> = ({
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={10} className="p-12 text-center text-slate-400 font-black">لم يتم توليد توزيع بعد.</td>
+                  <td colSpan={11} className="p-12 text-center text-slate-400 font-black">لم يتم توليد توزيع بعد.</td>
                 </tr>
               )}
             </tbody>

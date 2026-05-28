@@ -59,11 +59,27 @@ const ControlManager: React.FC<ControlManagerProps> = ({
   const [isResetting, setIsResetting] = useState(false);
   const [assignmentSearch, setAssignmentSearch] = useState('');
   const [globalSearch, setGlobalSearch] = useState('');
+  const [auditEvents, setAuditEvents] = useState<{ id: string; time: string; action: string; detail: string }[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('control_audit_events') || '[]');
+    } catch {
+      return [];
+    }
+  });
   
   // States for Assigning/Swapping
   const [isAssigning, setIsAssigning] = useState(false);
   const [targetCommittee, setTargetCommittee] = useState<string | null>(null);
   const [proctorSearchInModal, setProctorSearchInModal] = useState('');
+
+  const addAuditEvent = (action: string, detail: string) => {
+    const event = { id: crypto.randomUUID(), time: new Date().toISOString(), action, detail };
+    setAuditEvents(prev => {
+      const next = [event, ...prev].slice(0, 80);
+      localStorage.setItem('control_audit_events', JSON.stringify(next));
+      return next;
+    });
+  };
 
   const stats = useMemo(() => {
     const totalComs = new Set(students.map(s => s.committee_number)).size;
@@ -91,20 +107,46 @@ const ControlManager: React.FC<ControlManagerProps> = ({
     return users.filter(u => u.role === 'PROCTOR' && !activeTeacherIds.includes(u.id));
   }, [users, supervisions]);
 
+  const allSupervisionRows = smartSupervisions || supervisions;
+  const activeExamDateKey = systemConfig.active_exam_date || new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Riyadh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  const isReserveRow = (item: Supervision) => String(item.subject || '').includes('[RESERVE]');
+
+  const reserveCandidateIdsForTarget = useMemo(() => {
+    if (!targetCommittee) return new Set<string>();
+    return new Set(
+      allSupervisionRows
+        .filter(s => isReserveRow(s))
+        .filter(s => s.committee_number === targetCommittee)
+        .filter(s => !activeExamDateKey || String(s.date || '').slice(0, 10) === activeExamDateKey)
+        .map(s => s.teacher_id),
+    );
+  }, [allSupervisionRows, targetCommittee, activeExamDateKey]);
+
   const proctorsListForModal = useMemo(() => {
     const q = proctorSearchInModal.trim();
     return users
       .filter(u => u.role === 'PROCTOR' && (!q || u.full_name.includes(q) || u.national_id.includes(q)))
       .sort((a, b) => {
+        const aReserveForTarget = reserveCandidateIdsForTarget.has(a.id);
+        const bReserveForTarget = reserveCandidateIdsForTarget.has(b.id);
+        if (aReserveForTarget !== bReserveForTarget) return aReserveForTarget ? -1 : 1;
         const aActive = supervisions.some(s => s.teacher_id === a.id);
         const bActive = supervisions.some(s => s.teacher_id === b.id);
         if (aActive !== bActive) return aActive ? 1 : -1;
-        const aCount = (smartSupervisions || supervisions).filter(s => s.teacher_id === a.id).length;
-        const bCount = (smartSupervisions || supervisions).filter(s => s.teacher_id === b.id).length;
+        const aCount = allSupervisionRows.filter(s => s.teacher_id === a.id && !isReserveRow(s)).length;
+        const bCount = allSupervisionRows.filter(s => s.teacher_id === b.id && !isReserveRow(s)).length;
         if (aCount !== bCount) return aCount - bCount;
+        const aReserveCount = allSupervisionRows.filter(s => s.teacher_id === a.id && isReserveRow(s)).length;
+        const bReserveCount = allSupervisionRows.filter(s => s.teacher_id === b.id && isReserveRow(s)).length;
+        if (aReserveCount !== bReserveCount) return aReserveCount - bReserveCount;
         return a.full_name.localeCompare(b.full_name, 'ar');
       });
-  }, [users, proctorSearchInModal, supervisions, smartSupervisions]);
+  }, [users, proctorSearchInModal, supervisions, allSupervisionRows, reserveCandidateIdsForTarget]);
 
   const handleStartNewDay = async () => {
     const today = new Date().toISOString().split('T')[0];
@@ -114,6 +156,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
       await supabase.from('supervision').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       await setSystemConfig({ ...systemConfig, active_exam_date: today });
       onBroadcast(`تم تفعيل يوم الاختبار الجديد (${today}). يرجى المباشرة فوراً.`, 'ALL');
+      addAuditEvent('بداية يوم جديد', `تم تصفير اللجان وتفعيل تاريخ ${today}`);
       window.location.reload();
     } catch (err: any) { alert(err.message); } finally { setIsResetting(false); }
   };
@@ -193,11 +236,13 @@ const ControlManager: React.FC<ControlManagerProps> = ({
     a.download = `control-backup-${systemConfig.active_exam_date || new Date().toISOString().slice(0,10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    addAuditEvent('نسخ احتياطي', `تم تصدير نسخة JSON لتاريخ ${systemConfig.active_exam_date || new Date().toISOString().slice(0,10)}`);
   };
 
   const archiveTodayLocally = () => {
     const key = `control_archive_${systemConfig.active_exam_date || new Date().toISOString().slice(0,10)}`;
     localStorage.setItem(key, JSON.stringify({ students, users, supervisions, absences, deliveryLogs, requests, archived_at: new Date().toISOString() }));
+    addAuditEvent('أرشفة اليوم', `تم حفظ أرشيف محلي لتاريخ ${systemConfig.active_exam_date || new Date().toISOString().slice(0,10)}`);
     alert('تم حفظ أرشيف اليوم محليًا على هذا الجهاز.');
   };
 
@@ -438,8 +483,10 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                      {proctorsListForModal.map(u => {
                         const currentSv = supervisions.find(s => s.teacher_id === u.id);
                         const isCurrentInThisCom = currentSv?.committee_number === targetCommittee;
-                        const totalAssignments = (smartSupervisions || supervisions).filter(s => s.teacher_id === u.id).length;
-                        const startedAssignments = (smartSupervisions || supervisions).filter(s => {
+                        const isReserveForTarget = reserveCandidateIdsForTarget.has(u.id);
+                        const totalAssignments = allSupervisionRows.filter(s => s.teacher_id === u.id && !isReserveRow(s)).length;
+                        const reserveAssignments = allSupervisionRows.filter(s => s.teacher_id === u.id && isReserveRow(s)).length;
+                        const startedAssignments = allSupervisionRows.filter(s => {
                           if (s.teacher_id !== u.id) return false;
                           const d = new Date(s.date);
                           return s.date && !Number.isNaN(d.getTime()) && !(d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0);
@@ -452,24 +499,29 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                              onClick={async () => {
                                 if (confirm(`هل ترغب في تعيين (${u.full_name}) كبديل في اللجنة (${targetCommittee})؟`)) {
                                    await onAssignProctor(u.id, targetCommittee);
+                                   addAuditEvent('استبدال طارئ', `تم تعيين ${u.full_name} على لجنة ${targetCommittee}${isReserveForTarget ? ' من احتياط اللجنة' : ''}`);
                                    setIsAssigning(false);
                                 }
                              }}
-                             className={`w-full p-6 rounded-[2.5rem] border-2 transition-all flex items-center justify-between group hover:shadow-2xl ${isCurrentInThisCom ? 'opacity-30 border-slate-100 bg-slate-50 grayscale' : 'border-slate-50 bg-slate-50 hover:border-blue-200 hover:bg-white'}`}
+                             className={`w-full p-6 rounded-[2.5rem] border-2 transition-all flex items-center justify-between group hover:shadow-2xl ${isCurrentInThisCom ? 'opacity-30 border-slate-100 bg-slate-50 grayscale' : isReserveForTarget ? 'border-violet-200 bg-violet-50 hover:border-violet-400 hover:bg-white shadow-violet-100' : 'border-slate-50 bg-slate-50 hover:border-blue-200 hover:bg-white'}`}
                            >
                               <div className="flex items-center gap-6">
-                                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${currentSv ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${isReserveForTarget ? 'bg-violet-600 text-white' : currentSv ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
                                     {currentSv ? <ArrowRightLeft size={28}/> : <UserCheck size={28}/>}
                                  </div>
                                  <div className="text-right">
-                                    <p className="font-black text-xl text-slate-800 leading-none mb-1">{u.full_name}</p>
+                                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                                      {isReserveForTarget && <span className="px-3 py-1 rounded-full bg-violet-600 text-white text-[9px] font-black">احتياط هذه اللجنة</span>}
+                                      <p className="font-black text-xl text-slate-800 leading-none">{u.full_name}</p>
+                                    </div>
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                       {currentSv ? `سيتم نقله من لجنة ${currentSv.committee_number}` : 'مراقب احتياط جاهز للبدء'}
+                                       {isReserveForTarget ? 'مرشح من الاحتياط الذكي لنفس اللجنة' : currentSv ? `سيتم نقله من لجنة ${currentSv.committee_number}` : 'مراقب متاح وجاهز للبدء'}
                                     </p>
                                  </div>
                               </div>
                               <div className="hidden md:flex flex-col gap-2 text-[10px] font-black text-slate-500">
                                 <span className="px-3 py-1 rounded-full bg-white border border-slate-100">مسند: {totalAssignments}</span>
+                                <span className="px-3 py-1 rounded-full bg-white border border-slate-100">احتياط: {reserveAssignments}</span>
                                 <span className="px-3 py-1 rounded-full bg-white border border-slate-100">باشر: {startedAssignments}</span>
                               </div>
                               <CheckCircle className="text-blue-600 opacity-0 group-hover:opacity-100 transition-all" size={32}/>
@@ -507,6 +559,26 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                       <p className="text-xs font-bold opacity-80 mt-1">{a.text}</p>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[3rem] p-7 border border-slate-100 shadow-xl">
+                <div className="flex items-center justify-between gap-3 mb-5">
+                  <h3 className="text-xl font-black text-slate-900 flex items-center gap-3"><History className="text-blue-600" /> سجل التدقيق</h3>
+                  <button onClick={() => { localStorage.removeItem('control_audit_events'); setAuditEvents([]); }} className="px-3 py-2 rounded-xl bg-slate-100 text-slate-500 text-[10px] font-black">مسح</button>
+                </div>
+                <div className="space-y-3 max-h-72 overflow-y-auto custom-scrollbar pr-1">
+                  {auditEvents.length ? auditEvents.slice(0, 8).map(event => (
+                    <div key={event.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-black text-slate-900">{event.action}</p>
+                        <span className="text-[10px] font-mono text-slate-400">{new Date(event.time).toLocaleString('ar-SA')}</span>
+                      </div>
+                      <p className="text-xs font-bold text-slate-500 mt-1">{event.detail}</p>
+                    </div>
+                  )) : (
+                    <p className="text-center py-8 text-slate-400 font-black">لا توجد عمليات مسجلة بعد.</p>
+                  )}
                 </div>
               </div>
 
@@ -747,7 +819,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">نص البلاغ / التعليمات</label>
                     <textarea value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} placeholder="اكتب التعليمات هنا بوضوح..." className="w-full bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] p-8 font-bold text-lg h-48 outline-none focus:border-blue-600 transition-all shadow-inner resize-none" />
                  </div>
-                 <button onClick={() => { if(broadcastMsg.trim()) { onBroadcast(formatBroadcast(broadcastMsg), broadcastTarget); setBroadcastMsg(''); alert('تم بث الرسالة بنجاح'); } }} disabled={!broadcastMsg.trim()} className="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] font-black text-2xl flex items-center justify-center gap-6 shadow-2xl hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
+                 <button onClick={() => { if(broadcastMsg.trim()) { onBroadcast(formatBroadcast(broadcastMsg), broadcastTarget); addAuditEvent('بث إعلامي', `تم بث رسالة إلى ${broadcastTarget}`); setBroadcastMsg(''); alert('تم بث الرسالة بنجاح'); } }} disabled={!broadcastMsg.trim()} className="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] font-black text-2xl flex items-center justify-center gap-6 shadow-2xl hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
                     <Send size={32}/> بث التعليمات الآن
                  </button>
               </div>
