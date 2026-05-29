@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Trash2, ShieldAlert, RefreshCcw, AlertTriangle, Database, Users2, History, Clock, Save, Code, Copy, Check, ShieldCheck, Calendar, Settings2, MonitorPlay, ExternalLink } from 'lucide-react';
+import { Trash2, ShieldAlert, RefreshCcw, AlertTriangle, Database, Users2, History, Clock, Save, Code, Copy, Check, ShieldCheck, Calendar, Settings2, MonitorPlay, ExternalLink, BrainCircuit } from 'lucide-react';
 import { SystemConfig } from '../../types';
 
 interface Props {
@@ -18,6 +18,7 @@ interface Props {
 const AdminSystemSettings: React.FC<Props> = ({ systemConfig, setSystemConfig, resetFunctions, onAlert }) => {
   const [tempStartTime, setTempStartTime] = useState(systemConfig.exam_start_time || '08:00');
   const [tempActiveDate, setTempActiveDate] = useState(systemConfig.active_exam_date || new Date().toISOString().split('T')[0]);
+  const [tempApiKey, setTempApiKey] = useState(systemConfig.openrouter_api_key || '');
   const [isSavingCfg, setIsSavingCfg] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const tv2Url = `${window.location.origin}${window.location.pathname}?tv2=1`;
@@ -78,7 +79,8 @@ ALTER TABLE control_requests ADD COLUMN IF NOT EXISTS assistant_name TEXT;`;
     try {
       await setSystemConfig({ 
         exam_start_time: tempStartTime,
-        active_exam_date: tempActiveDate
+        active_exam_date: tempActiveDate,
+        openrouter_api_key: tempApiKey
       } as any);
       onAlert('تم حفظ إعدادات النظام وتحديث التاريخ النشط بنجاح.', 'success');
     } catch (err: any) {
@@ -168,6 +170,10 @@ ALTER TABLE control_requests ADD COLUMN IF NOT EXISTS assistant_name TEXT;`;
                    <label className="text-[10px] font-black text-slate-400 mr-2 uppercase flex items-center gap-2 tracking-widest"><Calendar size={12}/> تاريخ اليوم النشط</label>
                    <input type="date" value={tempActiveDate} onChange={(e) => setTempActiveDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-[1.5rem] p-4 font-black text-xl text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-sm transition-all" />
                 </div>
+             </div>
+             <div className="space-y-3 border-t border-slate-100 pt-6">
+                <label className="text-[10px] font-black text-slate-400 mr-2 uppercase flex items-center gap-2 tracking-widest"><BrainCircuit size={12}/> مفتاح OpenRouter API (للذكاء الاصطناعي)</label>
+                <input type="password" placeholder="sk-or-v1-..." value={tempApiKey} onChange={(e) => setTempApiKey(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-[1.5rem] p-4 font-bold text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-sm transition-all" />
              </div>
              <button onClick={handleSaveConfig} disabled={isSavingCfg} className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-5 rounded-[1.8rem] font-black text-xl shadow-lg shadow-blue-600/20 hover:shadow-blue-600/35 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-4 active:scale-[0.98] disabled:opacity-50">
                {isSavingCfg ? <RefreshCcw className="animate-spin" /> : <Save size={32} />} حفظ الإعدادات المركزية
