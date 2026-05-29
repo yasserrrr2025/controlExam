@@ -17,7 +17,7 @@ import {
   Copy, ExternalLink, Link2, Archive, FileDown, ClipboardList, Siren,
   WifiOff, DatabaseBackup, MessageCircle, Wand2
 } from 'lucide-react';
-import { User, DeliveryLog, Student, UserRole, SystemConfig, Absence, Supervision, ControlRequest } from '../../types';
+import { User, DeliveryLog, Student, UserRole, SystemConfig, Absence, Supervision, ControlRequest, ExamSchedule } from '../../types';
 import { ROLES_ARABIC } from '../../constants';
 import { supabase, db } from '../../supabase';
 import SmartProctorDistribution, { SmartDistributionItem } from './SmartProctorDistribution';
@@ -32,6 +32,7 @@ interface ControlManagerProps {
   absences: Absence[];
   supervisions: Supervision[];
   smartSupervisions?: Supervision[];
+  examSchedule?: ExamSchedule[];
   requests?: ControlRequest[];
   setDeliveryLogs: (log: DeliveryLog) => Promise<void>;
   setSystemConfig: (cfg: any) => Promise<void>;
@@ -39,10 +40,12 @@ interface ControlManagerProps {
   onAssignProctor: (teacherId: string, committeeNumber: string) => Promise<void>;
   onCommitSmartDistribution: (items: SmartDistributionItem[], replaceExisting: boolean) => Promise<void>;
   onDeleteSmartDistributions?: (ids: string[]) => Promise<void>;
+  onUpsertExamSchedule?: (item: Partial<ExamSchedule>) => Promise<void>;
+  onDeleteExamSchedule?: (id: string) => Promise<void>;
 }
 
 const ControlManager: React.FC<ControlManagerProps> = ({ 
-  users, deliveryLogs, students, onBroadcast, onUpdateUserGrades, systemConfig, absences, supervisions, smartSupervisions, requests = [], setDeliveryLogs, setSystemConfig, onRemoveSupervision, onAssignProctor, onCommitSmartDistribution, onDeleteSmartDistributions
+  users, deliveryLogs, students, onBroadcast, onUpdateUserGrades, systemConfig, absences, supervisions, smartSupervisions, examSchedule = [], requests = [], setDeliveryLogs, setSystemConfig, onRemoveSupervision, onAssignProctor, onCommitSmartDistribution, onDeleteSmartDistributions, onUpsertExamSchedule, onDeleteExamSchedule
 }) => {
   type ControlTab = 'cockpit' | 'ops-center' | 'assignments' | 'emergency-receipt' | 'comms' | 'proctors-mgmt';
   const [activeTab, setActiveTabState] = useState<ControlTab>(() => {
@@ -372,6 +375,9 @@ const ControlManager: React.FC<ControlManagerProps> = ({
              students={students}
              supervisions={smartSupervisions || supervisions}
              activeDate={systemConfig.active_exam_date}
+             examSchedule={examSchedule}
+             onUpsertExamSchedule={onUpsertExamSchedule}
+             onDeleteExamSchedule={onDeleteExamSchedule}
              onCommit={onCommitSmartDistribution}
              onDeleteSupervisions={onDeleteSmartDistributions}
            />

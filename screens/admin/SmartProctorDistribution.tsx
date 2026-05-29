@@ -14,7 +14,7 @@ import {
   Users,
   Wand2,
 } from 'lucide-react';
-import { Student, Supervision, User } from '../../types';
+import { ExamSchedule, Student, Supervision, User } from '../../types';
 import { supabase } from '../../supabase';
 import { APP_CONFIG } from '../../constants';
 
@@ -48,6 +48,9 @@ interface Props {
   students: Student[];
   supervisions: Supervision[];
   activeDate?: string;
+  examSchedule?: ExamSchedule[];
+  onUpsertExamSchedule?: (item: Partial<ExamSchedule>) => Promise<void>;
+  onDeleteExamSchedule?: (id: string) => Promise<void>;
   onCommit: (items: SmartDistributionItem[], replaceExisting: boolean) => Promise<void>;
   onDeleteSupervisions?: (ids: string[]) => Promise<void>;
 }
@@ -104,6 +107,9 @@ const SmartProctorDistribution: React.FC<Props> = ({
   students,
   supervisions,
   activeDate,
+  examSchedule = [],
+  onUpsertExamSchedule,
+  onDeleteExamSchedule,
   onCommit,
   onDeleteSupervisions,
 }) => {
@@ -138,6 +144,15 @@ const SmartProctorDistribution: React.FC<Props> = ({
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
   const [isPrintingDistribution, setIsPrintingDistribution] = useState(false);
+  const [newExam, setNewExam] = useState<Partial<ExamSchedule>>({
+    exam_date: defaultDate,
+    subject: '',
+    period: 1,
+    start_time: '08:00',
+    end_time: '',
+    grades: [],
+    status: 'READY',
+  });
 
   const primarySupervisions = useMemo(() => supervisions.filter(s => !isReserveSupervision(s)), [supervisions]);
   const reserveSupervisions = useMemo(() => supervisions.filter(isReserveSupervision), [supervisions]);
@@ -343,6 +358,29 @@ const SmartProctorDistribution: React.FC<Props> = ({
 
   const addSlot = () => {
     setSlots(prev => [...prev, { id: crypto.randomUUID(), date: defaultDate, subject: 'اختبار', period: 1 }]);
+  };
+
+  const addSlotFromExam = (exam: ExamSchedule) => {
+    setSlots(prev => {
+      const exists = prev.some(slot => slot.date === exam.exam_date && Number(slot.period) === Number(exam.period) && slot.subject === exam.subject);
+      if (exists) return prev;
+      return [...prev, { id: crypto.randomUUID(), date: exam.exam_date, subject: exam.subject || 'اختبار', period: Number(exam.period) || 1 }];
+    });
+    setSelectedExclusionDate(exam.exam_date);
+  };
+
+  const saveExamSchedule = async () => {
+    if (!onUpsertExamSchedule || !newExam.exam_date || !newExam.subject?.trim()) return;
+    const payload: Partial<ExamSchedule> = {
+      ...newExam,
+      id: newExam.id || crypto.randomUUID(),
+      subject: newExam.subject.trim(),
+      period: Number(newExam.period) || 1,
+      start_time: newExam.start_time || '08:00',
+      status: newExam.status || 'READY',
+    };
+    await onUpsertExamSchedule(payload);
+    setNewExam({ exam_date: payload.exam_date, subject: '', period: 1, start_time: payload.start_time || '08:00', end_time: '', grades: [], status: 'READY' });
   };
 
   const updateSlot = (id: string, patch: Partial<SmartExamSlot>) => {
@@ -604,6 +642,46 @@ const SmartProctorDistribution: React.FC<Props> = ({
             <button onClick={printOfficialDistribution} disabled={!committedRows.length} className="px-6 py-3 rounded-2xl bg-slate-950 text-white font-black text-xs flex items-center gap-2 shadow-lg disabled:opacity-40">
               <Printer size={18} /> طباعة التقرير
             </button>
+          </div>
+        </div>
+
+        <div className="mb-6 rounded-[2rem] border border-blue-100 bg-blue-50/60 p-5 no-print">
+          <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h4 className="text-lg font-black text-slate-900">جدول الاختبارات</h4>
+              <p className="text-xs font-bold text-slate-500">اختر الاختبار من الجدول ليبنى عليه التوزيع والاستبعاد بدل الإدخال اليدوي.</p>
+            </div>
+            <span className="rounded-full bg-white px-4 py-2 text-[10px] font-black text-blue-600">{examSchedule.length} اختبار</span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[160px_1fr_100px_120px_120px_120px]">
+            <input type="date" value={newExam.exam_date || defaultDate} onChange={e => setNewExam(prev => ({ ...prev, exam_date: e.target.value }))} className="rounded-xl border border-blue-100 bg-white p-3 text-sm font-black outline-none" />
+            <input value={newExam.subject || ''} onChange={e => setNewExam(prev => ({ ...prev, subject: e.target.value }))} placeholder="اسم المادة" className="rounded-xl border border-blue-100 bg-white p-3 text-sm font-black outline-none" />
+            <input type="number" min={1} value={newExam.period || 1} onChange={e => setNewExam(prev => ({ ...prev, period: Number(e.target.value) || 1 }))} className="rounded-xl border border-blue-100 bg-white p-3 text-sm font-black outline-none" />
+            <input type="time" value={newExam.start_time || '08:00'} onChange={e => setNewExam(prev => ({ ...prev, start_time: e.target.value }))} className="rounded-xl border border-blue-100 bg-white p-3 text-sm font-black outline-none" />
+            <input type="time" value={newExam.end_time || ''} onChange={e => setNewExam(prev => ({ ...prev, end_time: e.target.value }))} className="rounded-xl border border-blue-100 bg-white p-3 text-sm font-black outline-none" />
+            <button onClick={saveExamSchedule} disabled={!onUpsertExamSchedule || !newExam.subject?.trim()} className="rounded-xl bg-blue-600 p-3 text-xs font-black text-white shadow-lg disabled:opacity-40">حفظ الاختبار</button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-2">
+            {examSchedule.length ? examSchedule.map(exam => (
+              <div key={exam.id} className="flex flex-col gap-3 rounded-2xl border border-blue-100 bg-white p-4 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black text-slate-600">{exam.exam_date}</span>
+                    <span className="rounded-full bg-blue-100 px-3 py-1 text-[10px] font-black text-blue-700">فترة {exam.period}</span>
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black text-emerald-700">{exam.start_time}</span>
+                  </div>
+                  <p className="mt-2 truncate text-base font-black text-slate-900">{exam.subject}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => addSlotFromExam(exam)} className="rounded-xl bg-slate-950 px-4 py-3 text-[10px] font-black text-white">استخدام في التوزيع</button>
+                  {onDeleteExamSchedule && <button onClick={() => confirm('حذف هذا الاختبار من الجدول؟') && onDeleteExamSchedule(exam.id)} className="rounded-xl bg-red-50 px-4 py-3 text-[10px] font-black text-red-600">حذف</button>}
+                </div>
+              </div>
+            )) : (
+              <div className="rounded-2xl border border-dashed border-blue-200 bg-white/70 p-6 text-center text-sm font-black text-slate-400 xl:col-span-2">لم يتم إضافة جدول اختبارات بعد.</div>
+            )}
           </div>
         </div>
 
