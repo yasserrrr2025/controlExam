@@ -28,21 +28,30 @@ const AiDashboard: React.FC<Props> = ({ systemConfig }) => {
     const loadAllData = async () => {
       try {
         // Fetch last 7 days of data for the AI context
-        const [users, students, supervisions, absences, logs, requests] = await Promise.all([
+        const [users, students, supervisions, absences, logs, requests, reports, exams, envelopes] = await Promise.all([
           db.users.getAll(),
           db.students.getAll(),
           db.supervision.getAll(),
           db.absences.getAll(),
           db.deliveryLogs.getAll(),
-          db.controlRequests.getAll()
+          db.controlRequests.getAll(),
+          db.committeeReports.getAll(),
+          db.examSchedule.getAll(),
+          db.envelopeOpenings.getAll()
         ]);
         
         // Simply passing all the data for now since Supabase data here is usually scoped per school/exam period
+        // Strict filtering to remove sensitive fields like national_id, phone numbers, and raw UUIDs where unnecessary
         setDataContext({
-          users: users.map(u => ({ name: u.full_name, role: u.role })),
-          absences: absences.map(a => ({ date: a.date, type: a.type, student: a.student_name, committee: a.committee_number })),
-          logs: logs.map(l => ({ time: l.time, status: l.status, committee: l.committee_number, receiver: l.teacher_name })),
-          alerts: requests.map(r => ({ time: r.time, text: r.text, status: r.status, committee: r.committee }))
+          users: users.map(u => ({ name: u.full_name, role: u.role, assigned_committees: u.assigned_committees })),
+          students: students.map(s => ({ name: s.name, grade: s.grade, section: s.section, committee: s.committee_number })),
+          supervisions: supervisions.map(s => ({ teacher: users.find(u => u.id === s.teacher_id)?.full_name || 'غير معروف', committee: s.committee_number, date: s.date, subject: s.subject })),
+          absences: absences.map(a => ({ date: a.date, type: a.type, student: a.student_name, committee: a.committee_number, period: a.period })),
+          logs: logs.map(l => ({ time: l.time, status: l.status, type: l.type, committee: l.committee_number, receiver: l.teacher_name, proctor: l.proctor_name })),
+          alerts: requests.map(r => ({ time: r.time, text: r.text, status: r.status, committee: r.committee, from: r.from })),
+          reports: reports.map(r => ({ date: r.date, committee: r.committee_number, notes: r.notes, issues: r.issues_found })),
+          schedule: exams.map(e => ({ date: e.exam_date, subject: e.subject, period: e.period })),
+          envelopes: envelopes.map(e => ({ time: e.time, grade: e.grade, opener: e.opened_by_name }))
         });
       } catch (err) {
         console.error('Failed to load DB data for AI', err);
