@@ -2,11 +2,11 @@
 
 // OpenRouter Free Models in order of preference
 const AI_MODELS = [
-  'meta-llama/llama-3-8b-instruct:free',
-  'google/gemma-2-9b-it:free',
-  'mistralai/mistral-7b-instruct:free',
-  'microsoft/phi-3-mini-128k-instruct:free',
-  'openchat/openchat-7b:free'
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'google/gemma-4-31b-it:free',
+  'google/gemma-4-26b-a4b-it:free',
+  'meta-llama/llama-3.2-3b-instruct:free',
+  'qwen/qwen3-coder:free'
 ];
 
 export interface AiInsightsResult {

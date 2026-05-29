@@ -31,7 +31,8 @@ CREATE TABLE system_config (
   exam_start_time TEXT DEFAULT '08:00',
   exam_date TEXT,
   active_exam_date TEXT DEFAULT CURRENT_DATE::text,
-  allow_manual_join BOOLEAN DEFAULT false
+  allow_manual_join BOOLEAN DEFAULT false,
+  openrouter_api_key TEXT
 );
 
 INSERT INTO system_config (id, active_exam_date) VALUES ('main_config', CURRENT_DATE::text);
