@@ -89,3 +89,49 @@ Data: ${JSON.stringify(dataContext)} ${basePromptEnd}`;
   
   throw new Error('جميع النماذج الذكية تحت الضغط حالياً، يرجى المحاولة لاحقاً.');
 };
+
+export const fetchAIChat = async (
+  apiKey: string,
+  dataContext: any,
+  userMessage: string
+): Promise<string> => {
+  if (!apiKey) throw new Error('API Key is missing');
+
+  const prompt = `أنت مساعد ذكي متخصص في تحليل بيانات كنترول الاختبارات المدرسية.
+البيانات الحالية للسبعة أيام الماضية:
+${JSON.stringify(dataContext)}
+
+سؤال المستخدم: ${userMessage}
+
+أجب باللغة العربية بدقة، بشكل احترافي، وكن مختصراً ومباشراً بناءً على البيانات المتوفرة فقط. إذا طلب أرقاماً، أعطه الأرقام بدقة. استخدم التنسيق (Markdown) في إجابتك لتكون واضحة.`;
+
+  for (const model of AI_MODELS) {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.href,
+          'X-Title': 'Smart Exam Control System'
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.choices[0].message.content;
+      
+    } catch (error) {
+      console.warn(`Model ${model} failed, trying next... Error:`, error);
+    }
+  }
+  
+  throw new Error('جميع النماذج الذكية تحت الضغط حالياً، يرجى المحاولة لاحقاً.');
+};

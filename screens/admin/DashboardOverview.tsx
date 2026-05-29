@@ -3,7 +3,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { GraduationCap, UserCheck, AlertCircle, Users, ArrowUpRight, Send, Radio, Activity, Search, ShieldAlert, Timer, UserX, Clock, UserCircle, CheckCircle2, AlertTriangle, PackageCheck, Bookmark, Info, ShieldCheck, Map, Truck } from 'lucide-react';
 import { Supervision, Absence, DeliveryLog, User, Student, UserRole, SystemConfig } from '../../types';
 import { ROLES_ARABIC } from '../../constants';
-import AiInsightsPanel from '../../components/AiInsightsPanel';
 
 interface AdminDashboardProps {
   stats: { students: number; users: number; activeSupervisions: number };
@@ -125,10 +124,6 @@ const AdminDashboardOverview = ({
          <StatCard title="لجان نشطة" value={liveCommittees.filter(c => c.status === 'ACTIVE' || c.status === 'PROBLEM').length} icon={<UserCheck size={24} />} color="border-emerald-50" bgColor="bg-emerald-600" textColor="text-white" />
          <StatCard title="متجه للكنترول" value={liveCommittees.filter(c => c.status === 'SUBMITTED').length} icon={<Truck size={24} />} color="border-orange-50" bgColor="bg-orange-500" textColor="text-white" />
          <StatCard title="إجمالي الغياب" value={absences.filter(a => a.type === 'ABSENT').length} icon={<UserX size={24} />} color="border-red-50" bgColor="bg-red-600" textColor="text-white" />
-      </div>
-
-      <div className="w-full mb-8">
-         <AiInsightsPanel apiKey={systemConfig.openrouter_api_key || ''} dataContext={{ students: studentsList, absences, supervision: supervisions, deliveryLogs, users }} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
