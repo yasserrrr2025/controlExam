@@ -32,6 +32,22 @@ export interface Supervision {
   subject: string;
 }
 
+export interface ExamSchedule {
+  id: string;
+  exam_date: string;
+  day_name?: string;
+  subject: string;
+  period: number;
+  start_time: string;
+  end_time?: string;
+  grades?: string[];
+  committees?: string[];
+  notes?: string;
+  status?: 'DRAFT' | 'READY' | 'PUBLISHED' | string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Absence {
   id: string;
   date: string;

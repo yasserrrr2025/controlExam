@@ -1,11 +1,11 @@
 
 // ═══════════════════════════════════════════════════════
-//   الكنترول المطور — Service Worker v8
+//   الكنترول المطور — Service Worker v9
 //   استراتيجية: Network First مع Offline Fallback
 // ═══════════════════════════════════════════════════════
 
-const CACHE_NAME = 'control-v8';
-const STATIC_CACHE = 'control-static-v8';
+const CACHE_NAME = 'control-v9';
+const STATIC_CACHE = 'control-static-v9';
 
 // الأصول الأساسية التي تعمل بدون إنترنت
 const STATIC_ASSETS = [
@@ -80,4 +80,27 @@ self.addEventListener('message', (event) => {
   if (event.data === 'clearCache') {
     caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
   }
+  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+    self.registration.showNotification(event.data.title || 'كنترول الاختبارات', {
+      body: event.data.body || '',
+      icon: 'https://www.raed.net/img?id=1488645',
+      badge: 'https://www.raed.net/img?id=1488645',
+      dir: 'rtl',
+      lang: 'ar',
+      tag: event.data.tag || 'control-notification',
+    });
+  }
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow('/');
+      return undefined;
+    })
+  );
 });

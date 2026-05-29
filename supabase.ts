@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { User, Student, Absence, Supervision, ControlRequest, DeliveryLog, SystemConfig, CommitteeReport, EnvelopeOpening } from './types';
+import { User, Student, Absence, Supervision, ControlRequest, DeliveryLog, SystemConfig, CommitteeReport, EnvelopeOpening, ExamSchedule } from './types';
 
 const supabaseUrl = 'https://upfavagxyuwnqmjgiibo.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwZmF2YWd4eXV3bnFtamdpaWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0MDQ0OTYsImV4cCI6MjA4MTk4MDQ5Nn0.AxsPO_Vw04aVuoa2KkFS_63OX1lz1yYthzBLLIkotuw';
@@ -26,15 +26,47 @@ export const db = {
       return (data || []) as User[];
     },
     getById: async (nationalId: string) => {
-      const { data, error } = await supabase.from('users').select('*').eq('national_id', nationalId).maybeSingle();
+      const cleanId = String(nationalId || '').replace(/\D/g, '');
+      const { data, error } = await supabase.rpc('login_by_national_id', {
+        p_national_id: cleanId,
+        p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      }).maybeSingle();
       const err = handleError(error, "users.getById");
       if (err) throw new Error(err);
-      return data as User;
+      if (data) return data as User;
+
+      const direct = await supabase
+        .from('users')
+        .select('*')
+        .eq('national_id', cleanId)
+        .maybeSingle();
+      const directErr = handleError(direct.error, "users.getById.direct");
+      if (directErr) throw new Error(directErr);
+      return direct.data as User;
     },
     upsert: async (users: any[]) => {
-      const { error } = await supabase.from('users').upsert(users, { onConflict: 'national_id' });
-      const err = handleError(error, "users.upsert");
-      if (err) throw new Error(err);
+      for (const user of users) {
+        if (user.id) {
+          const existing = await supabase
+            .from('users')
+            .select('id')
+            .eq('id', user.id)
+            .maybeSingle();
+          const existingErr = handleError(existing.error, "users.exists");
+          if (existingErr) throw new Error(existingErr);
+
+          if (existing.data?.id) {
+            const { error } = await supabase.from('users').update(user).eq('id', user.id);
+            const err = handleError(error, "users.update");
+            if (err) throw new Error(err);
+            continue;
+          }
+        }
+
+        const { error } = await supabase.from('users').insert(user);
+        const err = handleError(error, "users.insert");
+        if (err) throw new Error(err);
+      }
     },
     delete: async (id: string) => {
       const { error } = await supabase.from('users').delete().eq('id', id);
@@ -145,6 +177,29 @@ export const db = {
     deleteByTeacherId: async (teacherId: string) => {
       const { error } = await supabase.from('supervision').delete().eq('teacher_id', teacherId);
       const err = handleError(error, "supervision.delete");
+      if (err) throw new Error(err);
+    }
+  },
+
+  examSchedule: {
+    getAll: async () => {
+      const { data, error } = await supabase
+        .from('exam_schedule')
+        .select('*')
+        .order('exam_date', { ascending: true })
+        .order('period', { ascending: true });
+      const err = handleError(error, "examSchedule.getAll");
+      if (err) throw new Error(err);
+      return (data || []) as ExamSchedule[];
+    },
+    upsert: async (item: Partial<ExamSchedule>) => {
+      const { error } = await supabase.from('exam_schedule').upsert([item], { onConflict: 'id' });
+      const err = handleError(error, "examSchedule.upsert");
+      if (err) throw new Error(err);
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('exam_schedule').delete().eq('id', id);
+      const err = handleError(error, "examSchedule.delete");
       if (err) throw new Error(err);
     }
   },

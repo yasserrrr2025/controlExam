@@ -46,8 +46,9 @@ import {
   Bell,
   Package,
 } from "lucide-react";
-import { db } from "../../supabase";
+import { db, supabase } from "../../supabase";
 import { APP_CONFIG, ROLES_ARABIC } from "../../constants";
+import { getAbsenceKindLabel, getAbsenceReceipt } from "../../services/absenceReceipt";
 
 interface Props {
   user: User;
@@ -110,6 +111,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   const [elapsedTime, setElapsedTime] = useState('00:00');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [localPendingCount, setLocalPendingCount] = useState(0);
+  const [gateNow, setGateNow] = useState(new Date());
 
   const qrScannerRef = useRef<Html5Qrcode | null>(null);
   const activeDate = useMemo(
@@ -117,17 +119,134 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
       systemConfig?.active_exam_date || new Date().toISOString().split("T")[0],
     [systemConfig],
   );
+  const [optimisticAssignment, setOptimisticAssignment] = useState<Supervision | null>(null);
 
   const activeAssignment = useMemo(
-    () =>
-      supervisions.find(
+    () => {
+      const fromServer = supervisions.find(
         (s: any) =>
-          s.teacher_id === user.id && s.date && s.date.startsWith(activeDate),
-      ),
-    [supervisions, user.id, activeDate],
+          s.teacher_id === user.id && matchesActiveDate(s.date),
+      );
+      if (fromServer) return fromServer;
+      if (optimisticAssignment?.teacher_id === user.id && matchesActiveDate(optimisticAssignment.date)) {
+        return optimisticAssignment;
+      }
+      return undefined;
+    },
+    [supervisions, user.id, activeDate, optimisticAssignment],
   );
 
   const activeCommittee = activeAssignment?.committee_number || null;
+  const isAssignmentStarted = (value?: string | null) => {
+    if (!value) return false;
+    const d = new Date(value);
+    return !Number.isNaN(d.getTime()) && !(d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0);
+  };
+  const [confirmedAssignments, setConfirmedAssignments] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`confirmed_assignments_${user.id}`) || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [assignmentStartTimes, setAssignmentStartTimes] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`assignment_start_times_${user.id}`) || '{}');
+    } catch {
+      return {};
+    }
+  });
+  const activeAssignmentConfirmed = !!activeAssignment && (confirmedAssignments.includes(activeAssignment.id) || isAssignmentStarted(activeAssignment.date));
+  const activeAssignmentStartTime = activeAssignment
+    ? assignmentStartTimes[activeAssignment.id] || activeAssignment.date
+    : null;
+  const isEmergencyAssignment = !!activeAssignment && /بديل|طوارئ|احتياط|\[RESERVE\]/.test(String(activeAssignment.subject || ''));
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setGateNow(new Date()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const assignmentGate = useMemo(() => {
+    const [hours, minutes] = String(systemConfig?.exam_start_time || '08:00').split(':').map(Number);
+    const examStart = new Date(`${activeDate}T00:00:00`);
+    examStart.setHours(Number.isFinite(hours) ? hours : 8, Number.isFinite(minutes) ? minutes : 0, 0, 0);
+    const opensAt = new Date(examStart.getTime() - 15 * 60 * 1000);
+    return {
+      examStart,
+      opensAt,
+      canConfirm: gateNow.getTime() >= opensAt.getTime(),
+    };
+  }, [activeDate, systemConfig?.exam_start_time, gateNow]);
+
+  const gateTimeLabel = assignmentGate.opensAt.toLocaleTimeString('ar-SA', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  const buildActiveDateTimestamp = () => {
+    const now = new Date();
+    const pad = (value: number) => String(value).padStart(2, '0');
+    return `${activeDate}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  };
+
+  function getRiyadhDateKeyFromValue(value?: string | null) {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value).slice(0, 10);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Riyadh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(d);
+    const get = (type: string) => parts.find(part => part.type === type)?.value || '';
+    return `${get('year')}-${get('month')}-${get('day')}`;
+  }
+
+  function matchesActiveDate(value?: string | null) {
+    return !!value && (String(value).startsWith(activeDate) || getRiyadhDateKeyFromValue(value) === activeDate);
+  }
+
+  const markAssignmentStarted = (assignmentId: string, startedAt: string) => {
+    const nextConfirmed = Array.from(new Set([...confirmedAssignments, assignmentId]));
+    const nextStartTimes = { ...assignmentStartTimes, [assignmentId]: startedAt };
+    setConfirmedAssignments(nextConfirmed);
+    setAssignmentStartTimes(nextStartTimes);
+    localStorage.setItem(`confirmed_assignments_${user.id}`, JSON.stringify(nextConfirmed));
+    localStorage.setItem(`assignment_start_times_${user.id}`, JSON.stringify(nextStartTimes));
+  };
+
+  useEffect(() => {
+    if (!activeAssignment || !isEmergencyAssignment || !isAssignmentStarted(activeAssignment.date)) return;
+    if (confirmedAssignments.includes(activeAssignment.id)) return;
+    markAssignmentStarted(activeAssignment.id, activeAssignment.date);
+    setOptimisticAssignment(activeAssignment);
+    onAlert(`تمت مباشرة اللجنة رقم ${activeAssignment.committee_number} كاحتياط / بديل طارئ.`, 'success');
+  }, [activeAssignment?.id, activeAssignment?.date, isEmergencyAssignment, confirmedAssignments]);
+
+  const confirmActiveAssignment = async () => {
+    if (!activeAssignment) return;
+    if (!assignmentGate.canConfirm) {
+      onAlert(`يفتح اعتماد اللجنة قبل بداية الاختبار بـ 15 دقيقة، عند ${gateTimeLabel}`, 'warning');
+      return;
+    }
+    const startedAt = buildActiveDateTimestamp();
+    try {
+      const { error } = await supabase
+        .from('supervision')
+        .update({ date: startedAt })
+        .eq('id', activeAssignment.id);
+      if (error) throw new Error(error.message);
+      setOptimisticAssignment({ ...activeAssignment, date: startedAt });
+      markAssignmentStarted(activeAssignment.id, startedAt);
+      setElapsedTime('00:00');
+      await setSupervisions();
+      onAlert(`تم تأكيد المباشرة في اللجنة رقم ${activeAssignment.committee_number}`, 'success');
+    } catch (err: any) {
+      onAlert(err.message || 'تعذر تأكيد المباشرة', 'error');
+    }
+  };
 
   const myActiveRequests = useMemo(
     () =>
@@ -143,8 +262,8 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   );
 
   useEffect(() => {
-    if (!activeAssignment?.date) return;
-    const startTime = new Date(activeAssignment.date).getTime();
+    if (!activeAssignmentStartTime) return;
+    const startTime = new Date(activeAssignmentStartTime).getTime();
     
     const updateTimer = () => {
       const now = new Date().getTime();
@@ -164,7 +283,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [activeAssignment?.date]);
+  }, [activeAssignmentStartTime]);
 
   /* ── مراقبة الاتصال بالإنترنت ── */
   useEffect(() => {
@@ -216,7 +335,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
       .filter(
         (l) =>
           l.committee_number === activeCommittee &&
-          l.time.startsWith(activeDate),
+          matchesActiveDate(l.time),
       )
       .map((l) => l.grade);
 
@@ -244,7 +363,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
       absences.filter(
         (a) =>
           a.committee_number === activeCommittee &&
-          a.date.startsWith(activeDate),
+          matchesActiveDate(a.date),
       ),
     [absences, activeCommittee, activeDate],
   );
@@ -272,15 +391,32 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
     if (!cleanedNum || isJoining) return;
     setIsJoining(true);
     try {
-      await db.supervision.deleteByTeacherId(user.id);
+      const assignmentId = crypto.randomUUID();
+      const startedAt = buildActiveDateTimestamp();
+      await supabase
+        .from('supervision')
+        .delete()
+        .eq('teacher_id', user.id)
+        .gte('date', `${activeDate}T00:00:00`)
+        .lt('date', `${activeDate}T23:59:59.999Z`);
       await db.supervision.insert({
-        id: crypto.randomUUID(),
+        id: assignmentId,
         teacher_id: user.id,
         committee_number: cleanedNum,
-        date: new Date().toISOString(),
+        date: startedAt,
         period: 1,
         subject: "اختبار",
       });
+      setOptimisticAssignment({
+        id: assignmentId,
+        teacher_id: user.id,
+        committee_number: cleanedNum,
+        date: startedAt,
+        period: 1,
+        subject: "اختبار",
+      });
+      markAssignmentStarted(assignmentId, startedAt);
+      setElapsedTime('00:00');
       await setSupervisions();
       onAlert(`تمت المباشرة في اللجنة ${cleanedNum}`, "success");
     } catch (err: any) {
@@ -308,7 +444,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   ) => {
     if (isCommitteeFinished) return;
     const existing = absences.find(
-      (a) => a.student_id === student.national_id && a.date.startsWith(activeDate),
+      (a) => a.student_id === student.national_id && matchesActiveDate(a.date),
     );
     const isRemoving = existing && existing.type === type;
 
@@ -489,10 +625,58 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   }
 
   // واجهة النجاح والقفل (وثيقة الإنجاز + سجل المطابقة)
+  if (activeAssignment && !activeAssignmentConfirmed) {
+    return (
+      <div className="max-w-4xl mx-auto py-10 px-4 space-y-8 animate-fade-in text-center">
+        <div className="bg-gradient-to-br from-[#020817] via-[#0a1628] to-[#020617] p-10 rounded-[4rem] text-white shadow-2xl relative overflow-hidden border-b-[10px] border-emerald-500">
+          <div className="absolute inset-0 bg-emerald-500/10"></div>
+          <div className="relative z-10 flex flex-col items-center gap-8">
+            <div className="w-28 h-28 bg-emerald-500 text-white rounded-[2.5rem] flex flex-col items-center justify-center font-black shadow-2xl">
+              <span className="text-[10px] opacity-70 mb-1">اللجنة</span>
+              <span className="text-6xl leading-none">{activeAssignment.committee_number}</span>
+            </div>
+            <div>
+              <h2 className="text-4xl md:text-5xl font-black tracking-tighter">تم إسناد اللجنة رقم {activeAssignment.committee_number}</h2>
+              <p className="text-emerald-100 font-bold text-lg mt-4">يرجى تأكيد المباشرة قبل الدخول إلى شاشة الرصد.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-10 rounded-[3.5rem] shadow-2xl border border-slate-100">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-right mb-8">
+            <div className="p-5 rounded-2xl bg-slate-50">
+              <p className="text-[10px] font-black text-slate-400">اسم المراقب</p>
+              <p className="font-black text-slate-900 mt-1">{user.full_name}</p>
+            </div>
+            <div className="p-5 rounded-2xl bg-slate-50">
+              <p className="text-[10px] font-black text-slate-400">المادة</p>
+              <p className="font-black text-slate-900 mt-1">{activeAssignment.subject || 'اختبار'}</p>
+            </div>
+            <div className="p-5 rounded-2xl bg-slate-50">
+              <p className="text-[10px] font-black text-slate-400">الفترة</p>
+              <p className="font-black text-slate-900 mt-1">{activeAssignment.period || 1}</p>
+            </div>
+          </div>
+          <button
+            onClick={confirmActiveAssignment}
+            disabled={!assignmentGate.canConfirm}
+            className="w-full p-8 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-[2.5rem] font-black text-2xl shadow-xl shadow-emerald-500/20 hover:from-emerald-500 hover:to-emerald-400 transition-all flex items-center justify-center gap-4 active:scale-[0.97] disabled:bg-none disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none disabled:cursor-not-allowed"
+          >
+            <UserCheck size={32} />
+            {assignmentGate.canConfirm ? 'تأكيد اعتماد اللجنة' : `يفتح الاعتماد عند ${gateTimeLabel}`}
+          </button>
+          <p className="mt-4 text-xs font-black text-slate-400">
+            اعتماد اللجنة يظهر قبل بداية الاختبار بـ 15 دقيقة حسب وقت بداية الجلسة في إعدادات النظام.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (isCommitteeFinished) {
     const committeeLogs = deliveryLogs.filter(
       (l) =>
-        l.committee_number === activeCommittee && l.time.startsWith(activeDate),
+        l.committee_number === activeCommittee && matchesActiveDate(l.time),
     );
     
     // منع التكرار: نحتفظ بسجل واحد لكل صف، مع أولوية السجل المؤكد (CONFIRMED)
@@ -707,7 +891,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
               const comAbsences = absences.filter(
                 (a) =>
                   a.committee_number === activeCommittee &&
-                  a.date.startsWith(activeDate) &&
+                  matchesActiveDate(a.date) &&
                   students.find((s) => s.national_id === a.student_id)
                     ?.grade === log.grade,
               );
@@ -792,7 +976,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
 
         <button
           onClick={() => window.location.reload()}
-          className="w-full bg-slate-900 text-white py-8 rounded-[2.5rem] font-black text-2xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all"
+          className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 text-white py-8 rounded-[2.5rem] font-black text-2xl shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-4 active:scale-[0.97] hover:from-emerald-500 hover:to-emerald-400 transition-all"
         >
           <RefreshCcw size={32} /> تحديث الحالة الميدانية
         </button>
@@ -804,7 +988,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   if (!activeCommittee) {
     return (
       <div className="max-w-4xl mx-auto py-10 px-4 space-y-12 animate-fade-in text-center">
-        <div className="bg-slate-950 p-10 rounded-[4rem] text-white shadow-2xl relative overflow-hidden border-b-[10px] border-blue-600">
+        <div className="bg-gradient-to-br from-[#020817] via-[#0a1628] to-[#020617] p-10 rounded-[4rem] text-white shadow-2xl relative overflow-hidden border-b-[10px] border-blue-600">
           <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-10">
             <div className="flex items-center gap-8">
               <div className="w-24 h-24 bg-white rounded-3xl p-1 flex items-center justify-center border-4 border-blue-500/20 shadow-2xl">
@@ -865,7 +1049,8 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
             <div className="fixed inset-0 z-[500] bg-slate-950/98 backdrop-blur-3xl flex flex-col items-center justify-center p-8 no-print text-white">
               <div
                 id="proctor-qr-v70"
-                className="w-full max-w-sm aspect-square bg-black rounded-[4rem] border-8 border-white/10 overflow-hidden shadow-2xl"
+                className="w-full max-w-sm aspect-square bg-black rounded-[3rem] border-2 border-blue-400/60 overflow-hidden shadow-2xl"
+                style={{ boxShadow: '0 0 30px rgba(59,130,246,0.2)' }}
               ></div>
               <button
                 onClick={stopScanner}
@@ -908,7 +1093,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
         </div>
       )}
 
-      <div className="bg-slate-950 p-8 md:p-10 rounded-[3.5rem] text-white shadow-2xl border-b-[8px] border-blue-600">
+      <div className="bg-gradient-to-r from-[#020817] to-[#0a1628] p-8 md:p-10 rounded-[3.5rem] text-white shadow-2xl border-b-[8px] border-blue-600">
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-8">
             <div className="w-24 h-24 bg-blue-600 text-white rounded-[2rem] flex flex-col items-center justify-center font-black shadow-2xl">
@@ -1062,46 +1247,65 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
           const status = myAbsences.find((a) => a.student_id === s.national_id);
           const isAbsent = status?.type === "ABSENT";
           const isLate = status?.type === "LATE";
+          const receipt = getAbsenceReceipt(status);
+          const isReceivedStatus = Boolean(status && receipt);
+          const receivedTone = status?.type === "LATE" ? "late" : "absent";
           return (
             <div
               key={s.id}
               className={`p-6 md:p-8 rounded-[3.5rem] border transition-all duration-300 relative flex flex-col justify-between min-h-[300px] overflow-hidden group 
-                ${isAbsent ? "bg-slate-50 opacity-60 grayscale-[0.5] border-transparent shadow-none scale-95" : 
+                ${isReceivedStatus ? (receivedTone === "late" ? "bg-gradient-to-br from-amber-50 via-white to-amber-50 border-amber-200 shadow-2xl shadow-amber-500/15 scale-100" : "bg-gradient-to-br from-red-50 via-white to-red-50 border-red-200 shadow-2xl shadow-red-500/15 scale-100") :
+                  isAbsent ? "bg-slate-50 opacity-60 grayscale-[0.5] border-transparent shadow-none scale-95" : 
                   isLate ? "bg-gradient-to-br from-amber-50 to-white shadow-xl shadow-amber-500/10 border-amber-100" : 
-                  "bg-white/80 backdrop-blur-3xl shadow-2xl border-white hover:border-blue-100"}`}
+                  "bg-white shadow-2xl border-slate-100 hover:shadow-md hover:border-blue-100"}`}
             >
+              {isReceivedStatus && <div className={`absolute inset-x-0 top-0 h-2 ${receivedTone === "late" ? "bg-amber-500" : "bg-red-600"}`}></div>}
               {isLate && <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 blur-3xl rounded-full"></div>}
+              {isReceivedStatus && <div className={`absolute top-0 right-0 w-44 h-44 ${receivedTone === "late" ? "bg-amber-500/10" : "bg-red-500/10"} blur-3xl rounded-full`}></div>}
               {(!isAbsent && !isLate) && <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-3xl rounded-full"></div>}
 
               <div className="relative z-10 flex justify-between items-start mb-6">
                 <div
-                  className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform ${isAbsent ? "bg-slate-300 text-slate-500 shadow-none" : isLate ? "bg-amber-500 text-white shadow-amber-500/30" : "bg-emerald-500 text-white shadow-emerald-500/30"}`}
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform ${isReceivedStatus ? (receivedTone === "late" ? "bg-amber-500 text-white shadow-amber-500/30" : "bg-red-600 text-white shadow-red-500/30") : isAbsent ? "bg-slate-300 text-slate-500 shadow-none" : isLate ? "bg-amber-500 text-white shadow-amber-500/30" : "bg-emerald-500 text-white shadow-emerald-500/30"}`}
                 >
                   <GraduationCap size={28} />
                 </div>
                 <span
-                  className={`px-4 py-1.5 rounded-xl font-black text-[10px] shadow-lg uppercase tracking-widest ${isAbsent ? "bg-slate-300 text-slate-600 shadow-none" : isLate ? "bg-amber-500 text-white shadow-amber-500/20" : "bg-emerald-100 text-emerald-700 shadow-none border border-emerald-200"}`}
+                  className={`px-4 py-1.5 rounded-xl font-black text-[10px] shadow-lg uppercase tracking-widest ${isReceivedStatus ? (receivedTone === "late" ? "bg-amber-500 text-white shadow-amber-500/20" : "bg-red-600 text-white shadow-red-500/20") : isAbsent ? "bg-slate-300 text-slate-600 shadow-none" : isLate ? "bg-amber-500 text-white shadow-amber-500/20" : "bg-emerald-100 text-emerald-700 shadow-none border border-emerald-200"}`}
                 >
-                  {status ? (isAbsent ? "تم طي القيد - غائب" : "متأخر") : "حاضر"}
+                  {status ? (receipt ? `مستلم - ${getAbsenceKindLabel(status.type)}` : isAbsent ? "تم طي القيد - غائب" : "متأخر") : "حاضر"}
                 </span>
               </div>
               <div className="relative z-10 flex-1 text-right space-y-3 px-2">
-                <h4 className={`text-2xl font-black break-words leading-tight ${isAbsent ? "text-slate-500 line-through decoration-slate-300 decoration-2" : "text-slate-900"}`}>
+                <h4 className={`text-2xl font-black break-words leading-tight ${isReceivedStatus ? (receivedTone === "late" ? "text-amber-950" : "text-red-950") : isAbsent ? "text-slate-500 line-through decoration-slate-300 decoration-2" : "text-slate-900"}`}>
                   {s.name}
                 </h4>
                 <div className="flex items-center gap-2">
-                  <span className={`px-3 py-1 rounded-lg text-[9px] font-black ${isAbsent ? "bg-slate-200 text-slate-400" : "bg-slate-100 text-slate-500"}`}>
+                  <span className={`px-3 py-1 rounded-lg text-[9px] font-black ${isReceivedStatus ? (receivedTone === "late" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700") : isAbsent ? "bg-slate-200 text-slate-400" : "bg-slate-100 text-slate-500"}`}>
                     {s.grade} - فصل {s.section}
                   </span>
-                  <span className={`px-3 py-1 rounded-lg text-[9px] font-black tabular-nums border ${isAbsent ? "bg-slate-200 text-slate-400 border-transparent" : "bg-white text-slate-600 border-slate-200"}`}>
+                  <span className={`px-3 py-1 rounded-lg text-[9px] font-black tabular-nums border ${isReceivedStatus ? (receivedTone === "late" ? "bg-white text-amber-700 border-amber-100" : "bg-white text-red-700 border-red-100") : isAbsent ? "bg-slate-200 text-slate-400 border-transparent" : "bg-white text-slate-600 border-slate-200"}`}>
                     جلوس: {s.seating_number || '-'}
                   </span>
                 </div>
+                {status && (
+                  receipt ? (
+                    <div className={`rounded-3xl border-2 px-5 py-4 text-white shadow-xl ${receivedTone === "late" ? "border-amber-200 bg-amber-500 shadow-amber-500/20" : "border-red-200 bg-red-600 shadow-red-500/20"}`}>
+                      <p className="text-xs font-black">تم استلام {getAbsenceKindLabel(status.type)}</p>
+                      <p className="mt-2 text-sm font-black leading-6">المستلم: {receipt.role} - {receipt.by}</p>
+                      <p className={`mt-1 text-xs font-bold ${receivedTone === "late" ? "text-amber-50" : "text-red-100"}`}>الوقت: {new Date(receipt.at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border px-4 py-3 text-[10px] font-black bg-orange-50 text-orange-700 border-orange-100">
+                      بانتظار استلام {getAbsenceKindLabel(status?.type)} من الموجه/مساعد الكنترول
+                    </div>
+                  )
+                )}
               </div>
               <div className="relative z-10 grid grid-cols-2 gap-3 mt-8">
                 <button
                   onClick={() => toggleStudentStatus(s, "ABSENT")}
-                  className={`py-4 rounded-[1.8rem] font-black text-xs transition-all flex items-center justify-center gap-2 ${isAbsent ? "bg-slate-800 text-white shadow-lg" : "bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-red-500 border border-slate-100"}`}
+                  className={`py-4 rounded-[1.8rem] font-black text-xs transition-all flex items-center justify-center gap-2 active:scale-[0.97] ${isAbsent ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg" : "bg-gradient-to-r from-red-600 to-red-500 text-white shadow-md hover:from-red-500 hover:to-red-400"}`}
                 >
                   {isAbsent ? <Check size={16} /> : <X size={16} />} 
                   {isAbsent ? "إلغاء الغياب" : "رصد غياب"}
@@ -1109,7 +1313,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
                 <button
                   onClick={() => toggleStudentStatus(s, "LATE")}
                   disabled={isAbsent}
-                  className={`py-4 rounded-[1.8rem] font-black text-xs transition-all flex items-center justify-center gap-2 ${isAbsent ? "opacity-50 cursor-not-allowed bg-slate-50 text-slate-300" : isLate ? "bg-amber-500 text-white shadow-lg shadow-amber-500/30" : "bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-amber-600 border border-slate-100"}`}
+                  className={`py-4 rounded-[1.8rem] font-black text-xs transition-all flex items-center justify-center gap-2 active:scale-[0.97] ${isAbsent ? "opacity-50 cursor-not-allowed bg-slate-50 text-slate-300" : isLate ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg" : "bg-gradient-to-r from-amber-500 to-amber-400 text-white shadow-md hover:from-amber-400 hover:to-amber-300"}`}
                 >
                   {isLate ? <Check size={16} /> : <Clock size={16} />}
                   {isLate ? "إلغاء التأخر" : "رصد تأخر"}
