@@ -12,6 +12,8 @@ const SeatingPlanner = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [capacity, setCapacity] = useState<number>(20);
+  const [strategy, setStrategy] = useState<'interleaved' | 'sequential'>('interleaved');
+  const [randomize, setRandomize] = useState<boolean>(true);
   const [committees, setCommittees] = useState<CommitteePreview[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -46,8 +48,34 @@ const SeatingPlanner = () => {
     const groups: { [key: string]: Student[] } = {};
     const unassigned = [...students];
     
-    // Sort students by name to keep some order
-    unassigned.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+    if (randomize) {
+      unassigned.sort(() => Math.random() - 0.5);
+    } else {
+      unassigned.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+    }
+
+    if (strategy === 'sequential') {
+      unassigned.sort((a, b) => {
+         const keyA = `${a.grade}-${a.section}`;
+         const keyB = `${b.grade}-${b.section}`;
+         return keyA.localeCompare(keyB, 'ar');
+      });
+      let cIdx = 1, sIdx = 1;
+      const newComms: CommitteePreview[] = [];
+      let curr: Student[] = [];
+      unassigned.forEach(s => {
+        curr.push({ ...s, committee_number: cIdx.toString(), seating_number: sIdx.toString() });
+        sIdx++;
+        if (curr.length === capacity) {
+          newComms.push({ number: cIdx.toString(), students: curr });
+          cIdx++; curr = []; sIdx = 1;
+        }
+      });
+      if (curr.length > 0) newComms.push({ number: cIdx.toString(), students: curr });
+      setCommittees(newComms);
+      alert('تم بناء التوزيع المتسلسل بنجاح! راجع اللجان.');
+      return;
+    }
 
     unassigned.forEach(s => {
       const key = `${s.grade}-${s.section}`;
@@ -175,19 +203,39 @@ const SeatingPlanner = () => {
 
       <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
         <div className="flex flex-col md:flex-row items-end gap-6">
-          <div className="flex-1 w-full space-y-2">
+          <div className="w-full lg:w-1/4 space-y-2">
             <label className="text-sm font-black text-slate-700 flex items-center gap-2">
               <Settings2 size={16} className="text-blue-500" />
-              سعة اللجنة الواحدة (عدد المقاعد)
+              سعة اللجنة
             </label>
             <input 
-              type="number" 
-              min="5" 
-              max="100"
-              value={capacity}
+              type="number" min="5" max="100" value={capacity}
               onChange={(e) => setCapacity(parseInt(e.target.value) || 20)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-4 font-black text-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all text-left dir-ltr"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3.5 font-black text-lg outline-none focus:border-blue-500 transition-all text-left dir-ltr"
             />
+          </div>
+
+          <div className="w-full lg:w-1/3 space-y-2">
+            <label className="text-sm font-black text-slate-700 flex items-center gap-2">
+              <LayoutGrid size={16} className="text-blue-500" />
+              طريقة التوزيع
+            </label>
+            <select 
+              value={strategy}
+              onChange={(e: any) => setStrategy(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 font-bold text-sm outline-none focus:border-blue-500 transition-all"
+            >
+              <option value="interleaved">متقاطع (تباعد الفصول - الأفضل لمنع الغش)</option>
+              <option value="sequential">متسلسل (كل مرحلة مع بعضها)</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-3 w-full lg:w-auto mb-2">
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" className="sr-only peer" checked={randomize} onChange={e => setRandomize(e.target.checked)} />
+              <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <span className="ms-3 text-sm font-bold text-slate-700">توزيع عشوائي</span>
+            </label>
           </div>
           <div className="flex-1 w-full flex gap-3">
              <button 
