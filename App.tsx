@@ -57,6 +57,7 @@ const ROLE_TABS: Record<UserRole, string[]> = {
     'door-labels',
     'teachers',
     'students',
+    'seating-planner',
     'committees',
     'daily-reports',
     'official-forms',
