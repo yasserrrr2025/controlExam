@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { 
-  LayoutDashboard, Users, GraduationCap, ClipboardList, LogOut,
+  LayoutDashboard, Users, GraduationCap, ClipboardList, LogOut, LayoutGrid,
   ShieldAlert, Inbox, FileText, Settings, X, ChevronRight, ChevronLeft,
   History, IdCard, UserCircle, ShieldCheck, ShieldHalf, Bell, Shield,
   Monitor, Fingerprint, MonitorPlay, Award, LayoutPanelTop, QrCode,
@@ -51,6 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'door-labels', label: 'ملصقات الأبواب', icon: QrCode },
     { id: 'teachers', label: 'الصلاحيات', icon: Users },
     { id: 'students', label: 'الطلاب', icon: GraduationCap },
+    { id: 'seating-planner', label: 'توزيع المقاعد 🪑', icon: LayoutGrid },
     { id: 'committees', label: 'المراقبة', icon: ClipboardList },
     { id: 'daily-reports', label: 'التقارير اليومية', icon: FileSpreadsheet },
     { id: 'official-forms', label: 'النماذج (الغياب والتأخير)', icon: FileText },
