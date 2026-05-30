@@ -21,7 +21,7 @@ export interface AiInsightsResult {
 export const fetchAIAnalysis = async (
   apiKey: string,
   dataContext: any,
-  analysisType: 'absence' | 'proctor' | 'receipt' | 'errors' | 'predictive'
+  analysisType: 'absence' | 'proctor' | 'receipt' | 'errors' | 'predictive' | 'auditor'
 ): Promise<AiInsightsResult | null> => {
   if (!apiKey) throw new Error('API Key is missing');
 
@@ -48,6 +48,9 @@ Data: ${JSON.stringify(dataContext)} ${basePromptEnd}`;
 Data: ${JSON.stringify(dataContext)} ${basePromptEnd}`;
   } else if (analysisType === 'predictive') {
      prompt = `You are an advanced predictive AI for a school exam control system. Your job is to look at the historical data patterns (teacher delays, missing papers, specific committee issues, absence trends) and PREDICT what might go wrong TOMORROW. Provide proactive warnings and suggestions to prevent them. 
+Data: ${JSON.stringify(dataContext)} ${basePromptEnd}`;
+  } else if (analysisType === 'auditor') {
+     prompt = `You are an AI fairness auditor for a school exam control system. Review the 'supervisions' schedule and teacher assignment data to find heavily burdened teachers (e.g. back-to-back schedules, always in crowded committees) vs those with very light loads. Propose balancing swaps and highlight the most exhausted teachers.
 Data: ${JSON.stringify(dataContext)} ${basePromptEnd}`;
   }
 

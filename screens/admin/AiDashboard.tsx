@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BrainCircuit, Loader2, Sparkles, UserX, Clock, Map, AlertTriangle, Send, User, MessageSquare, TrendingUp } from 'lucide-react';
+import { BrainCircuit, Loader2, Sparkles, UserX, Clock, Map, AlertTriangle, Send, User, MessageSquare, TrendingUp, Scale } from 'lucide-react';
 import { SystemConfig } from '../../types';
 import { db } from '../../supabase';
 import { fetchAIAnalysis, AiInsightsResult, fetchAIChat } from '../../services/aiService';
@@ -66,7 +66,7 @@ const AiDashboard: React.FC<Props> = ({ systemConfig }) => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  const handleAnalyze = async (type: 'absence' | 'proctor' | 'receipt' | 'errors' | 'predictive') => {
+  const handleAnalyze = async (type: 'absence' | 'proctor' | 'receipt' | 'errors' | 'predictive' | 'auditor') => {
     if (!systemConfig.openrouter_api_key) {
       setErrorMsg('الرجاء إضافة مفتاح OpenRouter في إعدادات النظام أولاً.');
       return;
@@ -159,23 +159,42 @@ const AiDashboard: React.FC<Props> = ({ systemConfig }) => {
 
       {activeTab === 'insights' ? (
         <div className="space-y-8">
-          {/* التنبؤ الاستباقي */}
-          <button onClick={() => handleAnalyze('predictive')} disabled={isAnalyzing} className="w-full group relative bg-gradient-to-r from-purple-900 to-indigo-900 p-8 rounded-[2.5rem] border border-purple-500/30 text-right overflow-hidden shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-50">
-             <div className="absolute -top-20 -left-20 w-64 h-64 bg-purple-500/20 blur-[80px] rounded-full pointer-events-none" />
-             <div className="absolute top-1/2 -translate-y-1/2 left-10 p-5 bg-white/10 rounded-3xl backdrop-blur-sm border border-white/10">
-                <TrendingUp size={36} className="text-purple-300 group-hover:scale-110 group-hover:text-purple-200 transition-all" />
-             </div>
-             <div className="relative z-10 md:pr-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-xs font-bold mb-4">
-                  <Sparkles size={12} />
-                  ميزة جديدة
-                </div>
-                <h4 className="text-white font-black text-2xl md:text-3xl mb-2 tracking-tight">التنبؤ الاستباقي (Predictive AI) 🔮</h4>
-                <p className="text-purple-200/80 text-sm font-bold max-w-xl leading-relaxed">
-                  يقرأ سلوك المعلمين والطلاب والمشاكل التقنية ليتنبأ بما سيحدث غداً، ويمنحك توصيات استباقية لمنع الأزمات قبل وقوعها.
-                </p>
-             </div>
-          </button>
+          {/* الميزات المتقدمة */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <button onClick={() => handleAnalyze('predictive')} disabled={isAnalyzing} className="w-full group relative bg-gradient-to-r from-purple-900 to-indigo-900 p-8 rounded-[2.5rem] border border-purple-500/30 text-right overflow-hidden shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-50">
+               <div className="absolute -top-20 -left-20 w-64 h-64 bg-purple-500/20 blur-[80px] rounded-full pointer-events-none" />
+               <div className="absolute top-6 left-6 p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
+                  <TrendingUp size={32} className="text-purple-300 group-hover:scale-110 group-hover:text-purple-200 transition-all" />
+               </div>
+               <div className="relative z-10">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-xs font-bold mb-4">
+                    <Sparkles size={12} />
+                    توقع المستقبل
+                  </div>
+                  <h4 className="text-white font-black text-2xl mb-2 tracking-tight">التنبؤ الاستباقي 🔮</h4>
+                  <p className="text-purple-200/80 text-sm font-bold leading-relaxed max-w-[85%]">
+                    يتنبأ بمشاكل الغد من غياب ونقص أوراق ليمنحك توصيات مبكرة.
+                  </p>
+               </div>
+            </button>
+
+            <button onClick={() => handleAnalyze('auditor')} disabled={isAnalyzing} className="w-full group relative bg-gradient-to-r from-teal-900 to-emerald-900 p-8 rounded-[2.5rem] border border-emerald-500/30 text-right overflow-hidden shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all disabled:opacity-50">
+               <div className="absolute -top-20 -left-20 w-64 h-64 bg-emerald-500/20 blur-[80px] rounded-full pointer-events-none" />
+               <div className="absolute top-6 left-6 p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
+                  <Scale size={32} className="text-emerald-300 group-hover:scale-110 group-hover:text-emerald-200 transition-all" />
+               </div>
+               <div className="relative z-10">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-xs font-bold mb-4">
+                    <Sparkles size={12} />
+                    تحليل العدالة
+                  </div>
+                  <h4 className="text-white font-black text-2xl mb-2 tracking-tight">المدقق الذكي (Auditor) ⚖️</h4>
+                  <p className="text-emerald-200/80 text-sm font-bold leading-relaxed max-w-[85%]">
+                    يراجع جدول المراقبة ويكتشف المعلمين المرهقين ويقترح لك التبديلات العادلة.
+                  </p>
+               </div>
+            </button>
+          </div>
 
           {/* أزرار التحليل السريع */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
