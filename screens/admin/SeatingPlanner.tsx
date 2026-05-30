@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Users, Save, RefreshCw, LayoutGrid, AlertCircle, Settings2, ShieldCheck, Info, Loader2 } from 'lucide-react';
 import { db } from '../../supabase';
 import { Student } from '../../types';
-import toast from 'react-hot-toast';
 
 interface CommitteePreview {
   number: string;
@@ -26,7 +25,7 @@ const SeatingPlanner = () => {
       const data = await db.students.getAll();
       setStudents(data);
     } catch (err) {
-      toast.error('فشل في جلب بيانات الطلاب');
+      alert('فشل في جلب بيانات الطلاب');
     } finally {
       setIsLoading(false);
     }
@@ -34,11 +33,11 @@ const SeatingPlanner = () => {
 
   const generateSeating = () => {
     if (students.length === 0) {
-      toast.error('لا يوجد طلاب لتوزيعهم');
+      alert('لا يوجد طلاب لتوزيعهم');
       return;
     }
     if (capacity < 5) {
-      toast.error('سعة اللجنة يجب أن تكون 5 على الأقل');
+      alert('سعة اللجنة يجب أن تكون 5 على الأقل');
       return;
     }
 
@@ -122,7 +121,7 @@ const SeatingPlanner = () => {
     }
 
     setCommittees(newCommittees);
-    toast.success('تم بناء التوزيع الذكي بنجاح! راجع اللجان قبل الاعتماد.');
+    alert('تم بناء التوزيع الذكي بنجاح! راجع اللجان قبل الاعتماد.');
   };
 
   const handleSave = async () => {
@@ -135,12 +134,12 @@ const SeatingPlanner = () => {
       
       // Upsert to database
       await db.students.upsert(updatedStudents);
-      toast.success('تم اعتماد التوزيع وتحديث أرقام الجلوس بنجاح!');
+      alert('تم اعتماد التوزيع وتحديث أرقام الجلوس بنجاح!');
       
       // Update local state
       setStudents(updatedStudents);
     } catch (err) {
-      toast.error('حدث خطأ أثناء الحفظ');
+      alert('حدث خطأ أثناء الحفظ');
       console.error(err);
     } finally {
       setIsSaving(false);
