@@ -50,7 +50,12 @@ Data: ${JSON.stringify(dataContext)} ${basePromptEnd}`;
      prompt = `You are an advanced predictive AI for a school exam control system. Your job is to look at the historical data patterns (teacher delays, missing papers, specific committee issues, absence trends) and PREDICT what might go wrong TOMORROW. Provide proactive warnings and suggestions to prevent them. 
 Data: ${JSON.stringify(dataContext)} ${basePromptEnd}`;
   } else if (analysisType === 'auditor') {
-     prompt = `You are an AI fairness auditor for a school exam control system. Review the 'supervisions' schedule and teacher assignment data to find heavily burdened teachers (e.g. back-to-back schedules, always in crowded committees) vs those with very light loads. Propose balancing swaps and highlight the most exhausted teachers.
+     prompt = `You are an AI fairness auditor for a school exam control system. Review the 'supervisions' schedule and teacher assignment data.
+CRITICAL RULES:
+1. The 'supervisions' data spans MULTIPLE DAYS (date field). Do NOT sum all assignments across all days and call it a burden. It is normal for a teacher to have 1 assignment per day for 15 days (total 15).
+2. A burden is ONLY when a teacher has multiple assignments ON THE SAME DAY (e.g. period 1 and period 2), OR if they are assigned to work many more DAYS than other teachers.
+3. Identify teachers with 0 assignments overall, and suggest assigning them to relieve teachers who work every single day.
+4. Propose balancing swaps (e.g., swapping Teacher A with Teacher B on a specific date).
 Data: ${JSON.stringify(dataContext)} ${basePromptEnd}`;
   }
 
