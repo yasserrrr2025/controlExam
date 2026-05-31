@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BookOpen, Printer, Download, FileText, Link as LinkIcon, Sparkles } from 'lucide-react';
+import { BookOpen, Printer, Download, FileText, Link as LinkIcon, Sparkles, Copy, Check } from 'lucide-react';
 import { Student, User, Supervision, SystemConfig, Absence, CommitteeReport, ExamSchedule, DeliveryLog, ControlRequest } from '../../types';
 import { APP_CONFIG } from '../../constants';
 import { formatActualProctorStart, getActualSupervisionStart } from '../../utils/proctorTime';
@@ -191,6 +191,13 @@ export const MasterPortfolio: React.FC<Props> = ({
   );
 
   const [activeTab, setActiveTab] = React.useState<string>(publicMode ? 'COVER' : 'ALL');
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(livePortfolioUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className={`space-y-8 animate-fade-in text-right ${publicMode ? 'live-portfolio-public min-h-screen bg-slate-100 pb-20' : ''}`}>
@@ -244,16 +251,25 @@ export const MasterPortfolio: React.FC<Props> = ({
             <button onClick={handlePrint} className="bg-white text-slate-950 px-8 py-4 rounded-[2rem] font-black flex items-center justify-center gap-3 hover:bg-amber-50 transition-all shadow-xl active:scale-95">
               <Printer size={24}/> طباعة / تصدير PDF
             </button>
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <p className="text-[11px] font-black text-slate-400 mb-1">رابط ملف الإنجاز الحي</p>
-              <p className="text-left text-xs font-bold text-amber-100 truncate w-full max-w-[250px] md:max-w-none" dir="ltr">{livePortfolioUrl}</p>
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-black text-slate-400 mb-1">رابط ملف الإنجاز الحي</p>
+                <p className="text-xs font-bold text-amber-100" dir="ltr">رابط تفاعلي محدث باستمرار</p>
+              </div>
+              <button onClick={handleCopyLink} className="bg-white/10 hover:bg-white/20 p-2 rounded-xl text-amber-200 transition-all flex items-center gap-2">
+                {copied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+                <span className="text-[10px] font-bold">{copied ? 'تم النسخ' : 'نسخ الرابط'}</span>
+              </button>
             </div>
           </div>
         ) : (
           <div className="relative z-10 rounded-3xl border border-white/10 bg-white/5 p-5 text-center w-full md:w-auto">
             <LinkIcon size={24} className="mx-auto mb-2 text-amber-300" />
-            <p className="text-xs font-black text-slate-300 mb-1">رابط حي قابل للمشاركة</p>
-            <p className="text-xs font-bold text-amber-100 truncate w-full max-w-[250px] md:max-w-none mx-auto" dir="ltr">{livePortfolioUrl}</p>
+            <p className="text-xs font-black text-slate-300 mb-3">رابط حي قابل للمشاركة</p>
+            <button onClick={handleCopyLink} className="mx-auto bg-amber-500 hover:bg-amber-400 text-slate-900 px-4 py-2 rounded-xl transition-all flex items-center justify-center gap-2 font-bold text-sm">
+                {copied ? <Check size={18} className="text-emerald-900" /> : <Copy size={18} />}
+                <span>{copied ? 'تم النسخ بنجاح' : 'نسخ رابط الملف'}</span>
+            </button>
           </div>
         )}
       </div>
