@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { PackageSearch, Plus, Search, Printer, Calendar, Tag, Layers, UserCircle, Save, Trash2, X } from 'lucide-react';
-import { ArchiveBox, Student } from '../../types';
+import { ArchiveBox, Student, ExamSchedule, DeliveryLog, Supervision, User } from '../../types';
 
 interface Props {
   students: Student[];
+  examSchedule?: ExamSchedule[];
+  deliveryLogs?: DeliveryLog[];
+  supervisions?: Supervision[];
+  users?: User[];
 }
 
-export const ArchiveBoxesManager: React.FC<Props> = ({ students }) => {
+export const ArchiveBoxesManager: React.FC<Props> = ({ students, examSchedule = [] }) => {
   const [boxes, setBoxes] = useState<ArchiveBox[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -28,6 +32,19 @@ export const ArchiveBoxesManager: React.FC<Props> = ({ students }) => {
     const gradeStudents = students.filter(s => s.grade === newBox.grade && s.committee_number);
     return Array.from(new Set(gradeStudents.map(s => s.committee_number))).sort((a, b) => Number(a) - Number(b));
   }, [students, newBox.grade]);
+
+  // Update subject automatically based on schedule
+  useEffect(() => {
+    if (newBox.grade && newBox.exam_date && examSchedule.length > 0) {
+      const scheduledExams = examSchedule.filter(e => 
+        e.exam_date === newBox.exam_date && 
+        e.grades?.includes(newBox.grade || '')
+      );
+      if (scheduledExams.length > 0) {
+        setNewBox(prev => ({ ...prev, subject: scheduledExams.map(e => e.subject).join(' + ') }));
+      }
+    }
+  }, [newBox.grade, newBox.exam_date, examSchedule]);
 
   useEffect(() => {
     try {
@@ -100,6 +117,9 @@ export const ArchiveBoxesManager: React.FC<Props> = ({ students }) => {
     const printWindow = window.open('', '', 'width=800,height=600');
     if (!printWindow) return;
     
+    const reportUrl = `${window.location.origin}/?box_report=${box.id}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(reportUrl)}&color=000000`;
+
     printWindow.document.write(`
       <html dir="rtl">
         <head>
@@ -116,7 +136,9 @@ export const ArchiveBoxesManager: React.FC<Props> = ({ students }) => {
             .detail-item { font-size: 18px; font-weight: bold; }
             .detail-label { font-size: 12px; color: #64748b; display: block; margin-bottom: 4px; }
             .committees { background: #0f172a; color: white; padding: 20px; border-radius: 16px; font-size: 20px; font-weight: bold; margin-bottom: 30px; }
-            .barcode { font-family: monospace; font-size: 24px; letter-spacing: 10px; opacity: 0.5; margin-top: 20px; }
+            .barcode { margin-top: 20px; display: flex; flex-direction: column; items-center; justify-content: center; align-items: center; }
+            .barcode img { width: 180px; height: 180px; border-radius: 16px; padding: 10px; border: 2px solid #e2e8f0; }
+            .barcode-text { font-size: 11px; color: #94a3b8; margin-top: 8px; font-family: monospace; }
             @media print {
                body { height: auto; }
                .label-container { border: 2px solid #000; box-shadow: none; max-width: 100%; }
@@ -146,12 +168,10 @@ export const ArchiveBoxesManager: React.FC<Props> = ({ students }) => {
             </div>
             
             <div class="barcode">
-              *${box.id.split('-')[0].toUpperCase()}*
+              <img src="${qrUrl}" alt="QR Code" onload="window.print(); window.close();" />
+              <div class="barcode-text">امسح الكود لفتح التقرير العام للصندوق</div>
             </div>
           </div>
-          <script>
-            setTimeout(() => { window.print(); window.close(); }, 500);
-          </script>
         </body>
       </html>
     `);

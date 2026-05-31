@@ -14,6 +14,7 @@ import AdminProctorPerformance from './screens/admin/ProctorPerformance';
 import SeatingPlanner from './screens/admin/SeatingPlanner';
 import { ArchiveBoxesManager } from './screens/admin/ArchiveBoxesManager';
 import { MasterPortfolio } from './screens/admin/MasterPortfolio';
+import { PublicBoxReport } from './screens/public/PublicBoxReport';
 import AiDashboard from './screens/admin/AiDashboard';
 import CommitteeLabelsPrint from './screens/admin/CommitteeLabelsPrint';
 import ControlHeadDashboard from './screens/admin/ControlHeadDashboard';
@@ -546,8 +547,8 @@ const App: React.FC = () => {
       : getDefaultTab(currentUser.role);
 
     switch (tabToRender) {
-      case 'master-portfolio': return <MasterPortfolio students={students} users={users} supervisions={supervisions} systemConfig={systemConfig} absences={absences} committeeReports={committeeReports} />;
-      case 'archive-boxes': return <ArchiveBoxesManager students={students} />;
+      case 'master-portfolio': return <MasterPortfolio students={students} users={users} supervisions={supervisions} systemConfig={systemConfig} absences={absences} committeeReports={committeeReports} examSchedule={examSchedule} deliveryLogs={deliveryLogs} />;
+      case 'archive-boxes': return <ArchiveBoxesManager students={students} examSchedule={examSchedule} deliveryLogs={deliveryLogs} supervisions={supervisions} users={users} />;
       case 'seating-planner': return <SeatingPlanner systemConfig={systemConfig} />;
       case 'dashboard': return <AdminDashboardOverview stats={{ students: students.length, users: users.length, activeSupervisions: supervisions.length }} absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} studentsList={students} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} systemConfig={systemConfig} />;
       case 'head-dash': return <ControlHeadDashboard users={users} students={students} absences={absences} deliveryLogs={deliveryLogs} requests={controlRequests} supervisions={supervisions} systemConfig={systemConfig} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} />;
@@ -594,11 +595,11 @@ const App: React.FC = () => {
 
   if (isInitialLoading) {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('public_committee') || params.get('student_inquiry') || params.get('supervision_verify') || params.get('sv') || params.get('tv2')) {
+    if (params.get('public_committee') || params.get('student_inquiry') || params.get('supervision_verify') || params.get('sv') || params.get('tv2') || params.get('box_report')) {
        return (
          <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-6 font-['Tajawal']" dir="rtl">
            <Loader2 size={48} className="text-blue-600 animate-spin" />
-           <p className="font-bold text-slate-500 text-sm">جاري جلب بيانات اللجنة...</p>
+           <p className="font-bold text-slate-500 text-sm">جاري جلب بيانات الصفحة...</p>
          </div>
        );
     } else if (currentUser) {
@@ -611,22 +612,28 @@ const App: React.FC = () => {
     }
   }
 
-  const publicCommitteeId = new URLSearchParams(window.location.search).get('public_committee');
+  const params = new URLSearchParams(window.location.search);
+
+  const publicCommitteeId = params.get('public_committee');
   if (publicCommitteeId) {
     return <CommitteePublicView committeeNumber={publicCommitteeId} students={students} supervisions={supervisions} absences={absences} users={users} />;
   }
 
-  const isTv2Public = new URLSearchParams(window.location.search).get('tv2');
+  const boxReportId = params.get('box_report');
+  if (boxReportId) {
+    return <PublicBoxReport boxId={boxReportId} students={students} supervisions={supervisions} deliveryLogs={deliveryLogs} users={users} examSchedule={examSchedule} systemConfig={systemConfig} />;
+  }
+
+  const isTv2Public = params.get('tv2');
   if (isTv2Public) {
     return <ControlRoomMonitor2 absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} students={students} requests={controlRequests} />;
   }
 
-  const isStudentInquiry = new URLSearchParams(window.location.search).get('student_inquiry');
+  const isStudentInquiry = params.get('student_inquiry');
   if (isStudentInquiry) {
     return <StudentCommitteeInquiry students={students} />;
   }
 
-  const params = new URLSearchParams(window.location.search);
   const isSupervisionVerification = params.get('supervision_verify') || params.get('sv');
   if (isSupervisionVerification) {
     return <SupervisionVerification supervisions={supervisions} users={users} students={students} absences={absences} deliveryLogs={deliveryLogs} />;
