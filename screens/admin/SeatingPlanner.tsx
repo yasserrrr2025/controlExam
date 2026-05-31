@@ -252,25 +252,25 @@ const SeatingPlanner = () => {
       {/* --- Print Styles --- */}
       <style>{`
         @media print {
-          @page { size: A4 landscape; margin: 0; }
+          @page { size: A4 landscape; margin: 0.5cm; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; margin: 0; padding: 0; }
           .no-print { display: none !important; }
           .print-only { display: block !important; }
           .page-break { 
             page-break-after: always; 
             page-break-inside: avoid;
-            width: 297mm; 
-            height: 209mm; 
-            overflow: hidden; 
-            box-sizing: border-box; 
-            padding: 10mm;
+            width: 100%; 
+            height: 95vh; 
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
           }
         }
       `}</style>
 
-      <div className="hidden print-only print:block" dir="rtl">
+      <div className="hidden print-only print:block w-full" dir="rtl">
         {committees.map((com) => (
-           <div key={com.number} className="page-break flex flex-col bg-white relative">
+           <div key={com.number} className="page-break bg-white relative">
               
               {/* Header: QR and Title */}
               <div className="flex justify-between items-center mb-4">
@@ -293,9 +293,9 @@ const SeatingPlanner = () => {
                       <thead>
                          <tr className="bg-slate-800 text-white">
                             {Object.keys(com.stats).map(grade => (
-                               <th key={grade} className="border-b-2 border-black border-l-2 border-slate-600 px-3 py-1.5 font-black text-base">{grade}</th>
+                               <th key={grade} className="border-b-2 border-black border-l-2 border-slate-600 px-3 py-1.5 font-black text-base whitespace-nowrap">{grade}</th>
                             ))}
-                            <th className="border-b-2 border-black px-3 py-1.5 font-black text-base bg-slate-900">الإجمالي</th>
+                            <th className="border-b-2 border-black px-3 py-1.5 font-black text-base bg-slate-900 whitespace-nowrap">الإجمالي</th>
                          </tr>
                       </thead>
                       <tbody>
@@ -311,31 +311,31 @@ const SeatingPlanner = () => {
               </div>
 
               {/* Croquis Layout */}
-              <div className="flex-1 flex flex-col relative px-2">
+              <div className="flex-1 flex flex-col relative w-full mt-2">
                  
                  {/* Door (Top Right above Col 1) */}
-                 <div className="absolute right-0 -top-6 flex items-center gap-1.5">
+                 <div className="absolute right-0 -top-8 flex items-center gap-1.5">
                     <div className="text-3xl filter drop-shadow-sm">🚪</div>
                     <div className="font-black text-base bg-slate-800 text-white px-2 py-0.5 rounded-lg">الباب</div>
                  </div>
 
-                 <div className="flex justify-between gap-3 mt-4 h-full">
+                 <div className="flex justify-between gap-3 mt-4 h-full w-full">
                    {com.columns.map((col, cIdx) => (
-                      <div key={cIdx} className="flex-1 flex flex-col border-2 border-black rounded-2xl p-2 bg-slate-50 relative">
+                      <div key={cIdx} className="flex-1 flex flex-col border-2 border-black rounded-2xl p-2 bg-slate-50 min-w-0">
                          <div className="bg-slate-800 text-white text-center font-black py-1.5 rounded-lg mb-2 text-sm shadow-sm">
                             مسار {cIdx + 1}
                          </div>
                          <div className="flex flex-col gap-2 flex-1">
                             {col.map((student) => (
-                               <div key={student.id} className="bg-white border-2 border-slate-400 p-2 rounded-xl flex flex-col items-center justify-center text-center relative shadow-sm flex-1 max-h-[65px] min-h-[45px]">
+                               <div key={student.id} className="bg-white border-2 border-slate-400 p-2 rounded-xl flex flex-col items-center justify-center text-center relative shadow-sm flex-1 min-h-[40px]">
                                   <div className="absolute top-1 right-2 text-xs font-black text-slate-500">{student.seating_number}</div>
-                                  <div className="font-black text-sm truncate w-full px-1">{student.name}</div>
-                                  <div className="text-[10px] font-bold text-slate-500 mt-0.5">{student.grade} - {student.section}</div>
+                                  <div className="font-black text-xs md:text-sm truncate w-full px-1">{student.name}</div>
+                                  <div className="text-[9px] font-bold text-slate-500 mt-0.5 whitespace-nowrap">{student.grade} - {student.section}</div>
                                </div>
                             ))}
                             {/* Empty Seats Filler */}
                             {Array.from({ length: Math.max(0, 5 - col.length) }).map((_, i) => (
-                               <div key={`emp-${i}`} className="border-2 border-dashed border-slate-300 bg-white/40 rounded-xl flex items-center justify-center flex-1 max-h-[65px] min-h-[45px] text-slate-300 font-bold text-xs">
+                               <div key={`emp-${i}`} className="border-2 border-dashed border-slate-300 bg-white/40 rounded-xl flex items-center justify-center flex-1 min-h-[40px] text-slate-300 font-bold text-xs">
                                   مقعد فارغ
                                </div>
                             ))}
