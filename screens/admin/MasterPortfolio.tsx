@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BookOpen, Printer, Download, FileText } from 'lucide-react';
+import { BookOpen, Printer, Download, FileText, Link as LinkIcon, Sparkles } from 'lucide-react';
 import { Student, User, Supervision, SystemConfig, Absence, CommitteeReport, ExamSchedule, DeliveryLog, ControlRequest } from '../../types';
 import { APP_CONFIG } from '../../constants';
 
@@ -13,11 +13,12 @@ interface Props {
   examSchedule?: ExamSchedule[];
   deliveryLogs?: DeliveryLog[];
   controlRequests?: ControlRequest[];
+  publicMode?: boolean;
 }
 
 export const MasterPortfolio: React.FC<Props> = ({ 
   students, users, supervisions, systemConfig, absences, committeeReports, 
-  examSchedule = [], deliveryLogs = [], controlRequests = [] 
+  examSchedule = [], deliveryLogs = [], controlRequests = [], publicMode = false
 }) => {
 
   const safeTime = (isoStr?: string) => {
@@ -61,6 +62,8 @@ export const MasterPortfolio: React.FC<Props> = ({
   const handlePrint = () => {
     window.print();
   };
+
+  const livePortfolioUrl = 'https://control-exam.vercel.app/?portfolio_book_live=1';
 
   const committeesList = useMemo(() => {
     return Array.from(new Set(students.map(s => s.committee_number).filter(Boolean))).sort((a, b) => Number(a) - Number(b));
@@ -183,19 +186,35 @@ export const MasterPortfolio: React.FC<Props> = ({
   );
 
   return (
-    <div className="space-y-8 animate-fade-in text-right">
-      <div className="bg-slate-950 p-10 rounded-[3.5rem] shadow-2xl relative overflow-hidden text-white flex flex-col md:flex-row items-center justify-between gap-6 border-b-8 border-amber-500 no-print">
+    <div className={`space-y-8 animate-fade-in text-right ${publicMode ? 'live-portfolio-public min-h-screen bg-slate-100 px-3 py-5 md:px-8' : ''}`}>
+      <div className={`bg-slate-950 p-10 rounded-[3.5rem] shadow-2xl relative overflow-hidden text-white flex flex-col md:flex-row items-center justify-between gap-6 border-b-8 border-amber-500 ${publicMode ? '' : 'no-print'}`}>
         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/20 blur-[100px] rounded-full"></div>
         <div className="flex items-center gap-6 relative z-10">
-          <div className="bg-amber-500 p-5 rounded-3xl shadow-xl text-slate-950"><BookOpen size={40} /></div>
+          <div className="bg-amber-500 p-5 rounded-3xl shadow-xl text-slate-950">{publicMode ? <Sparkles size={40} /> : <BookOpen size={40} />}</div>
           <div>
             <h2 className="text-4xl font-black tracking-tighter">ملف إنجاز الاختبارات الشامل</h2>
-            <p className="text-amber-200 font-bold mt-1">تصدير كتاب PDF متكامل يحتوي على جميع بيانات وإحصائيات الاختبارات الميدانية</p>
+            <p className="text-amber-200 font-bold mt-1">
+              {publicMode ? 'نسخة حية محدثة تلقائيًا للمشرفين وإدارة التعليم مع المحافظة على هيكل ملف الإنجاز الرسمي' : 'تصدير كتاب PDF متكامل يحتوي على جميع بيانات وإحصائيات الاختبارات الميدانية'}
+            </p>
           </div>
         </div>
-        <button onClick={handlePrint} className="bg-white text-slate-950 px-8 py-4 rounded-[2rem] font-black flex items-center gap-3 hover:bg-amber-50 transition-all shadow-xl active:scale-95 relative z-10">
-          <Printer size={24}/> طباعة / تصدير PDF
-        </button>
+        {!publicMode ? (
+          <div className="flex flex-col gap-3 relative z-10">
+            <button onClick={handlePrint} className="bg-white text-slate-950 px-8 py-4 rounded-[2rem] font-black flex items-center gap-3 hover:bg-amber-50 transition-all shadow-xl active:scale-95">
+              <Printer size={24}/> طباعة / تصدير PDF
+            </button>
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+              <p className="text-[11px] font-black text-slate-400">رابط ملف الإنجاز الحي</p>
+              <p className="mt-1 text-left text-xs font-bold text-amber-100" dir="ltr">{livePortfolioUrl}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="relative z-10 rounded-3xl border border-white/10 bg-white/5 p-5 text-center">
+            <LinkIcon size={24} className="mx-auto mb-2 text-amber-300" />
+            <p className="text-xs font-black text-slate-300">رابط حي قابل للمشاركة</p>
+            <p className="mt-2 text-xs font-bold text-amber-100" dir="ltr">{livePortfolioUrl}</p>
+          </div>
+        )}
       </div>
 
       <div className="print-only-container">
@@ -278,6 +297,82 @@ export const MasterPortfolio: React.FC<Props> = ({
           }
           @media screen {
             .print-only-container { display: none; }
+            .live-portfolio-public .print-only-container { display: block; }
+            .live-portfolio-public .portfolio-page {
+              width: min(100%, 980px);
+              min-height: 1120px;
+              margin: 0 auto 28px;
+              padding: 38px 46px 56px;
+              box-sizing: border-box;
+              background: white;
+              position: relative;
+              overflow: hidden;
+              border: 1px solid #dbe3ef;
+              border-radius: 26px;
+              box-shadow: 0 18px 50px rgba(15, 23, 42, 0.12);
+            }
+            .live-portfolio-public .cover-page {
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              text-align: center;
+              min-height: 1120px;
+              border: 10px double #cbd5e1;
+            }
+            .live-portfolio-public .logo-large { width: 160px; margin-bottom: 34px; }
+            .live-portfolio-public .cover-title { font-size: clamp(30px, 5vw, 48px); font-weight: 900; color: #0f172a; margin-bottom: 20px; }
+            .live-portfolio-public .cover-subtitle { font-size: clamp(18px, 3vw, 24px); font-weight: bold; color: #475569; margin-bottom: 48px; }
+            .live-portfolio-public .cover-details { font-size: 18px; font-weight: bold; color: #1e293b; line-height: 2; border-top: 2px solid #e2e8f0; padding-top: 34px; width: 86%; }
+            .live-portfolio-public .official-report-header { display: grid; grid-template-columns: 1fr 1.25fr 1fr; gap: 24px; align-items: center; border-bottom: 3px double #0f172a; padding-bottom: 16px; margin-bottom: 20px; }
+            .live-portfolio-public .official-side { font-size: 13px; font-weight: 900; line-height: 1.65; color: #0f172a; }
+            .live-portfolio-public .official-side-right { text-align: right; }
+            .live-portfolio-public .official-side-left { text-align: left; color: #334155; }
+            .live-portfolio-public .official-center { text-align: center; }
+            .live-portfolio-public .official-center img { width: 70px; height: 70px; object-fit: contain; margin: 0 auto 4px; }
+            .live-portfolio-public .official-center h2 { font-size: 22px; font-weight: 900; color: #0f172a; line-height: 1.2; }
+            .live-portfolio-public .official-center p { font-size: 12px; font-weight: 900; color: #64748b; margin-top: 4px; }
+            .live-portfolio-public .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-bottom: 34px; }
+            .live-portfolio-public .stat-box { border: 2px solid #e2e8f0; border-radius: 16px; padding: 20px; text-align: center; }
+            .live-portfolio-public .stat-value { font-size: 36px; font-weight: 900; color: #0f172a; }
+            .live-portfolio-public .stat-label { font-size: 15px; font-weight: bold; color: #64748b; }
+            .live-portfolio-public .data-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            .live-portfolio-public .data-table th, .live-portfolio-public .data-table td { border: 1px solid #cbd5e1; padding: 7px; text-align: center; font-size: 13px; font-weight: bold; }
+            .live-portfolio-public .data-table th { background: #f1f5f9; font-weight: 900; color: #0f172a; }
+            .live-portfolio-public .material-summary-page { display: flex; flex-direction: column; }
+            .live-portfolio-public .material-summary-title { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; padding: 12px 16px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 14px; font-weight: 900; color: #0f172a; }
+            .live-portfolio-public .student-table-container { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+            .live-portfolio-public .committee-proctor-strip { display: grid; grid-template-columns: 1.4fr .8fr .8fr; gap: 12px; margin: 0 auto 18px; }
+            .live-portfolio-public .committee-receivers-strip { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin: 18px auto 0; }
+            .live-portfolio-public .receiver-card, .live-portfolio-public .operation-card { border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 12px; padding: 10px; text-align: center; }
+            .live-portfolio-public .receiver-card .name, .live-portfolio-public .operation-card .value { font-weight: 900; color: #0f172a; }
+            .live-portfolio-public .receiver-card .time { margin-top: 6px; font-size: 12px; font-weight: 900; color: #2563eb; }
+            .live-portfolio-public .label { font-size: 11px; font-weight: 900; color: #64748b; margin-bottom: 4px; }
+            .live-portfolio-public .status-pill { display: inline-block; min-width: 48px; padding: 4px 8px; border-radius: 99px; font-size: 11px; font-weight: 900; }
+            .live-portfolio-public .status-present { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+            .live-portfolio-public .status-absent { background: #dc2626; color: white; border: 1px solid #991b1b; }
+            .live-portfolio-public .status-late { background: #f59e0b; color: white; border: 1px solid #b45309; }
+            .live-portfolio-public .signature-footer { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 80px; padding: 32px 40px 0; font-weight: 900; text-align: center; color: #0f172a; }
+            .live-portfolio-public .footer { position: absolute; bottom: 22px; left: 32px; right: 32px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+            .live-portfolio-public .count-present { color: #047857; background: #ecfdf5; }
+            .live-portfolio-public .count-absent { color: #b91c1c; background: #fef2f2; }
+            .live-portfolio-public .count-late { color: #b45309; background: #fffbeb; }
+            .live-portfolio-public .student-absent td { background: #fef2f2 !important; color: #991b1b; border-color: #fecaca; }
+            .live-portfolio-public .student-late td { background: #fffbeb !important; color: #92400e; border-color: #fde68a; }
+            .live-portfolio-public .row-report td { background: #eff6ff; }
+            .live-portfolio-public .row-warning td { background: #fffbeb; color: #92400e; }
+            .live-portfolio-public .row-danger td { background: #fef2f2; color: #991b1b; }
+            .live-portfolio-public .row-done td { background: #ecfdf5; color: #065f46; }
+            @media (max-width: 760px) {
+              .live-portfolio-public { padding: 10px; }
+              .live-portfolio-public .portfolio-page { min-height: auto; padding: 22px 14px 54px; border-radius: 18px; overflow-x: auto; }
+              .live-portfolio-public .cover-page { min-height: 720px; padding: 24px 14px; }
+              .live-portfolio-public .official-report-header { grid-template-columns: 1fr; text-align: center; gap: 10px; }
+              .live-portfolio-public .official-side, .live-portfolio-public .official-side-left, .live-portfolio-public .official-side-right { text-align: center; }
+              .live-portfolio-public .stats-grid { grid-template-columns: 1fr; }
+              .live-portfolio-public .student-table-container, .live-portfolio-public .committee-proctor-strip { grid-template-columns: 1fr; }
+              .live-portfolio-public .data-table { min-width: 680px; }
+            }
           }
         `}} />
 
@@ -646,7 +741,7 @@ export const MasterPortfolio: React.FC<Props> = ({
       </div>
       
       {/* عرض المعاينة في الشاشة */}
-      <div className="bg-white rounded-[3rem] p-10 shadow-xl border border-slate-100 flex flex-col items-center justify-center py-20">
+      {!publicMode && <div className="bg-white rounded-[3rem] p-10 shadow-xl border border-slate-100 flex flex-col items-center justify-center py-20">
          <FileText size={80} className="text-slate-200 mb-6" />
          <h3 className="text-2xl font-black text-slate-800 mb-2">الملف جاهز للطباعة والتصدير</h3>
          <p className="text-slate-500 font-bold mb-8 max-w-md text-center leading-relaxed">
@@ -655,7 +750,7 @@ export const MasterPortfolio: React.FC<Props> = ({
          <button onClick={handlePrint} className="bg-slate-950 text-white px-8 py-4 rounded-[2rem] font-black flex items-center gap-3 hover:bg-slate-800 transition-all shadow-xl active:scale-95">
            <Download size={20}/> تحميل نسخة PDF
          </button>
-      </div>
+      </div>}
     </div>
   );
 };

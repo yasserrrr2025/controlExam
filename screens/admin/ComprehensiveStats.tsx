@@ -81,6 +81,31 @@ const formatMins = (value: number | null) => value === null ? '---' : `${value} 
 
 const statusDone = (status?: string) => status === 'DONE' || status === 'CONFIRMED';
 
+const getRiyadhToday = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Riyadh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const get = (type: string) => parts.find(part => part.type === type)?.value || '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+};
+
+const pickDefaultDate = (dates: string[], activeDate?: string) => {
+  const sorted = [...dates].filter(Boolean).sort();
+  const today = getRiyadhToday();
+  if (sorted.includes(today)) return today;
+  if (sorted.length) {
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    if (today > last) return last;
+    if (today < first) return first;
+    return [...sorted].reverse().find(day => day <= today) || first;
+  }
+  return activeDate || today;
+};
+
 export const ComprehensiveStats: React.FC<Props> = ({
   students,
   users,
@@ -103,7 +128,7 @@ export const ComprehensiveStats: React.FC<Props> = ({
     ].filter(Boolean))).sort();
   }, [absences, controlRequests, deliveryLogs, examSchedule, supervisions]);
 
-  const defaultDate = systemConfig.active_exam_date || allDates.at(-1) || dateKey(new Date().toISOString());
+  const defaultDate = pickDefaultDate(allDates, systemConfig.active_exam_date);
   const [selectedDate, setSelectedDate] = useState(defaultDate);
   const [activeTab, setActiveTab] = useState<PeopleTab>('PROCTOR');
 
@@ -342,15 +367,19 @@ export const ComprehensiveStats: React.FC<Props> = ({
             </p>
           </div>
 
-          {!publicMode && (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs font-black text-slate-400">رابط المتابعة الحية للجوال</p>
-              <div className="mt-3 rounded-xl bg-white p-3 text-left text-xs font-bold text-slate-950" dir="ltr">{LIVE_URL}</div>
-              <select value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="mt-4 w-full rounded-xl bg-white/10 px-3 py-3 text-xs font-black text-white outline-none">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            {!publicMode && (
+              <>
+                <p className="text-xs font-black text-slate-400">رابط المتابعة الحية للجوال</p>
+                <div className="mt-3 rounded-xl bg-white p-3 text-left text-xs font-bold text-slate-950" dir="ltr">{LIVE_URL}</div>
+              </>
+            )}
+            <p className={`text-xs font-black text-slate-400 ${publicMode ? '' : 'mt-4'}`}>فلترة التاريخ</p>
+            <select value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="mt-3 w-full rounded-xl bg-white/10 px-3 py-3 text-xs font-black text-white outline-none">
                 {allDates.map(day => <option key={day} value={day} className="text-slate-900">{day}</option>)}
-              </select>
-            </div>
-          )}
+            </select>
+            <p className="mt-3 text-[11px] font-bold leading-5 text-slate-400">الافتراضي حسب تاريخ اليوم، وإذا انتهت الاختبارات يعرض آخر اختبار تلقائيًا.</p>
+          </div>
         </div>
       </div>
 
