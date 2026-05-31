@@ -265,9 +265,33 @@ export const PublicBoxReport: React.FC<Props> = ({
                     </div>
                     {/* Time chips */}
                     <div className="flex flex-wrap gap-2">
-                      {loginTime && <div className="flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-400/30 rounded-xl px-3 py-1.5 text-emerald-300 text-xs font-bold"><Clock size={13}/> {safeTime(loginTime)}</div>}
-                      {closeLog && <div className="flex items-center gap-1.5 bg-amber-500/20 border border-amber-400/30 rounded-xl px-3 py-1.5 text-amber-300 text-xs font-bold"><Clock size={13}/> {safeTime(closeLog.time)}</div>}
-                      {receiptLog && <div className="flex items-center gap-1.5 bg-blue-500/20 border border-blue-400/30 rounded-xl px-3 py-1.5 text-blue-300 text-xs font-bold"><CheckCircle size={13}/> {safeTime(receiptLog.time)}</div>}
+                      {loginTime && (
+                        <div className="flex items-center gap-2 bg-emerald-500/20 border border-emerald-400/30 rounded-xl px-3 py-2 text-emerald-200 font-bold">
+                          <Clock size={14} className="shrink-0"/>
+                          <div className="leading-tight">
+                            <p className="text-[9px] text-emerald-100/70 font-black">دخول المراقب</p>
+                            <p className="text-xs tabular-nums">{safeTime(loginTime)}</p>
+                          </div>
+                        </div>
+                      )}
+                      {closeLog && (
+                        <div className="flex items-center gap-2 bg-amber-500/20 border border-amber-400/30 rounded-xl px-3 py-2 text-amber-200 font-bold">
+                          <Clock size={14} className="shrink-0"/>
+                          <div className="leading-tight">
+                            <p className="text-[9px] text-amber-100/70 font-black">إغلاق اللجنة</p>
+                            <p className="text-xs tabular-nums">{safeTime(closeLog.time)}</p>
+                          </div>
+                        </div>
+                      )}
+                      {receiptLog && (
+                        <div className="flex items-center gap-2 bg-blue-500/20 border border-blue-400/30 rounded-xl px-3 py-2 text-blue-200 font-bold">
+                          <CheckCircle size={14} className="shrink-0"/>
+                          <div className="leading-tight">
+                            <p className="text-[9px] text-blue-100/70 font-black">استلام الكنترول</p>
+                            <p className="text-xs tabular-nums">{safeTime(receiptLog.time)}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { PackageSearch, Plus, Search, Printer, Calendar, Tag, Layers, UserCircle, Save, Trash2, X, RefreshCw, Archive, CheckSquare, Square } from 'lucide-react';
-import { ArchiveBox, Student, ExamSchedule, DeliveryLog, Supervision, User } from '../../types';
+import { ArchiveBox, Student, ExamSchedule, DeliveryLog, Supervision, User, Absence } from '../../types';
 import { db } from '../../supabase';
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
   deliveryLogs?: DeliveryLog[];
   supervisions?: Supervision[];
   users?: User[];
+  absences?: Absence[];
 }
 
 export const ArchiveBoxesManager: React.FC<Props> = ({
@@ -17,6 +18,7 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
   deliveryLogs = [],
   supervisions = [],
   users = [],
+  absences = [],
 }) => {
   const [boxes, setBoxes] = useState<ArchiveBox[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,6 +92,50 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
       return a.name.localeCompare(b.name, 'ar');
     });
   }, [selectedBox, students]);
+
+  const eqCom = (a: any, b: any) => String(a) === String(b);
+
+  const matchesDate = (iso: string | undefined | null, date: string) => {
+    if (!iso || !date) return false;
+    const s = String(iso);
+    if (s.startsWith(date)) return true;
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return false;
+      const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return local === date;
+    } catch {
+      return false;
+    }
+  };
+
+  const getBoxStats = (box: ArchiveBox) => {
+    const scopedStudents = students.filter(s =>
+      s.grade === box.grade && box.committees.some(c => eqCom(s.committee_number, c))
+    );
+    const scopedAbsences = absences.filter(a =>
+      box.committees.some(c => eqCom(a.committee_number, c)) && matchesDate(a.date, box.exam_date)
+    );
+    const absentIds = new Set(scopedAbsences.filter(a => a.type === 'ABSENT').map(a => a.student_id));
+    const lateIds = new Set(scopedAbsences.filter(a => a.type === 'LATE').map(a => a.student_id));
+    const present = Math.max(scopedStudents.length - absentIds.size, 0);
+    const rate = scopedStudents.length > 0 ? Math.round((present / scopedStudents.length) * 100) : 0;
+    return {
+      total: scopedStudents.length,
+      present,
+      absent: absentIds.size,
+      late: lateIds.size,
+      rate,
+    };
+  };
+
+  const getBoxProctorNames = (box: ArchiveBox) => {
+    const names = supervisions
+      .filter(s => box.committees.some(c => eqCom(s.committee_number, c)) && matchesDate(s.date, box.exam_date))
+      .map(s => users.find(u => u.id === s.teacher_id || u.national_id === s.teacher_id)?.full_name || s.teacher_id)
+      .filter(Boolean);
+    return Array.from(new Set(names));
+  };
 
   const showAlert = (msg: string, type: 'success' | 'error' = 'success') => {
     setAlert({ msg, type });
@@ -216,36 +262,12 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
     const dateStr = new Date(box.exam_date).toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const LOGO = 'https://www.raed.net/img?id=1488645';
 
-    // ── Calculate stats ──
-    const eqCom = (a: any, b: any) => String(a) === String(b);
-    const matchDate = (iso: string | undefined | null, date: string) => {
-      if (!iso || !date) return false;
-      const s = String(iso);
-      if (s.startsWith(date)) return true;
-      try {
-        const d = new Date(iso);
-        if (isNaN(d.getTime())) return false;
-        const local = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        return local === date;
-      } catch { return false; }
-    };
-
     const boxStudents = students.filter(s =>
       s.grade === box.grade && box.committees.some(c => eqCom(s.committee_number, c))
     );
-    const boxAbsences = (users as any[]).length >= 0
-      ? [] // absences not in scope here, computed from props below
-      : [];
-
-    // absences prop is available via closure from props
-    const absData = typeof (window as any).__absences !== 'undefined'
-      ? (window as any).__absences
-      : [];
-
     const totalStudents = boxStudents.length;
-    // We don't have absences directly here — show students count only
-    // The stats will be pulled from window if available
-    const attendancePct = 100; // placeholder if no absences
+    const labelStats = getBoxStats(box);
+    const labelProctors = getBoxProctorNames(box);
 
     printWindow.document.write(`<!DOCTYPE html>
 <html dir="rtl" lang="ar">
@@ -426,9 +448,9 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
       <div class="stats-title">📊 إحصائيات الصف — جميع اللجان في الصندوق</div>
       <div class="stats-grid" id="stats-grid">
         <div class="stat-card blue"><div class="stat-num blue" id="s-total">${totalStudents}</div><div class="stat-lbl">إجمالي الطلاب</div></div>
-        <div class="stat-card green"><div class="stat-num green" id="s-present">—</div><div class="stat-lbl">إجمالي الحضور</div></div>
-        <div class="stat-card red"><div class="stat-num red" id="s-absent">—</div><div class="stat-lbl">إجمالي الغياب</div></div>
-        <div class="stat-card amber"><div class="stat-num amber" id="s-late">—</div><div class="stat-lbl">التأخير (من الحضور)</div></div>
+        <div class="stat-card green"><div class="stat-num green" id="s-present">${labelStats.present}</div><div class="stat-lbl">إجمالي الحضور</div></div>
+        <div class="stat-card red"><div class="stat-num red" id="s-absent">${labelStats.absent}</div><div class="stat-lbl">إجمالي الغياب</div></div>
+        <div class="stat-card amber"><div class="stat-num amber" id="s-late">${labelStats.late}</div><div class="stat-lbl">التأخير (من الحضور)</div></div>
       </div>
     </div>
 
@@ -436,9 +458,9 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
     <div class="att-bar-wrap">
       <div class="att-bar-row">
         <span class="att-bar-label">نسبة الحضور</span>
-        <span class="att-bar-pct" id="s-pct">—%</span>
+        <span class="att-bar-pct" id="s-pct">${labelStats.rate}%</span>
       </div>
-      <div class="att-bar-bg"><div class="att-bar-fill" id="att-fill" style="width:0%;background:linear-gradient(90deg,#16a34a,#4ade80)"></div></div>
+      <div class="att-bar-bg"><div class="att-bar-fill" id="att-fill" style="width:${labelStats.rate}%;background:linear-gradient(90deg,#16a34a,#4ade80)"></div></div>
       <div class="att-note">* التأخير محسوب ضمن الحضور</div>
     </div>
 
@@ -446,11 +468,14 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
     <div class="committees">
       اللجان داخل الصندوق: ${box.committees.length ? box.committees.join(' ، ') : 'لا يوجد'}
     </div>
+    <div class="committees" style="background:linear-gradient(135deg,#0f172a,#334155);font-size:12px;">
+      المراقبون: ${labelProctors.length ? labelProctors.join(' ، ') : 'لم تسجل أسماء مراقبين لهذا الصندوق'}
+    </div>
 
     <!-- QR -->
     <div class="qr-section">
       <div class="qr-wrap">
-        <img src="${qrUrl}" alt="QR Code" onload="fillStats(); setTimeout(()=>{window.print();},600);"/>
+        <img src="${qrUrl}" alt="QR Code" onload="setTimeout(()=>{window.print();},600);"/>
       </div>
       <div class="qr-hint">امسح رمز QR للاطلاع على التقرير الكامل</div>
       <div class="qr-url">${reportUrl}</div>
@@ -463,65 +488,6 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
     </div>
   </div>
 
-  <script>
-    // Try to fetch absences from Supabase to compute real stats
-    const SUPABASE_URL = 'https://upfavagxyuwnqmjgiibo.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwZmF2YWd4eXV3bnFtamdpaWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0MDQ0OTYsImV4cCI6MjA4MTk4MDQ5Nn0.AxsPO_Vw04aVuoa2KkFS_63OX1lz1yYthzBLLIkotuw';
-    const boxDate   = '${box.exam_date}';
-    const committees = ${JSON.stringify(box.committees)};
-    const totalStudents = ${totalStudents};
-
-    function matchDate(iso, date) {
-      if (!iso || !date) return false;
-      const s = String(iso);
-      if (s.startsWith(date)) return true;
-      try {
-        const d = new Date(iso);
-        if (isNaN(d.getTime())) return false;
-        const local = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-        return local === date;
-      } catch { return false; }
-    }
-
-    function fillStats(absences) {
-      if (!absences || absences.length === 0) {
-        // No absences data — just show total
-        document.getElementById('s-present').textContent = totalStudents;
-        document.getElementById('s-absent').textContent = '0';
-        document.getElementById('s-late').textContent = '0';
-        document.getElementById('s-pct').textContent = '100%';
-        const fill = document.getElementById('att-fill');
-        if (fill) { fill.style.width = '100%'; }
-        return;
-      }
-      const comAbs = absences.filter(a =>
-        committees.some(c => String(c) === String(a.committee_number)) && matchDate(a.date, boxDate)
-      );
-      const absentIds = new Set(comAbs.filter(a => a.type === 'ABSENT').map(a => a.student_id));
-      const lateIds   = new Set(comAbs.filter(a => a.type === 'LATE').map(a => a.student_id));
-      const totalAbsent  = absentIds.size;
-      const totalLate    = lateIds.size;
-      const totalPresent = totalStudents - totalAbsent;
-      const pct = totalStudents > 0 ? Math.round((totalPresent/totalStudents)*100) : 100;
-      const color = pct >= 90 ? 'linear-gradient(90deg,#16a34a,#4ade80)'
-                  : pct >= 70 ? 'linear-gradient(90deg,#d97706,#fbbf24)'
-                              : 'linear-gradient(90deg,#dc2626,#f87171)';
-      document.getElementById('s-present').textContent = totalPresent;
-      document.getElementById('s-absent').textContent  = totalAbsent;
-      document.getElementById('s-late').textContent    = totalLate;
-      document.getElementById('s-pct').textContent     = pct + '%';
-      const fill = document.getElementById('att-fill');
-      if (fill) { fill.style.width = pct + '%'; fill.style.background = color; }
-    }
-
-    // Fetch absences for this date from Supabase
-    fetch(SUPABASE_URL + '/rest/v1/absences?select=student_id,committee_number,type,date&date=gte.' + boxDate + 'T00:00:00Z&date=lte.' + boxDate + 'T23:59:59Z', {
-      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }
-    })
-    .then(r => r.json())
-    .then(data => { fillStats(Array.isArray(data) ? data : []); })
-    .catch(() => { fillStats([]); });
-  </script>
 </body>
 </html>`);
     printWindow.document.close();
@@ -656,7 +622,10 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
         </div>
 
         {/* Right: Detail panel */}
-        {selectedBox && (
+        {selectedBox && (() => {
+          const selectedStats = getBoxStats(selectedBox);
+          const selectedProctors = getBoxProctorNames(selectedBox);
+          return (
           <div className="w-full xl:w-[420px] shrink-0">
             <div className="bg-white rounded-[3rem] shadow-2xl border border-slate-100 overflow-hidden sticky top-8">
               <div className="bg-indigo-600 p-8 text-white relative">
@@ -687,6 +656,31 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
                   </div>
                 </div>
 
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                  <div className="bg-emerald-50 rounded-2xl p-3 text-center border border-emerald-100">
+                    <div className="text-2xl font-black text-emerald-700">{selectedStats.present}</div>
+                    <div className="text-[10px] font-black text-emerald-500 mt-1">الحضور</div>
+                  </div>
+                  <div className="bg-red-50 rounded-2xl p-3 text-center border border-red-100">
+                    <div className="text-2xl font-black text-red-600">{selectedStats.absent}</div>
+                    <div className="text-[10px] font-black text-red-400 mt-1">الغياب</div>
+                  </div>
+                  <div className="bg-amber-50 rounded-2xl p-3 text-center border border-amber-100">
+                    <div className="text-2xl font-black text-amber-600">{selectedStats.late}</div>
+                    <div className="text-[10px] font-black text-amber-500 mt-1">التأخير</div>
+                  </div>
+                </div>
+
+                <div className="mb-4 pb-4 border-b border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 mb-2">المراقبون المرتبطون بالصندوق</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProctors.map(name => (
+                      <span key={name} className="px-3 py-1.5 bg-slate-100 text-slate-800 rounded-xl text-xs font-black">{name}</span>
+                    ))}
+                    {selectedProctors.length === 0 && <span className="text-sm text-slate-400 font-bold">لا توجد تكليفات مراقبين مرتبطة بتاريخ الصندوق.</span>}
+                  </div>
+                </div>
+
                 <div className="mb-4 pb-4 border-b border-slate-100">
                   <p className="text-[10px] font-black text-slate-400 mb-2">اللجان داخل الصندوق</p>
                   <div className="flex flex-wrap gap-2">
@@ -714,7 +708,8 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Add Box Modal */}

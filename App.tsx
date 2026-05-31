@@ -142,11 +142,15 @@ const App: React.FC = () => {
   const [supervisions, setSupervisions] = useState<Supervision[]>([]);
   const [allSupervisions, setAllSupervisions] = useState<Supervision[]>([]);
   const [absences, setAbsences] = useState<Absence[]>([]);
+  const [allAbsences, setAllAbsences] = useState<Absence[]>([]);
   const [notifications, setNotifications] = useState<{id: string, text: string, type: 'success' | 'error' | 'info' | 'warning'}[]>([]);
   const [browserNotificationPermission, setBrowserNotificationPermission] = useState<BrowserNotificationPermission>('unsupported');
   const [controlRequests, setControlRequests] = useState<ControlRequest[]>([]);
+  const [allControlRequests, setAllControlRequests] = useState<ControlRequest[]>([]);
   const [deliveryLogs, setDeliveryLogs] = useState<DeliveryLog[]>([]);
+  const [allDeliveryLogs, setAllDeliveryLogs] = useState<DeliveryLog[]>([]);
   const [committeeReports, setCommitteeReports] = useState<CommitteeReport[]>([]);
+  const [allCommitteeReports, setAllCommitteeReports] = useState<CommitteeReport[]>([]);
   const [examSchedule, setExamSchedule] = useState<ExamSchedule[]>([]);
   const [systemConfig, setSystemConfig] = useState<SystemConfig>({ 
     id: 'main_config', 
@@ -243,6 +247,10 @@ const App: React.FC = () => {
       }
       setStudents(s);
       setAllSupervisions(sv);
+      setAllAbsences(ab);
+      setAllDeliveryLogs(dl);
+      setAllControlRequests(cr);
+      setAllCommitteeReports(reports);
       setExamSchedule(exams);
       
       if (filterDate) {
@@ -547,8 +555,8 @@ const App: React.FC = () => {
       : getDefaultTab(currentUser.role);
 
     switch (tabToRender) {
-      case 'master-portfolio': return <MasterPortfolio students={students} users={users} supervisions={supervisions} systemConfig={systemConfig} absences={absences} committeeReports={committeeReports} examSchedule={examSchedule} deliveryLogs={deliveryLogs} controlRequests={controlRequests} />;
-      case 'archive-boxes': return <ArchiveBoxesManager students={students} examSchedule={examSchedule} deliveryLogs={deliveryLogs} supervisions={supervisions} users={users} />;
+      case 'master-portfolio': return <MasterPortfolio students={students} users={users} supervisions={allSupervisions.filter(i => !isReserveSupervision(i))} systemConfig={systemConfig} absences={allAbsences} committeeReports={allCommitteeReports} examSchedule={examSchedule} deliveryLogs={allDeliveryLogs} controlRequests={allControlRequests} />;
+      case 'archive-boxes': return <ArchiveBoxesManager students={students} examSchedule={examSchedule} deliveryLogs={allDeliveryLogs} supervisions={allSupervisions.filter(i => !isReserveSupervision(i))} users={users} absences={allAbsences} />;
       case 'seating-planner': return <SeatingPlanner systemConfig={systemConfig} />;
       case 'dashboard': return <AdminDashboardOverview stats={{ students: students.length, users: users.length, activeSupervisions: supervisions.length }} absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} studentsList={students} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} systemConfig={systemConfig} />;
       case 'head-dash': return <ControlHeadDashboard users={users} students={students} absences={absences} deliveryLogs={deliveryLogs} requests={controlRequests} supervisions={supervisions} systemConfig={systemConfig} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} />;
@@ -621,7 +629,7 @@ const App: React.FC = () => {
 
   const boxReportId = params.get('box_report');
   if (boxReportId) {
-    return <PublicBoxReport boxId={boxReportId} students={students} supervisions={supervisions} deliveryLogs={deliveryLogs} users={users} examSchedule={examSchedule} systemConfig={systemConfig} absences={absences} />;
+    return <PublicBoxReport boxId={boxReportId} students={students} supervisions={allSupervisions.filter(i => !isReserveSupervision(i))} deliveryLogs={allDeliveryLogs} users={users} examSchedule={examSchedule} systemConfig={systemConfig} absences={allAbsences} />;
   }
 
   const isTv2Public = params.get('tv2');

@@ -45,6 +45,19 @@ export const MasterPortfolio: React.FC<Props> = ({
 
   const eqCom = (a: any, b: any) => String(a) === String(b);
 
+  const getProctorName = (teacherId?: string) => {
+    if (!teacherId) return '';
+    return users.find(u => u.id === teacherId || u.national_id === teacherId)?.full_name || teacherId;
+  };
+
+  const getCommitteeProctors = (committeeNumber: string, date: string, period?: number) => {
+    const names = supervisions
+      .filter(s => eqCom(s.committee_number, committeeNumber) && matchesDate(s.date, date) && (period === undefined || String(s.period) === String(period)))
+      .map(s => getProctorName(s.teacher_id))
+      .filter(Boolean);
+    return Array.from(new Set(names));
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -203,7 +216,8 @@ export const MasterPortfolio: React.FC<Props> = ({
                   examSchedule.find(e => matchesDate(abs.date, e.exam_date) && String(e.period) === String(abs.period))
                   || examSchedule.find(e => matchesDate(abs.date, e.exam_date))
                 )?.subject || '-';
-                const absProctor = users.find(u => u.id === abs.proctor_id || u.national_id === abs.proctor_id)?.full_name || abs.proctor_id || '-';
+                const assignedProctors = getCommitteeProctors(abs.committee_number, abs.date, abs.period);
+                const absProctor = getProctorName(abs.proctor_id) || assignedProctors.join(' - ') || '-';
                 return (
                   <tr key={abs.id}>
                     <td>{idx + 1}</td>
@@ -217,7 +231,7 @@ export const MasterPortfolio: React.FC<Props> = ({
                 );
               })}
               {absences.length === 0 && (
-                <tr><td colSpan={6}>لا توجد حالات غياب مسجلة.</td></tr>
+                <tr><td colSpan={7}>لا توجد حالات غياب مسجلة.</td></tr>
               )}
             </tbody>
           </table>
@@ -249,7 +263,7 @@ export const MasterPortfolio: React.FC<Props> = ({
                   <td>{idx + 1}</td>
                   <td>{rep.committee_number}</td>
                   <td>{new Date(rep.date).toLocaleDateString('ar-SA')}</td>
-                  <td>{rep.proctor_name}</td>
+                  <td>{rep.proctor_name || getCommitteeProctors(rep.committee_number, rep.date).join(' - ') || 'غير محدد'}</td>
                   <td>{rep.observations} <br/> {rep.issues}</td>
                   <td>{rep.resolutions}</td>
                 </tr>
@@ -317,6 +331,7 @@ export const MasterPortfolio: React.FC<Props> = ({
                        <th>وقت الاغلاق</th>
                        <th>وقت التسليم</th>
                        <th>البلاغات</th>
+                       <th>الحضور</th>
                        <th>الغياب</th>
                        <th>التأخير</th>
                      </tr>
@@ -324,16 +339,16 @@ export const MasterPortfolio: React.FC<Props> = ({
                    <tbody>
                      {examCommittees.map(cNum => {
                         const supvs = supervisions.filter(s => eqCom(s.committee_number, cNum) && matchesDate(s.date, exam.exam_date) && String(s.period) === String(exam.period));
-                        const proctors = supvs.map(s => {
-                           const u = users.find(u => u.national_id === s.teacher_id || u.id === s.teacher_id);
-                           return u ? u.full_name : s.teacher_id;
-                        });
+                        const proctors = supvs.map(s => getProctorName(s.teacher_id));
                         const loginTime = supvs.map(s => s.date).filter(Boolean).sort()[0];
                         const closeLog = deliveryLogs.find(l => eqCom(l?.committee_number, cNum) && matchesDate(l?.time, exam.exam_date) && l?.type === 'RECEIVE');
                         const receiptLog = deliveryLogs.find(l => eqCom(l?.committee_number, cNum) && matchesDate(l?.time, exam.exam_date) && l?.status === 'CONFIRMED');
                         const comAbsences = absences.filter(a => eqCom(a.committee_number, cNum) && matchesDate(a.date, exam.exam_date) && a.type === 'ABSENT');
                         const comLates = absences.filter(a => eqCom(a.committee_number, cNum) && matchesDate(a.date, exam.exam_date) && a.type === 'LATE');
                         const comRequests = controlRequests.filter(r => eqCom(r.committee, cNum) && matchesDate(r.time, exam.exam_date));
+                        const comStudents = examStudents.filter(s => eqCom(s.committee_number, cNum));
+                        const absentIds = new Set(comAbsences.map(a => a.student_id));
+                        const presentCount = Math.max(comStudents.length - absentIds.size, 0);
 
                         return (
                           <tr key={cNum}>
@@ -343,13 +358,14 @@ export const MasterPortfolio: React.FC<Props> = ({
                             <td style={{fontFamily: 'monospace'}}>{safeTime(closeLog?.time)}</td>
                             <td style={{fontFamily: 'monospace'}}>{safeTime(receiptLog?.time)}</td>
                             <td>{comRequests.length}</td>
+                            <td>{presentCount}</td>
                             <td>{comAbsences.length}</td>
                             <td>{comLates.length}</td>
                           </tr>
                         );
                      })}
                      {examCommittees.length === 0 && (
-                       <tr><td colSpan={8}>لا توجد لجان مسجلة لهذه المادة.</td></tr>
+                       <tr><td colSpan={9}>لا توجد لجان مسجلة لهذه المادة.</td></tr>
                      )}
                    </tbody>
                  </table>
