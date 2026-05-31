@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { BookOpen, Printer, Download, FileText, Link as LinkIcon, Sparkles } from 'lucide-react';
 import { Student, User, Supervision, SystemConfig, Absence, CommitteeReport, ExamSchedule, DeliveryLog, ControlRequest } from '../../types';
 import { APP_CONFIG } from '../../constants';
+import { formatActualProctorStart, getActualSupervisionStart } from '../../utils/proctorTime';
 
 interface Props {
   students: Student[];
@@ -31,13 +32,7 @@ export const MasterPortfolio: React.FC<Props> = ({
   };
 
   const safeLoginTime = (isoStr?: string) => {
-    if (!isoStr) return '---';
-    const d = new Date(isoStr);
-    if (isNaN(d.getTime())) return '---';
-    const hours = d.getHours();
-    const minutes = d.getMinutes();
-    if (hours === 12 && minutes === 0) return '---';
-    return safeTime(isoStr);
+    return formatActualProctorStart(isoStr);
   };
 
   const matchesDate = (isoStr: string | undefined | null, date: string): boolean => {
@@ -108,7 +103,7 @@ export const MasterPortfolio: React.FC<Props> = ({
       (period === undefined || String(l.period) === String(period))
     );
     const proctors = Array.from(new Set(supvs.map(s => getProctorName(s.teacher_id)).filter(Boolean)));
-    const loginTime = supvs.map(s => s.date).filter(Boolean).sort()[0];
+    const loginTime = getActualSupervisionStart(supvs);
     const closeLog = logs.filter(l => l.type === 'RECEIVE').sort((a, b) => String(a.time).localeCompare(String(b.time)))[0];
     const receiptLogs = logs
       .filter(l => l.type === 'RECEIVE' && l.status === 'CONFIRMED')
@@ -610,7 +605,7 @@ export const MasterPortfolio: React.FC<Props> = ({
                      {examCommittees.map(cNum => {
                         const supvs = supervisions.filter(s => eqCom(s.committee_number, cNum) && matchesDate(s.date, exam.exam_date) && String(s.period) === String(exam.period));
                         const proctors = supvs.map(s => getProctorName(s.teacher_id));
-                        const loginTime = supvs.map(s => s.date).filter(Boolean).sort()[0];
+                        const loginTime = getActualSupervisionStart(supvs);
                         const closeLog = deliveryLogs.find(l => eqCom(l?.committee_number, cNum) && matchesDate(l?.time, exam.exam_date) && l?.type === 'RECEIVE');
                         const receiptLog = deliveryLogs.find(l => eqCom(l?.committee_number, cNum) && matchesDate(l?.time, exam.exam_date) && l?.status === 'CONFIRMED');
                         const comAbsences = absences.filter(a => eqCom(a.committee_number, cNum) && matchesDate(a.date, exam.exam_date) && a.type === 'ABSENT');

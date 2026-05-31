@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { ArchiveBox, Student, Supervision, DeliveryLog, User, ExamSchedule, Absence } from '../../types';
 import { supabase } from '../../supabase';
+import { formatActualProctorStart, getActualSupervisionStart } from '../../utils/proctorTime';
 
 const LOGO_URL = 'https://www.raed.net/img?id=1488645';
 
@@ -220,7 +221,7 @@ export const PublicBoxReport: React.FC<Props> = ({
             const u = users.find(u => u.national_id === s.teacher_id || u.id === s.teacher_id);
             return u ? u.full_name : s.teacher_id;
           }))];
-          const loginTime = supvsForCom.map(s => s.date).filter(Boolean).sort()[0];
+          const loginTime = getActualSupervisionStart(supvsForCom);
 
           // logs
           const closeLog  = deliveryLogs.find(l => eqCom(l.committee_number, committeeNum) && matchesDate(l.time, box.exam_date) && l.type === 'RECEIVE');
@@ -270,7 +271,7 @@ export const PublicBoxReport: React.FC<Props> = ({
                           <Clock size={14} className="shrink-0"/>
                           <div className="leading-tight">
                             <p className="text-[9px] text-emerald-100/70 font-black">دخول المراقب</p>
-                            <p className="text-xs tabular-nums">{safeTime(loginTime)}</p>
+                            <p className="text-xs tabular-nums">{formatActualProctorStart(loginTime)}</p>
                           </div>
                         </div>
                       )}

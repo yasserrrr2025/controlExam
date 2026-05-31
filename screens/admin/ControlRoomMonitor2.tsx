@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { Absence, ControlRequest, DeliveryLog, Student, Supervision, User } from '../../types';
 import { getAbsenceKindLabel, getAbsenceReceipt } from '../../services/absenceReceipt';
+import { isPlaceholderProctorStart } from '../../utils/proctorTime';
 
 interface Props {
   absences: Absence[];
@@ -136,7 +137,8 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
       const pendingAlert = requests.some(r => r.committee === num && r.status === 'PENDING');
       const inProgressAlert = requests.some(r => r.committee === num && r.status === 'IN_PROGRESS');
       const committeeAbsences = absences.filter(a => a.committee_number === num);
-      const status = confirmed ? 'confirmed' : submitted ? 'submitted' : pendingAlert ? 'alert' : inProgressAlert ? 'progress' : supervision ? 'active' : 'idle';
+      const hasActualJoin = supervision && !isPlaceholderProctorStart(supervision.date);
+      const status = confirmed ? 'confirmed' : submitted ? 'submitted' : pendingAlert ? 'alert' : inProgressAlert ? 'progress' : hasActualJoin ? 'active' : 'idle';
       const receiptLog = logs.find(l => l.status === 'CONFIRMED');
       const closeLog = logs.find(l => l.status === 'PENDING');
 
@@ -150,7 +152,7 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
         hasPendingAlert: pendingAlert,
         hasInProgressAlert: inProgressAlert,
         status,
-        joinedAt: supervision?.date,
+        joinedAt: hasActualJoin ? supervision?.date : undefined,
         closedAt: closeLog?.time,
         receivedAt: receiptLog?.time,
         receiverName: receiptLog?.teacher_name || '',

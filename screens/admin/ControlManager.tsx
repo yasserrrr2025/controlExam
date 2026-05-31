@@ -21,6 +21,7 @@ import { User, DeliveryLog, Student, UserRole, SystemConfig, Absence, Supervisio
 import { ROLES_ARABIC } from '../../constants';
 import { supabase, db } from '../../supabase';
 import SmartProctorDistribution, { SmartDistributionItem } from './SmartProctorDistribution';
+import { isPlaceholderProctorStart } from '../../utils/proctorTime';
 
 interface ControlManagerProps {
   users: User[];
@@ -198,7 +199,9 @@ const ControlManager: React.FC<ControlManagerProps> = ({
 
   const timeline = useMemo(() => {
     const items = [
-      ...supervisions.map(s => ({ time: s.date, type: 'دخول مراقب', title: `لجنة ${s.committee_number}`, text: users.find(u => u.id === s.teacher_id)?.full_name || 'مراقب غير معروف' })),
+      ...supervisions
+        .filter(s => !isPlaceholderProctorStart(s.date))
+        .map(s => ({ time: s.date, type: 'دخول مراقب', title: `لجنة ${s.committee_number}`, text: users.find(u => u.id === s.teacher_id)?.full_name || 'مراقب غير معروف' })),
       ...todayLogs.map(l => ({ time: l.time, type: l.status === 'CONFIRMED' ? 'استلام كنترول' : 'إغلاق ميداني', title: `لجنة ${l.committee_number}`, text: `${l.grade} - ${l.teacher_name}` })),
       ...absences.map(a => ({ time: a.date, type: a.type === 'ABSENT' ? 'غياب' : 'تأخر', title: `لجنة ${a.committee_number}`, text: a.student_name })),
       ...requests.map(r => ({ time: r.time, type: r.status === 'DONE' ? 'إغلاق بلاغ' : 'بلاغ', title: `لجنة ${r.committee}`, text: r.text })),

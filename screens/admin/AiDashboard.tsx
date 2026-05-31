@@ -36,6 +36,7 @@ import {
 } from '../../types';
 import { db } from '../../supabase';
 import { fetchAIAnalysis, AiInsightsResult, fetchAIChat } from '../../services/aiService';
+import { getActualSupervisionStart } from '../../utils/proctorTime';
 
 interface Props {
   systemConfig: SystemConfig;
@@ -183,7 +184,7 @@ const AiDashboard: React.FC<Props> = ({ systemConfig }) => {
       const logs = todayLogs.filter(l => sameCommittee(l.committee_number, num));
       const receivePending = logs.find(l => l.type === 'RECEIVE' && l.status === 'PENDING');
       const receiveConfirmed = logs.find(l => l.type === 'RECEIVE' && l.status === 'CONFIRMED');
-      const firstJoin = supervisions.map(s => s.date).filter(Boolean).sort()[0];
+      const firstJoin = getActualSupervisionStart(supervisions);
       const closeTime = logs.filter(l => l.type === 'RECEIVE').map(l => l.time).filter(Boolean).sort()[0];
       const receiptMins = minutesBetween(closeTime, receiveConfirmed?.time);
       const proctorNames = Array.from(new Set(supervisions.map(s => data.users.find(u => u.id === s.teacher_id || u.national_id === s.teacher_id)?.full_name || s.teacher_id)));

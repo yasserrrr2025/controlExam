@@ -7,6 +7,7 @@ import {
   ClipboardList, Package, AlertTriangle, Trophy, Timer, BellRing, UserRoundCheck
 } from 'lucide-react';
 import { APP_CONFIG } from '../../constants';
+import { formatActualProctorStart, isPlaceholderProctorStart } from '../../utils/proctorTime';
 
 interface Props {
   supervisions?: Supervision[];
@@ -220,14 +221,14 @@ const AdminDailyReports: React.FC<Props> = ({
       return {
         committee: String(num),
         proctorName: proctor?.full_name || '—',
-        joinTime: safeTime(sv?.date),
+        joinTime: formatActualProctorStart(sv?.date),
         closeTime: safeTime(closeLog?.time),
         receiptTime: safeTime(receiptLog?.time),
         receiverName: receiptLog?.teacher_name || '—',
         joinAt: sv?.date || '',
         closeAt: closeLog?.time || '',
         receiptAt: receiptLog?.time || '',
-        status: receiptLog ? 'CONFIRMED' : closeLog ? 'CLOSED' : sv ? 'ACTIVE' : 'NOT_STARTED',
+        status: receiptLog ? 'CONFIRMED' : closeLog ? 'CLOSED' : (sv && !isPlaceholderProctorStart(sv.date)) ? 'ACTIVE' : 'NOT_STARTED',
         totalStudents: committeeStudents.length,
         grades: gradeSet.length,
         observations: detailedReport?.observations || '',

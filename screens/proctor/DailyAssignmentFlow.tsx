@@ -49,6 +49,7 @@ import {
 import { db, supabase } from "../../supabase";
 import { APP_CONFIG, ROLES_ARABIC } from "../../constants";
 import { getAbsenceKindLabel, getAbsenceReceipt } from "../../services/absenceReceipt";
+import { isPlaceholderProctorStart } from "../../utils/proctorTime";
 
 interface Props {
   user: User;
@@ -138,9 +139,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
 
   const activeCommittee = activeAssignment?.committee_number || null;
   const isAssignmentStarted = (value?: string | null) => {
-    if (!value) return false;
-    const d = new Date(value);
-    return !Number.isNaN(d.getTime()) && !(d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0);
+    return !isPlaceholderProctorStart(value);
   };
   const [confirmedAssignments, setConfirmedAssignments] = useState<string[]>(() => {
     try {

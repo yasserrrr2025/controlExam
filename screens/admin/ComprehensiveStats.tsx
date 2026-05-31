@@ -19,6 +19,7 @@ import {
   Users,
 } from 'lucide-react';
 import { Absence, CommitteeReport, ControlRequest, DeliveryLog, ExamSchedule, Student, Supervision, SystemConfig, User, UserRole } from '../../types';
+import { getActualSupervisionStart } from '../../utils/proctorTime';
 
 interface Props {
   students: Student[];
@@ -166,7 +167,7 @@ export const ComprehensiveStats: React.FC<Props> = ({
       const cLogs = dayLogs.filter(item => sameCommittee(item.committee_number, num));
       const cSupervisions = daySupervisions.filter(item => sameCommittee(item.committee_number, num));
       const proctors = Array.from(new Set(cSupervisions.map(item => users.find(user => user.id === item.teacher_id || user.national_id === item.teacher_id)?.full_name || item.teacher_id).filter(Boolean)));
-      const joinTime = cSupervisions.map(item => item.date).filter(Boolean).sort()[0];
+      const joinTime = getActualSupervisionStart(cSupervisions);
       const issueLog = cLogs.filter(item => item.type === 'ISSUE').sort((a, b) => String(a.time).localeCompare(String(b.time)))[0];
       const receiveLogs = cLogs.filter(item => item.type === 'RECEIVE').sort((a, b) => String(a.time).localeCompare(String(b.time)));
       const confirmedReceipts = receiveLogs.filter(item => item.status === 'CONFIRMED');
