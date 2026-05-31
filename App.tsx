@@ -547,7 +547,7 @@ const App: React.FC = () => {
       : getDefaultTab(currentUser.role);
 
     switch (tabToRender) {
-      case 'master-portfolio': return <MasterPortfolio students={students} users={users} supervisions={supervisions} systemConfig={systemConfig} absences={absences} committeeReports={committeeReports} examSchedule={examSchedule} deliveryLogs={deliveryLogs} />;
+      case 'master-portfolio': return <MasterPortfolio students={students} users={users} supervisions={supervisions} systemConfig={systemConfig} absences={absences} committeeReports={committeeReports} examSchedule={examSchedule} deliveryLogs={deliveryLogs} controlRequests={controlRequests} />;
       case 'archive-boxes': return <ArchiveBoxesManager students={students} examSchedule={examSchedule} deliveryLogs={deliveryLogs} supervisions={supervisions} users={users} />;
       case 'seating-planner': return <SeatingPlanner systemConfig={systemConfig} />;
       case 'dashboard': return <AdminDashboardOverview stats={{ students: students.length, users: users.length, activeSupervisions: supervisions.length }} absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} studentsList={students} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} systemConfig={systemConfig} />;

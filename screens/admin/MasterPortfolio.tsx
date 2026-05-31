@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { BookOpen, Printer, Download, FileText } from 'lucide-react';
-import { Student, User, Supervision, SystemConfig, Absence, CommitteeReport, ExamSchedule, DeliveryLog } from '../../types';
+import { Student, User, Supervision, SystemConfig, Absence, CommitteeReport, ExamSchedule, DeliveryLog, ControlRequest } from '../../types';
 import { APP_CONFIG } from '../../constants';
 
 interface Props {
@@ -12,12 +12,31 @@ interface Props {
   committeeReports: CommitteeReport[];
   examSchedule?: ExamSchedule[];
   deliveryLogs?: DeliveryLog[];
+  controlRequests?: ControlRequest[];
 }
 
 export const MasterPortfolio: React.FC<Props> = ({ 
   students, users, supervisions, systemConfig, absences, committeeReports, 
-  examSchedule = [], deliveryLogs = [] 
+  examSchedule = [], deliveryLogs = [], controlRequests = [] 
 }) => {
+
+  const safeTime = (isoStr?: string) => {
+    if (!isoStr) return '---';
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return '---';
+      return d.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+    } catch { return '---'; }
+  };
+
+  const matchesDate = (isoStr: string | undefined | null, date: string): boolean => {
+    if (!isoStr || !date) return false;
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return String(isoStr).startsWith(date);
+      return d.toISOString().startsWith(date);
+    } catch { return String(isoStr).startsWith(date); }
+  };
 
   const handlePrint = () => {
     window.print();
@@ -252,11 +271,14 @@ export const MasterPortfolio: React.FC<Props> = ({
                  <table className="data-table">
                    <thead>
                      <tr>
-                       <th>رقم اللجنة</th>
-                       <th>الملاحظون المكلفون</th>
-                       <th>وقت استلام المغلف</th>
-                       <th>وقت تسليم المغلف</th>
-                       <th>حالات الغياب المسجلة</th>
+                       <th>اللجنة</th>
+                       <th>اسم المراقب</th>
+                       <th>تسجيل الدخول</th>
+                       <th>وقت الاغلاق</th>
+                       <th>وقت التسليم</th>
+                       <th>البلاغات</th>
+                       <th>الغياب</th>
+                       <th>التأخير</th>
                      </tr>
                    </thead>
                    <tbody>
@@ -267,16 +289,22 @@ export const MasterPortfolio: React.FC<Props> = ({
                            return u ? u.full_name : s.proctor_id;
                         });
                         
-                        const log = deliveryLogs.find(l => l.committee === cNum && l.date === exam.exam_date && l.period === exam.period);
-                        const comAbsences = absences.filter(a => a.committee_number === cNum && a.date === exam.exam_date);
+                        const closeLog = deliveryLogs.find(l => String(l?.committee_number) === String(cNum) && matchesDate(l?.time, exam.exam_date) && l?.type === 'RECEIVE');
+                        const receiptLog = deliveryLogs.find(l => String(l?.committee_number) === String(cNum) && matchesDate(l?.time, exam.exam_date) && l?.status === 'CONFIRMED');
+                        const comAbsences = absences.filter(a => a.committee_number === cNum && a.date === exam.exam_date && a.type === 'ABSENT');
+                        const comLates = absences.filter(a => a.committee_number === cNum && a.date === exam.exam_date && a.type === 'LATE');
+                        const comRequests = controlRequests.filter(r => r.committee === cNum && matchesDate(r.time, exam.exam_date));
 
                         return (
                           <tr key={cNum}>
                             <td>{cNum}</td>
                             <td>{proctors.length ? proctors.join(' - ') : 'غير محدد'}</td>
-                            <td>{log?.received_time ? new Date(log.received_time).toLocaleTimeString('ar-SA', {hour:'2-digit', minute:'2-digit'}) : '-'}</td>
-                            <td>{log?.delivered_time ? new Date(log.delivered_time).toLocaleTimeString('ar-SA', {hour:'2-digit', minute:'2-digit'}) : '-'}</td>
+                            <td style={{fontFamily: 'monospace'}}>{safeTime(supvs[0]?.date)}</td>
+                            <td style={{fontFamily: 'monospace'}}>{safeTime(closeLog?.time)}</td>
+                            <td style={{fontFamily: 'monospace'}}>{safeTime(receiptLog?.time)}</td>
+                            <td>{comRequests.length}</td>
                             <td>{comAbsences.length}</td>
+                            <td>{comLates.length}</td>
                           </tr>
                         );
                      })}
