@@ -33,7 +33,11 @@ interface CommitteePreview {
   stats: Record<string, number>;
 }
 
-const SeatingPlanner = () => {
+interface Props {
+  systemConfig?: { academic_year?: string; [key: string]: any };
+}
+
+const SeatingPlanner: React.FC<Props> = ({ systemConfig }) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [committeesCount, setCommitteesCount] = useState<number>(20);

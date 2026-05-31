@@ -98,6 +98,7 @@ export interface SystemConfig {
   exam_start_time: string; 
   exam_date: string;
   active_exam_date?: string;
+  academic_year?: string;
   allow_manual_join?: boolean;
   openrouter_api_key?: string;
 }
@@ -110,4 +111,14 @@ export interface EnvelopeOpening {
   grade: string;
   status: 'INTACT' | 'DAMAGED';
   opened_by: string;
+}
+
+export interface ArchiveBox {
+  id: string;
+  box_number: string;
+  grade: string;
+  subject: string;
+  exam_date: string;
+  committees: string[];
+  created_at?: string;
 }

@@ -72,7 +72,7 @@ const PrintHeader: React.FC<{ date: string; subject?: string }> = ({ date, subje
         <p>التاريخ: <span className="font-black tabular-nums">{new Date(date).toLocaleDateString('ar-SA')}</span></p>
         <p>اليوم: <span className="font-black">{new Intl.DateTimeFormat('ar-SA', { weekday: 'long' }).format(new Date(date))}</span></p>
         {subject && <p>المادة: <span className="font-black">{subject}</span></p>}
-        <p>العام الدراسي: <span className="font-black">1446 / 1447</span></p>
+        <p>العام الدراسي: <span className="font-black">{systemConfig.academic_year || '1446 / 1447'}</span></p>
       </div>
     </div>
   </div>

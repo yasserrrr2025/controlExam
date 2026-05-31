@@ -12,6 +12,8 @@ import AdminOfficialForms from './screens/admin/OfficialForms';
 import AdminSystemSettings from './screens/admin/SystemSettings';
 import AdminProctorPerformance from './screens/admin/ProctorPerformance';
 import SeatingPlanner from './screens/admin/SeatingPlanner';
+import { ArchiveBoxesManager } from './screens/admin/ArchiveBoxesManager';
+import { MasterPortfolio } from './screens/admin/MasterPortfolio';
 import AiDashboard from './screens/admin/AiDashboard';
 import CommitteeLabelsPrint from './screens/admin/CommitteeLabelsPrint';
 import ControlHeadDashboard from './screens/admin/ControlHeadDashboard';
@@ -542,7 +544,9 @@ const App: React.FC = () => {
       : getDefaultTab(currentUser.role);
 
     switch (tabToRender) {
-      case 'seating-planner': return <SeatingPlanner />;
+      case 'master-portfolio': return <MasterPortfolio students={students} users={users} supervisions={supervisions} systemConfig={systemConfig} absences={absences} committeeReports={committeeReports} />;
+      case 'archive-boxes': return <ArchiveBoxesManager students={students} />;
+      case 'seating-planner': return <SeatingPlanner systemConfig={systemConfig} />;
       case 'dashboard': return <AdminDashboardOverview stats={{ students: students.length, users: users.length, activeSupervisions: supervisions.length }} absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} studentsList={students} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} systemConfig={systemConfig} />;
       case 'head-dash': return <ControlHeadDashboard users={users} students={students} absences={absences} deliveryLogs={deliveryLogs} requests={controlRequests} supervisions={supervisions} systemConfig={systemConfig} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} />;
       case 'control-monitor': return (

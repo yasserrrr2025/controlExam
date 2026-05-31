@@ -54,6 +54,7 @@ interface Props {
   onCommit: (items: SmartDistributionItem[], replaceExisting: boolean) => Promise<void>;
   onDeleteSupervisions?: (ids: string[]) => Promise<void>;
   onUpdateSupervision?: (id: string, teacherId: string) => Promise<void>;
+  systemConfig?: { academic_year?: string; [key: string]: any };
 }
 
 const isReserveSupervision = (item: Supervision) => String(item.subject || '').includes('[RESERVE]');
@@ -85,7 +86,7 @@ const isStarted = (value: string) => {
   return value && !Number.isNaN(d.getTime()) && !(d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0);
 };
 
-const OfficialDistributionHeader: React.FC<{ date: string }> = ({ date }) => (
+const OfficialDistributionHeader: React.FC<{ date: string, systemConfig?: { academic_year?: string } }> = ({ date, systemConfig }) => (
   <div className="distribution-official-header">
     <div className="official-side official-right">
       <div>المملكة العربية السعودية</div>
@@ -100,7 +101,7 @@ const OfficialDistributionHeader: React.FC<{ date: string }> = ({ date }) => (
     <div className="official-side official-left">
       <div>التاريخ: {date}</div>
       <div>اليوم: {new Date(`${date}T12:00:00`).toLocaleDateString('ar-SA', { weekday: 'long' })}</div>
-      <div>العام الدراسي: 1446 / 1447</div>
+      <div>العام الدراسي: {systemConfig?.academic_year || '1446 / 1447'}</div>
     </div>
   </div>
 );

@@ -18,6 +18,7 @@ interface Props {
 const AdminSystemSettings: React.FC<Props> = ({ systemConfig, setSystemConfig, resetFunctions, onAlert }) => {
   const [tempStartTime, setTempStartTime] = useState(systemConfig.exam_start_time || '08:00');
   const [tempActiveDate, setTempActiveDate] = useState(systemConfig.active_exam_date || new Date().toISOString().split('T')[0]);
+  const [tempAcademicYear, setTempAcademicYear] = useState(systemConfig.academic_year || '1446 / 1447');
   const [tempApiKey, setTempApiKey] = useState(systemConfig.openrouter_api_key || '');
   const [isSavingCfg, setIsSavingCfg] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -31,6 +32,7 @@ CREATE TABLE system_config (
   exam_start_time TEXT DEFAULT '08:00',
   exam_date TEXT,
   active_exam_date TEXT DEFAULT CURRENT_DATE::text,
+  academic_year TEXT DEFAULT '1446 / 1447',
   allow_manual_join BOOLEAN DEFAULT false,
   openrouter_api_key TEXT
 );
@@ -81,6 +83,7 @@ ALTER TABLE control_requests ADD COLUMN IF NOT EXISTS assistant_name TEXT;`;
       await setSystemConfig({ 
         exam_start_time: tempStartTime,
         active_exam_date: tempActiveDate,
+        academic_year: tempAcademicYear,
         openrouter_api_key: tempApiKey
       } as any);
       onAlert('تم حفظ إعدادات النظام وتحديث التاريخ النشط بنجاح.', 'success');
@@ -172,9 +175,16 @@ ALTER TABLE control_requests ADD COLUMN IF NOT EXISTS assistant_name TEXT;`;
                    <input type="date" value={tempActiveDate} onChange={(e) => setTempActiveDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-[1.5rem] p-4 font-black text-xl text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-sm transition-all" />
                 </div>
              </div>
-             <div className="space-y-3 border-t border-slate-100 pt-6">
-                <label className="text-[10px] font-black text-slate-400 mr-2 uppercase flex items-center gap-2 tracking-widest"><BrainCircuit size={12}/> مفتاح OpenRouter API (للذكاء الاصطناعي)</label>
-                <input type="password" placeholder="sk-or-v1-..." value={tempApiKey} onChange={(e) => setTempApiKey(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-[1.5rem] p-4 font-bold text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-sm transition-all" />
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-slate-100 pt-6">
+                <div className="space-y-3">
+                   <label className="text-[10px] font-black text-slate-400 mr-2 uppercase flex items-center gap-2 tracking-widest"><BrainCircuit size={12}/> العام الدراسي</label>
+                   <input type="text" value={tempAcademicYear} onChange={(e) => setTempAcademicYear(e.target.value)} placeholder="مثال: 1446 / 1447" className="w-full bg-slate-50 border border-slate-200 rounded-[1.5rem] p-4 font-black text-xl text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-sm transition-all" />
+                </div>
+                <div className="space-y-3">
+                   <label className="text-[10px] font-black text-slate-400 mr-2 uppercase flex items-center gap-2 tracking-widest"><BrainCircuit size={12}/> مفتاح OpenRouter API (للذكاء الاصطناعي)</label>
+                   <input type="password" placeholder="sk-or-v1-..." value={tempApiKey} onChange={(e) => setTempApiKey(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-[1.5rem] p-4 font-bold text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-sm transition-all" />
+                </div>
              </div>
              <button onClick={handleSaveConfig} disabled={isSavingCfg} className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-5 rounded-[1.8rem] font-black text-xl shadow-lg shadow-blue-600/20 hover:shadow-blue-600/35 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-4 active:scale-[0.98] disabled:opacity-50">
                {isSavingCfg ? <RefreshCcw className="animate-spin" /> : <Save size={32} />} حفظ الإعدادات المركزية
