@@ -184,21 +184,27 @@ export const MasterPortfolio: React.FC<Props> = ({
                 <th>اسم الطالب</th>
                 <th>اللجنة</th>
                 <th>المادة</th>
-                <th>تاريخ الغياب</th>
+                <th>الوقت</th>
+                <th>اسم المراقب</th>
                 <th>نوع الحالة</th>
               </tr>
             </thead>
             <tbody>
-              {absences.map((abs, idx) => (
-                <tr key={abs.id}>
-                  <td>{idx + 1}</td>
-                  <td>{abs.student_name}</td>
-                  <td>{abs.committee_number}</td>
-                  <td>{abs.subject}</td>
-                  <td>{abs.date}</td>
-                  <td>{abs.type === 'ABSENT' ? 'غياب' : 'تأخر'}</td>
-                </tr>
-              ))}
+              {absences.map((abs, idx) => {
+                const absSubject = examSchedule.find(e => matchesDate(abs.date, e.exam_date) && String(e.period) === String(abs.period))?.subject || '-';
+                const absProctor = users.find(u => u.id === abs.proctor_id || u.national_id === abs.proctor_id)?.full_name || abs.proctor_id;
+                return (
+                  <tr key={abs.id}>
+                    <td>{idx + 1}</td>
+                    <td>{abs.student_name}</td>
+                    <td>{abs.committee_number}</td>
+                    <td>{absSubject}</td>
+                    <td style={{fontFamily: 'monospace'}}>{safeTime(abs.date)}</td>
+                    <td>{absProctor}</td>
+                    <td>{abs.type === 'ABSENT' ? 'غياب' : 'تأخر'}</td>
+                  </tr>
+                );
+              })}
               {absences.length === 0 && (
                 <tr><td colSpan={6}>لا توجد حالات غياب مسجلة.</td></tr>
               )}
@@ -255,10 +261,15 @@ export const MasterPortfolio: React.FC<Props> = ({
         {examSchedule.map((exam, examIdx) => {
            const examGrades = exam.grades || [];
            const schedCommittees = exam.committees || [];
-           const examStudents = students.filter(s => examGrades.includes(s.grade) && s.committee_number);
-           const studCommittees = examStudents.map(s => String(s.committee_number));
+           const studCommittees = examGrades.length > 0 ? students.filter(s => examGrades.includes(s.grade) && s.committee_number).map(s => String(s.committee_number)) : [];
            const supvCommittees = supervisions.filter(s => matchesDate(s.date, exam.exam_date) && String(s.period) === String(exam.period)).map(s => String(s.committee_number));
            const examCommittees = Array.from(new Set([...schedCommittees, ...studCommittees, ...supvCommittees])).filter(Boolean).sort((a,b)=>Number(a)-Number(b));
+           const examStudents = students.filter(s => {
+             if (!s.committee_number) return false;
+             if (!examCommittees.includes(String(s.committee_number))) return false;
+             if (examGrades.length > 0) return examGrades.includes(s.grade);
+             return true;
+           });
 
            return (
              <React.Fragment key={exam.id}>
