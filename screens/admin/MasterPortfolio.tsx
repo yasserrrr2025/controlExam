@@ -249,10 +249,12 @@ export const MasterPortfolio: React.FC<Props> = ({
 
         {/* تقارير المواد وكشوف الطلاب */}
         {examSchedule.map((exam, examIdx) => {
-           // تحديد اللجان الخاصة بهذه المادة (بناءً على صفوف المادة)
            const examGrades = exam.grades || [];
+           const schedCommittees = exam.committees || [];
            const examStudents = students.filter(s => examGrades.includes(s.grade) && s.committee_number);
-           const examCommittees = Array.from(new Set(examStudents.map(s => s.committee_number))).sort((a,b)=>Number(a)-Number(b));
+           const studCommittees = examStudents.map(s => String(s.committee_number));
+           const supvCommittees = supervisions.filter(s => s.date === exam.exam_date && s.period === exam.period).map(s => String(s.committee_number));
+           const examCommittees = Array.from(new Set([...schedCommittees, ...studCommittees, ...supvCommittees])).filter(Boolean).sort((a,b)=>Number(a)-Number(b));
 
            return (
              <React.Fragment key={exam.id}>
