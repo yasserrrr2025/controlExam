@@ -261,10 +261,14 @@ export const MasterPortfolio: React.FC<Props> = ({
             .student-table-container .data-table { table-layout: fixed; }
             .student-table-container .data-table th, .student-table-container .data-table td { font-size: 7.4pt; padding: 4px 3px; line-height: 1.2; }
             .student-table-container .data-table td:nth-child(2) { text-align: right; }
-            .committee-operation-strip { display: grid; grid-template-columns: 1.2fr 0.8fr 0.8fr 1fr 0.8fr; gap: 2mm; margin-bottom: 4mm; }
-            .operation-card { border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 2.5mm; padding: 2.5mm; min-height: 14mm; }
-            .operation-card .label { font-size: 7pt; font-weight: 900; color: #64748b; margin-bottom: 1mm; }
-            .operation-card .value { font-size: 8pt; font-weight: 900; color: #0f172a; line-height: 1.35; }
+            .committee-proctor-strip { display: grid; grid-template-columns: 1.4fr .8fr .8fr; gap: 3mm; margin: 0 auto 5mm; max-width: 172mm; }
+            .committee-receivers-strip { display: flex; flex-wrap: wrap; justify-content: center; gap: 3mm; margin: 5mm auto 0; max-width: 172mm; }
+            .receiver-card { width: 42mm; border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 2.5mm; padding: 2.4mm; text-align: center; min-height: 18mm; display: flex; flex-direction: column; justify-content: center; }
+            .receiver-card .name { font-size: 7.4pt; font-weight: 900; color: #0f172a; line-height: 1.35; }
+            .receiver-card .time { margin-top: 1.2mm; font-size: 7pt; font-weight: 900; color: #2563eb; }
+            .operation-card { border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 2.5mm; padding: 2mm; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+            .operation-card .label { font-size: 6.6pt; font-weight: 900; color: #64748b; margin-bottom: .8mm; }
+            .operation-card .value { font-size: 8pt; font-weight: 900; color: #0f172a; line-height: 1.35; word-break: break-word; }
             .field-log-table th, .field-log-table td { font-size: 8.2pt; padding: 5px; line-height: 1.35; vertical-align: top; }
             .field-log-table td:nth-child(6), .field-log-table td:nth-child(7) { text-align: right; }
             .row-report td { background: #eff6ff; }
@@ -534,7 +538,7 @@ export const MasterPortfolio: React.FC<Props> = ({
                        meta={<>لجنة: {cNum}<br />المادة: {exam.subject}</>}
                      />
 
-                     <div className="committee-operation-strip">
+                     <div className="committee-proctor-strip">
                        <div className="operation-card">
                          <p className="label">اسم المراقب</p>
                          <p className="value">{timeline.proctors.length ? timeline.proctors.join(' - ') : 'غير محدد'}</p>
@@ -546,14 +550,6 @@ export const MasterPortfolio: React.FC<Props> = ({
                        <div className="operation-card">
                          <p className="label">إغلاق اللجنة</p>
                          <p className="value">{safeTime(timeline.closeLog?.time)}</p>
-                       </div>
-                       <div className="operation-card">
-                         <p className="label">المستلمون في الكنترول</p>
-                         <p className="value">{timeline.receiverNames.length ? timeline.receiverNames.join(' - ') : '---'}</p>
-                       </div>
-                       <div className="operation-card">
-                         <p className="label">أوقات الاستلام</p>
-                         <p className="value">{timeline.receiptTimes.length ? timeline.receiptTimes.join(' - ') : safeTime(timeline.receiptLog?.time)}</p>
                        </div>
                      </div>
                       
@@ -621,6 +617,22 @@ export const MasterPortfolio: React.FC<Props> = ({
                            </tbody>
                          </table>
                        ) : <div></div>}
+                      </div>
+
+                     <div className="committee-receivers-strip">
+                       {timeline.receiverNames.length ? timeline.receiverNames.map((name, idx) => (
+                         <div className="receiver-card" key={`${name}-${idx}`}>
+                           <p className="label">المستلم في الكنترول</p>
+                           <p className="name">{name}</p>
+                           <p className="time">وقت الاستلام: {timeline.receiptTimes[idx] || timeline.receiptTimes[0] || safeTime(timeline.receiptLog?.time)}</p>
+                         </div>
+                       )) : (
+                         <div className="receiver-card">
+                           <p className="label">المستلم في الكنترول</p>
+                           <p className="name">---</p>
+                           <p className="time">وقت الاستلام: ---</p>
+                         </div>
+                       )}
                      </div>
 
                      <div className="footer">تم إنشاء هذا الكشف آلياً عبر نظام الكنترول الرقمي - مدرسة عماد الدين زنكي</div>
