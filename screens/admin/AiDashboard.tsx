@@ -375,7 +375,8 @@ const AiDashboard: React.FC<Props> = ({ systemConfig }) => {
       const result = await fetchAIAnalysis(systemConfig.openrouter_api_key, aiContext, type);
       if (result) setAiResult(result);
     } catch (err: any) {
-      setErrorMsg(err.message || 'حدث خطأ غير معروف أثناء التحليل.');
+      setAiResult(buildLocalAnalysis(type, aiContext));
+      setErrorMsg('تعذر الاتصال بالنماذج الخارجية، لذلك عُرض تحليل محلي احتياطي من بيانات النظام.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -398,7 +399,8 @@ const AiDashboard: React.FC<Props> = ({ systemConfig }) => {
       const response = await fetchAIChat(systemConfig.openrouter_api_key, aiContext, userMsg);
       setChatMessages(prev => [...prev, { role: 'ai', content: response }]);
     } catch (err: any) {
-      setChatMessages(prev => [...prev, { role: 'ai', content: `تعذر الحصول على إجابة: ${err.message}` }]);
+      setChatMessages(prev => [...prev, { role: 'ai', content: buildLocalChatAnswer(userMsg, aiContext) }]);
+      setErrorMsg('النماذج الخارجية لم تستجب، وتم توليد الإجابة محليًا من مؤشرات النظام.');
     } finally {
       setIsChatting(false);
     }
@@ -737,5 +739,86 @@ const SmallStat = ({ label, value, tone = 'text-slate-700' }: { label: string; v
     <p className="text-[10px] font-black text-slate-400">{label}</p>
   </div>
 );
+
+const buildLocalAnalysis = (type: AiMode, context: any): AiInsightsResult => {
+  const summary = context?.summary || {};
+  const critical = context?.criticalCommittees || [];
+  const proctors = context?.proctorBalance || [];
+  const topCommittee = critical[0];
+  const overloaded = proctors.filter((p: any) => Number(p.todayAssignments || 0) > 1);
+  const idle = proctors.filter((p: any) => Number(p.totalAssignments || 0) === 0);
+
+  const baseMetrics: AiInsightsResult['metrics'] = [
+    { title: 'الحضور', value: `${summary.attendanceRate ?? 0}%`, status: (summary.attendanceRate ?? 0) >= 95 ? 'success' : (summary.attendanceRate ?? 0) >= 85 ? 'warning' : 'danger' },
+    { title: 'الإنجاز', value: `${summary.completionRate ?? 0}%`, status: (summary.completionRate ?? 0) >= 90 ? 'success' : (summary.completionRate ?? 0) >= 60 ? 'warning' : 'danger' },
+    { title: 'بلاغات مفتوحة', value: String(summary.openRequests ?? 0), status: (summary.openRequests ?? 0) ? 'warning' : 'success' },
+    { title: 'لجان حرجة', value: String(critical.filter((c: any) => Number(c.riskScore || 0) > 0).length), status: critical.some((c: any) => Number(c.riskScore || 0) >= 8) ? 'danger' : 'info' },
+  ];
+
+  const insightsByType: Record<AiMode, string[]> = {
+    predictive: [
+      topCommittee ? `ابدأ المتابعة من لجنة ${topCommittee.committee}: مؤشرها ${topCommittee.riskScore} بسبب ${topCommittee.absent} غياب و${topCommittee.late} تأخير و${topCommittee.openRequests} بلاغ مفتوح.` : 'لا توجد لجنة حرجة واضحة في البيانات الحالية.',
+      `قبل الاختبار القادم راجع تجهيز ${summary.committees ?? 0} لجنة، وتأكد من إغلاق البلاغات المفتوحة وعددها ${summary.openRequests ?? 0}.`,
+      'ضع مراقبًا احتياطيًا قريبًا من اللجان الأعلى في الغياب أو البلاغات لتقليل زمن الاستجابة.',
+    ],
+    auditor: [
+      overloaded.length ? `يوجد ${overloaded.length} مراقب لديهم أكثر من إسناد اليوم، وأولهم: ${overloaded.slice(0, 3).map((p: any) => p.name).join('، ')}.` : 'لا يظهر إسناد مزدوج اليوم حسب البيانات الحالية.',
+      idle.length ? `يوجد ${idle.length} مراقب بلا إسناد في السجل الحالي، ويمكن استخدامهم كاحتياط لتخفيف الحمل.` : 'لا توجد قائمة واضحة لمراقبين بلا إسناد.',
+      'اعتمد التبديل بناءً على اليوم والفترة، وليس مجموع الإسنادات التاريخية فقط.',
+    ],
+    absence: [
+      `إجمالي الحالات المرصودة: ${Number(summary.absent || 0) + Number(summary.late || 0)}، منها ${summary.absent ?? 0} غياب و${summary.late ?? 0} تأخير.`,
+      topCommittee ? `أعلى لجنة تستحق مراجعة حضور هي لجنة ${topCommittee.committee}.` : 'الحضور موزع دون بؤرة واضحة.',
+      'راجع الطلاب المتأخرين قبل اعتماد الحضور النهائي لأن التأخير محسوب ضمن الحضور.',
+    ],
+    receipt: [
+      `إنجاز الاستلام الحالي ${summary.completionRate ?? 0}% (${summary.receivedCommittees ?? 0} لجنة مستلمة).`,
+      'أي لجنة أغلقت ميدانيًا ولم تظهر كمستلمة تحتاج متابعة مباشرة مع الكنترول.',
+      topCommittee ? `اربط متابعة الاستلام باللجان الحرجة مثل لجنة ${topCommittee.committee}.` : 'لا توجد لجنة ذات أولوية عالية للاستلام الآن.',
+    ],
+    errors: [
+      `عدد البلاغات المفتوحة في ملخص اليوم: ${summary.openRequests ?? 0}.`,
+      topCommittee ? `لجنة ${topCommittee.committee} هي أولوية التدقيق لأنها تجمع أعلى مؤشر خطر.` : 'لا توجد بلاغات حرجة واضحة.',
+      'اقفل البلاغات المنجزة بتحديث حالتها حتى لا تبقى في لوحة المخاطر.',
+    ],
+    proctor: [
+      `عدد المراقبين الأعلى حملًا في العينة: ${proctors.slice(0, 5).length}.`,
+      overloaded.length ? `راجع الإسناد المزدوج لـ ${overloaded.slice(0, 3).map((p: any) => p.name).join('، ')}.` : 'انضباط الإسناد اليومي يبدو مستقرًا.',
+      'قارن وقت دخول المراقب مع وقت إغلاق اللجنة عند تقييم الانضباط.',
+    ],
+  };
+
+  return { metrics: baseMetrics, insights: insightsByType[type] };
+};
+
+const buildLocalChatAnswer = (question: string, context: any) => {
+  const summary = context?.summary || {};
+  const critical = context?.criticalCommittees || [];
+  const proctors = context?.proctorBalance || [];
+  const nextExams = context?.nextExams || [];
+  const topCommittee = critical[0];
+  const q = question.toLowerCase();
+
+  if (q.includes('أخطر') || q.includes('خطر') || q.includes('لجنة')) {
+    return topCommittee
+      ? `أخطر لجنة حاليًا هي لجنة ${topCommittee.committee}.\n\nالسبب:\n- مؤشر الخطر: ${topCommittee.riskScore}\n- الغياب: ${topCommittee.absent}\n- التأخير: ${topCommittee.late}\n- البلاغات المفتوحة: ${topCommittee.openRequests}\n- المراقبون: ${topCommittee.proctors?.join('، ') || 'غير محدد'}\n\nتوصيتي: ابدأ بها في المتابعة، ثم راجع حالة البلاغات والاستلام قبل اعتماد نهاية اليوم.`
+      : 'لا تظهر لجنة حرجة بوضوح في البيانات الحالية.';
+  }
+
+  if (q.includes('مراقب') || q.includes('عبء') || q.includes('عبئ')) {
+    const busiest = proctors.slice(0, 5);
+    return busiest.length
+      ? `أعلى المراقبين حملًا حسب السجل:\n${busiest.map((p: any, i: number) => `${i + 1}. ${p.name}: ${p.totalAssignments} إسناد، ${p.uniqueDays} أيام، اليوم ${p.todayAssignments} إسناد`).join('\n')}\n\nتوصيتي: لا تعتمد على المجموع فقط؛ راجع ازدواج الإسناد في نفس اليوم والفترة قبل التبديل.`
+      : 'لا توجد بيانات كافية عن إسنادات المراقبين.';
+  }
+
+  if (q.includes('غد') || q.includes('القادم') || q.includes('اختبار')) {
+    return nextExams.length
+      ? `قبل الاختبار القادم:\n${nextExams.map((e: any, i: number) => `${i + 1}. ${e.date} - ${e.subject} - الفترة ${e.period} - ${Array.isArray(e.grades) && e.grades.length ? e.grades.join('، ') : 'كل الصفوف'}`).join('\n')}\n\nتوصيتي: جهز الاحتياط للجان الأعلى بلاغًا، وتأكد من اكتمال توزيع المراقبين قبل بداية الفترة.`
+      : 'لا تظهر اختبارات قادمة في الملخص الحالي.';
+  }
+
+  return `ملخص سريع من البيانات الحالية:\n- نسبة الحضور: ${summary.attendanceRate ?? 0}%\n- الحضور: ${summary.present ?? 0}\n- الغياب: ${summary.absent ?? 0}\n- التأخير: ${summary.late ?? 0}\n- إنجاز الاستلام: ${summary.completionRate ?? 0}%\n- البلاغات المفتوحة: ${summary.openRequests ?? 0}\n\n${topCommittee ? `أولوية المتابعة: لجنة ${topCommittee.committee} لأنها الأعلى مؤشرًا.` : 'لا توجد أولوية حرجة واضحة الآن.'}`;
+};
 
 export default AiDashboard;
