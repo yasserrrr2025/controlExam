@@ -428,7 +428,7 @@ export const MasterPortfolio: React.FC<Props> = ({
             .live-portfolio-public .row-done td { background: #ecfdf5; color: #065f46; }
             @media (max-width: 760px) {
               .live-portfolio-public { padding: 10px; }
-              .live-portfolio-public .portfolio-page { min-height: auto; padding: 22px 14px 54px; border-radius: 18px; overflow-x: auto; }
+              .live-portfolio-public .portfolio-page { zoom: 0.5; min-height: auto; padding: 22px 14px 54px; border-radius: 18px; overflow-x: auto; }
               .live-portfolio-public .cover-page { min-height: 720px; padding: 24px 14px; }
               .live-portfolio-public .cover-signature-footer { position: static; width: 100%; grid-template-columns: 1fr; gap: 18px; margin-top: 28px; }
               .live-portfolio-public .official-report-header { grid-template-columns: 1fr; text-align: center; gap: 10px; }
