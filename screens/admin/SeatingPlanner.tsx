@@ -308,9 +308,10 @@ const SeatingPlanner = () => {
                   return a.name.localeCompare(b.name, 'ar');
                });
                const len = com.students.length;
-               const fontSize = len > 36 ? '10px' : len > 30 ? '11px' : len > 24 ? '13px' : '15px';
-               const pClass = len > 36 ? 'p-0.5' : len > 30 ? 'p-1' : len > 24 ? 'p-1.5' : 'p-2';
-               const hMargin = len > 30 ? 'mb-2' : 'mb-6';
+               // حساب ذكي جداً للارتفاع بحيث لا يتجاوز الورقة أبداً
+               const fontSize = len > 36 ? '10px' : len > 30 ? '11px' : len > 24 ? '12px' : '14px';
+               const rowHeight = len > 36 ? '18px' : len > 30 ? '22px' : len > 24 ? '26px' : '32px';
+               const hMargin = len > 24 ? 'mb-2' : 'mb-6';
                
                return (
                <div key={com.number} className="page-break bg-white relative">
@@ -321,24 +322,24 @@ const SeatingPlanner = () => {
                   </div>
                   <table className="w-full border-collapse border border-black text-center font-bold" style={{ fontSize }}>
                      <thead>
-                        <tr className="bg-slate-100 font-black">
-                           <th className={`border border-black ${pClass} w-12`}>م</th>
-                           <th className={`border border-black ${pClass}`}>رقم الجلوس</th>
-                           <th className={`border border-black ${pClass} text-right px-3`}>اسم الطالب</th>
-                           <th className={`border border-black ${pClass}`}>الصف</th>
-                           <th className={`border border-black ${pClass}`}>الفصل</th>
-                           <th className={`border border-black ${pClass} w-32`}>توقيع الطالب</th>
+                        <tr className="bg-slate-100 font-black" style={{ height: rowHeight }}>
+                           <th className="border border-black px-1 py-0 w-12">م</th>
+                           <th className="border border-black px-1 py-0">رقم الجلوس</th>
+                           <th className="border border-black px-2 py-0 text-right">اسم الطالب</th>
+                           <th className="border border-black px-1 py-0">الصف</th>
+                           <th className="border border-black px-1 py-0">الفصل</th>
+                           <th className="border border-black px-1 py-0 w-32">توقيع الطالب</th>
                         </tr>
                      </thead>
                      <tbody>
                         {sortedStudents.map((s, idx) => (
-                           <tr key={s.id}>
-                              <td className={`border border-black ${pClass}`}>{idx + 1}</td>
-                              <td className={`border border-black ${pClass}`}>{s.seating_number || s.national_id}</td>
-                              <td className={`border border-black ${pClass} text-right px-3 font-black`}>{s.name}</td>
-                              <td className={`border border-black ${pClass}`}>{s.grade}</td>
-                              <td className={`border border-black ${pClass}`}>{s.section}</td>
-                              <td className={`border border-black ${pClass}`}></td>
+                           <tr key={s.id} style={{ height: rowHeight }}>
+                              <td className="border border-black px-1 py-0">{idx + 1}</td>
+                              <td className="border border-black px-1 py-0">{s.seating_number || s.national_id}</td>
+                              <td className="border border-black px-2 py-0 text-right font-black truncate">{s.name}</td>
+                              <td className="border border-black px-1 py-0">{s.grade}</td>
+                              <td className="border border-black px-1 py-0">{s.section}</td>
+                              <td className="border border-black px-1 py-0"></td>
                            </tr>
                         ))}
                      </tbody>
