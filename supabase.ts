@@ -261,5 +261,39 @@ export const db = {
       const err = handleError(error, "envelopeOpenings.delete");
       if (err) throw new Error(err);
     }
+  },
+
+  archiveBoxes: {
+    getAll: async () => {
+      const { data, error } = await supabase.from('archive_boxes').select('*').order('created_at', { ascending: false });
+      if (error) {
+        // Table might not exist yet — return empty
+        console.warn('archive_boxes table not found, using localStorage fallback');
+        try { return JSON.parse(localStorage.getItem('control_archive_boxes') || '[]'); } catch { return []; }
+      }
+      return data || [];
+    },
+    upsert: async (box: any) => {
+      const { error } = await supabase.from('archive_boxes').upsert([box], { onConflict: 'id' });
+      if (error) {
+        console.warn('archive_boxes upsert failed, saving to localStorage', error.message);
+        try {
+          const all = JSON.parse(localStorage.getItem('control_archive_boxes') || '[]');
+          const idx = all.findIndex((b: any) => b.id === box.id);
+          if (idx >= 0) all[idx] = box; else all.unshift(box);
+          localStorage.setItem('control_archive_boxes', JSON.stringify(all));
+        } catch {}
+      }
+    },
+    delete: async (id: string) => {
+      const { error } = await supabase.from('archive_boxes').delete().eq('id', id);
+      if (error) {
+        try {
+          const all = JSON.parse(localStorage.getItem('control_archive_boxes') || '[]');
+          localStorage.setItem('control_archive_boxes', JSON.stringify(all.filter((b: any) => b.id !== id)));
+        } catch {}
+      }
+    }
   }
 };
+
