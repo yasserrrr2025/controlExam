@@ -11,6 +11,12 @@ import AdminDailyReports from './screens/admin/DailyReports';
 import AdminOfficialForms from './screens/admin/OfficialForms';
 import AdminSystemSettings from './screens/admin/SystemSettings';
 import AdminProctorPerformance from './screens/admin/ProctorPerformance';
+import SeatingPlanner from './screens/admin/SeatingPlanner';
+import { ArchiveBoxesManager } from './screens/admin/ArchiveBoxesManager';
+import { MasterPortfolio } from './screens/admin/MasterPortfolio';
+import { PublicBoxReport } from './screens/public/PublicBoxReport';
+import AiDashboard from './screens/admin/AiDashboard';
+import ComprehensiveStats from './screens/admin/ComprehensiveStats';
 import CommitteeLabelsPrint from './screens/admin/CommitteeLabelsPrint';
 import ControlHeadDashboard from './screens/admin/ControlHeadDashboard';
 import ControlManager from './screens/admin/ControlManager';
@@ -50,11 +56,15 @@ const ROLE_TABS: Record<UserRole, string[]> = {
     'control-monitor',
     'control-monitor-2',
     'control-manager',
+    'comprehensive-stats',
+    'master-portfolio',
+    'archive-boxes',
     'proctor-excellence',
     'committee-labels',
     'door-labels',
     'teachers',
     'students',
+    'seating-planner',
     'committees',
     'daily-reports',
     'official-forms',
@@ -63,6 +73,7 @@ const ROLE_TABS: Record<UserRole, string[]> = {
     'receipt-history',
     'envelope-labels',
     'settings',
+    'ai-insights',
   ],
   CONTROL_MANAGER: ['head-dash', 'control-manager', 'envelope-opening', 'paper-logs', 'receipt-history'],
   PROCTOR: ['my-tasks', 'my-schedule', 'proctor-alerts', 'digital-id'],
@@ -133,11 +144,15 @@ const App: React.FC = () => {
   const [supervisions, setSupervisions] = useState<Supervision[]>([]);
   const [allSupervisions, setAllSupervisions] = useState<Supervision[]>([]);
   const [absences, setAbsences] = useState<Absence[]>([]);
+  const [allAbsences, setAllAbsences] = useState<Absence[]>([]);
   const [notifications, setNotifications] = useState<{id: string, text: string, type: 'success' | 'error' | 'info' | 'warning'}[]>([]);
   const [browserNotificationPermission, setBrowserNotificationPermission] = useState<BrowserNotificationPermission>('unsupported');
   const [controlRequests, setControlRequests] = useState<ControlRequest[]>([]);
+  const [allControlRequests, setAllControlRequests] = useState<ControlRequest[]>([]);
   const [deliveryLogs, setDeliveryLogs] = useState<DeliveryLog[]>([]);
+  const [allDeliveryLogs, setAllDeliveryLogs] = useState<DeliveryLog[]>([]);
   const [committeeReports, setCommitteeReports] = useState<CommitteeReport[]>([]);
+  const [allCommitteeReports, setAllCommitteeReports] = useState<CommitteeReport[]>([]);
   const [examSchedule, setExamSchedule] = useState<ExamSchedule[]>([]);
   const [systemConfig, setSystemConfig] = useState<SystemConfig>({ 
     id: 'main_config', 
@@ -234,6 +249,10 @@ const App: React.FC = () => {
       }
       setStudents(s);
       setAllSupervisions(sv);
+      setAllAbsences(ab);
+      setAllDeliveryLogs(dl);
+      setAllControlRequests(cr);
+      setAllCommitteeReports(reports);
       setExamSchedule(exams);
       
       if (filterDate) {
@@ -538,6 +557,9 @@ const App: React.FC = () => {
       : getDefaultTab(currentUser.role);
 
     switch (tabToRender) {
+      case 'master-portfolio': return <MasterPortfolio students={students} users={users} supervisions={allSupervisions.filter(i => !isReserveSupervision(i))} systemConfig={systemConfig} absences={allAbsences} committeeReports={allCommitteeReports} examSchedule={examSchedule} deliveryLogs={allDeliveryLogs} controlRequests={allControlRequests} />;
+      case 'archive-boxes': return <ArchiveBoxesManager students={students} examSchedule={examSchedule} deliveryLogs={allDeliveryLogs} supervisions={allSupervisions.filter(i => !isReserveSupervision(i))} users={users} absences={allAbsences} />;
+      case 'seating-planner': return <SeatingPlanner systemConfig={systemConfig} />;
       case 'dashboard': return <AdminDashboardOverview stats={{ students: students.length, users: users.length, activeSupervisions: supervisions.length }} absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} studentsList={students} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} systemConfig={systemConfig} />;
       case 'head-dash': return <ControlHeadDashboard users={users} students={students} absences={absences} deliveryLogs={deliveryLogs} requests={controlRequests} supervisions={supervisions} systemConfig={systemConfig} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} />;
       case 'control-monitor': return (
@@ -556,6 +578,7 @@ const App: React.FC = () => {
            <ControlRoomMonitor2 absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} students={students} requests={controlRequests} />
         </div>
       );
+      case 'comprehensive-stats': return <ComprehensiveStats students={students} users={users} supervisions={allSupervisions.filter(i => !isReserveSupervision(i))} systemConfig={systemConfig} absences={allAbsences} deliveryLogs={allDeliveryLogs} controlRequests={allControlRequests} committeeReports={allCommitteeReports} examSchedule={examSchedule} />;
       case 'proctor-excellence': return <AdminProctorPerformance users={users} supervisions={supervisions} deliveryLogs={deliveryLogs} absences={absences} systemConfig={systemConfig} />;
       case 'committee-labels': return <CommitteeLabelsPrint students={students} />;
       case 'control-manager': return <ControlManager users={users} deliveryLogs={deliveryLogs} students={students} requests={controlRequests} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} onUpdateUserGrades={async (userId, grades) => { const uMatch = users.find(u => u.id === userId); if (uMatch) { await db.users.upsert([{ ...uMatch, assigned_grades: grades }]); await fetchData(); } }} systemConfig={systemConfig} absences={absences} supervisions={supervisions} smartSupervisions={allSupervisions} examSchedule={examSchedule} onUpsertExamSchedule={async (item) => { await db.examSchedule.upsert(item); await fetchData(); }} onDeleteExamSchedule={async (id) => { await db.examSchedule.delete(id); await fetchData(); }} setDeliveryLogs={async (log) => { await db.deliveryLogs.upsert(log); await fetchData(); }} setSystemConfig={async (cfg) => { await db.config.upsert(cfg); await fetchData(); }} onRemoveSupervision={async (id) => { await deleteSameDayTeacherAssignment(id, systemConfig.active_exam_date || new Date().toISOString().slice(0, 10)); await fetchData(); }} onAssignProctor={handleEmergencyProctorAssignment} onUpdateSmartDistribution={async (id, teacherId) => { const { error } = await supabase.from('supervision').update({ teacher_id: teacherId }).eq('id', id); if (error) throw new Error(error.message); await fetchData(); }} onCommitSmartDistribution={handleCommitSmartDistribution} onDeleteSmartDistributions={deleteSmartDistributions} />;
@@ -565,6 +588,7 @@ const App: React.FC = () => {
       case 'daily-reports': return <AdminDailyReports supervisions={supervisions} users={users} students={students} deliveryLogs={deliveryLogs} systemConfig={systemConfig} committeeReports={committeeReports} absences={absences} controlRequests={controlRequests} />;
       case 'official-forms': return <AdminOfficialForms absences={absences} students={students} supervisions={supervisions} users={users} />;
       case 'settings': return <AdminSystemSettings systemConfig={systemConfig} setSystemConfig={async (cfg) => { await db.config.upsert(cfg); await fetchData(); }} resetFunctions={{ students: async () => { if(confirm('حذف الطلاب؟')) { await supabase.from('students').delete().neq('id', '0'); await fetchData(); } }, teachers: async () => { if(confirm('حذف المعلمين؟')) { await supabase.from('users').delete().neq('role', 'ADMIN'); await fetchData(); } }, operations: async () => { if(confirm('تصفير سجلات اليوم؟')) { await supabase.from('absences').delete().gte('date', systemConfig.active_exam_date); await supabase.from('delivery_logs').delete().gte('time', systemConfig.active_exam_date); await fetchData(); } }, fullReset: () => {} }} onAlert={addLocalNotification} />;
+      case 'ai-insights': return <AiDashboard systemConfig={systemConfig} />;
       case 'assigned-requests': return <AssistantControlView user={currentUser} requests={controlRequests} setRequests={fetchData} absences={absences} students={students} users={users} onAlert={addLocalNotification} onAcknowledgeAbsence={(absence) => acknowledgeAbsenceReceipt(absence, currentUser)} />;
       case 'paper-logs': return <ControlReceiptView user={currentUser} students={students} absences={absences} deliveryLogs={deliveryLogs} setDeliveryLogs={async (log) => { await db.deliveryLogs.upsert(log); await fetchData(); }} supervisions={supervisions} users={users} controlRequests={controlRequests} setControlRequests={fetchData} systemConfig={systemConfig} onAlert={addLocalNotification} />;
       case 'receipt-history': return <ReceiptLogsView deliveryLogs={deliveryLogs} users={users} />;
@@ -582,11 +606,11 @@ const App: React.FC = () => {
 
   if (isInitialLoading) {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('public_committee') || params.get('student_inquiry') || params.get('supervision_verify') || params.get('sv') || params.get('tv2')) {
+    if (params.get('public_committee') || params.get('student_inquiry') || params.get('supervision_verify') || params.get('sv') || params.get('tv2') || params.get('box_report') || params.get('portfolio_live')) {
        return (
          <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-6 font-['Tajawal']" dir="rtl">
            <Loader2 size={48} className="text-blue-600 animate-spin" />
-           <p className="font-bold text-slate-500 text-sm">جاري جلب بيانات اللجنة...</p>
+           <p className="font-bold text-slate-500 text-sm">جاري جلب بيانات الصفحة...</p>
          </div>
        );
     } else if (currentUser) {
@@ -599,22 +623,33 @@ const App: React.FC = () => {
     }
   }
 
-  const publicCommitteeId = new URLSearchParams(window.location.search).get('public_committee');
+  const params = new URLSearchParams(window.location.search);
+
+  const publicCommitteeId = params.get('public_committee');
   if (publicCommitteeId) {
     return <CommitteePublicView committeeNumber={publicCommitteeId} students={students} supervisions={supervisions} absences={absences} users={users} />;
   }
 
-  const isTv2Public = new URLSearchParams(window.location.search).get('tv2');
+  const boxReportId = params.get('box_report');
+  if (boxReportId) {
+    return <PublicBoxReport boxId={boxReportId} students={students} supervisions={allSupervisions.filter(i => !isReserveSupervision(i))} deliveryLogs={allDeliveryLogs} users={users} examSchedule={examSchedule} systemConfig={systemConfig} absences={allAbsences} />;
+  }
+
+  const portfolioLive = params.get('portfolio_live');
+  if (portfolioLive) {
+    return <ComprehensiveStats publicMode students={students} users={users} supervisions={allSupervisions.filter(i => !isReserveSupervision(i))} systemConfig={systemConfig} absences={allAbsences} deliveryLogs={allDeliveryLogs} controlRequests={allControlRequests} committeeReports={allCommitteeReports} examSchedule={examSchedule} />;
+  }
+
+  const isTv2Public = params.get('tv2');
   if (isTv2Public) {
     return <ControlRoomMonitor2 absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} students={students} requests={controlRequests} />;
   }
 
-  const isStudentInquiry = new URLSearchParams(window.location.search).get('student_inquiry');
+  const isStudentInquiry = params.get('student_inquiry');
   if (isStudentInquiry) {
     return <StudentCommitteeInquiry students={students} />;
   }
 
-  const params = new URLSearchParams(window.location.search);
   const isSupervisionVerification = params.get('supervision_verify') || params.get('sv');
   if (isSupervisionVerification) {
     return <SupervisionVerification supervisions={supervisions} users={users} students={students} absences={absences} deliveryLogs={deliveryLogs} />;
