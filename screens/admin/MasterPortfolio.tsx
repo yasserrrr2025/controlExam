@@ -83,6 +83,69 @@ export const MasterPortfolio: React.FC<Props> = ({
     );
   };
 
+  const getCommitteeTimeline = (committeeNumber: string, date: string, period?: number) => {
+    const supvs = supervisions.filter(s =>
+      eqCom(s.committee_number, committeeNumber) &&
+      matchesDate(s.date, date) &&
+      (period === undefined || String(s.period) === String(period))
+    );
+    const logs = deliveryLogs.filter(l =>
+      eqCom(l.committee_number, committeeNumber) &&
+      matchesDate(l.time, date) &&
+      (period === undefined || String(l.period) === String(period))
+    );
+    const proctors = Array.from(new Set(supvs.map(s => getProctorName(s.teacher_id)).filter(Boolean)));
+    const loginTime = supvs.map(s => s.date).filter(Boolean).sort()[0];
+    const closeLog = logs.filter(l => l.type === 'RECEIVE').sort((a, b) => String(a.time).localeCompare(String(b.time)))[0];
+    const receiptLogs = logs
+      .filter(l => l.type === 'RECEIVE' && l.status === 'CONFIRMED')
+      .sort((a, b) => String(a.time).localeCompare(String(b.time)));
+    const receiptLog = receiptLogs[0];
+    const receiverNames = Array.from(new Set(
+      receiptLogs
+        .map(l => `${l.teacher_name || 'غير محدد'}${l.grade ? ` (${l.grade})` : ''}`)
+        .filter(Boolean)
+    ));
+    const receiptTimes = Array.from(new Set(
+      receiptLogs
+        .map(l => safeTime(l.time))
+        .filter(t => t !== '---')
+    ));
+
+    return {
+      proctors,
+      loginTime,
+      closeLog,
+      receiptLog,
+      receiverNames: receiverNames.length ? receiverNames : (closeLog?.teacher_name ? [closeLog.teacher_name] : []),
+      receiptTimes,
+    };
+  };
+
+  const fieldLogRows = useMemo(() => {
+    const reportRows = committeeReports.map(rep => ({
+      id: `report-${rep.id}`,
+      kind: 'تقرير ميداني',
+      committee: rep.committee_number,
+      time: rep.date,
+      person: rep.proctor_name || getCommitteeProctors(rep.committee_number, rep.date).join(' - ') || 'غير محدد',
+      detail: [rep.observations, rep.issues].filter(Boolean).join(' / ') || 'لا توجد ملاحظات مفصلة',
+      action: rep.resolutions || 'للمتابعة',
+      tone: 'report',
+    }));
+    const requestRows = controlRequests.map(req => ({
+      id: `request-${req.id}`,
+      kind: 'بلاغ كنترول',
+      committee: req.committee,
+      time: req.time,
+      person: req.from || getCommitteeProctors(req.committee, req.time).join(' - ') || 'غير محدد',
+      detail: req.text || 'بلاغ بدون نص',
+      action: req.status === 'DONE' ? `منجز${req.assistant_name ? ` - ${req.assistant_name}` : ''}` : req.status === 'IN_PROGRESS' ? `قيد المعالجة${req.assistant_name ? ` - ${req.assistant_name}` : ''}` : req.status === 'REJECTED' ? 'مرفوض' : 'مفتوح',
+      tone: req.status === 'DONE' ? 'done' : req.status === 'REJECTED' ? 'danger' : 'warning',
+    }));
+    return [...reportRows, ...requestRows].sort((a, b) => String(a.time).localeCompare(String(b.time)));
+  }, [committeeReports, controlRequests, supervisions, users]);
+
   const OfficialPortfolioHeader = ({ title, meta }: { title: string; meta?: React.ReactNode }) => (
     <div className="official-report-header">
       <div className="official-side official-side-right">
@@ -183,7 +246,7 @@ export const MasterPortfolio: React.FC<Props> = ({
             .count-late { color: #b45309; background: #fffbeb; }
             .student-absent td { background: #fef2f2 !important; color: #991b1b; border-color: #fecaca; }
             .student-late td { background: #fffbeb !important; color: #92400e; border-color: #fde68a; }
-            .status-pill { display: inline-block; min-width: 18mm; padding: 1.5mm 2mm; border-radius: 99px; font-size: 7.5pt; font-weight: 900; }
+            .status-pill { display: inline-block; min-width: 12mm; padding: 1.2mm 1.5mm; border-radius: 99px; font-size: 6.7pt; font-weight: 900; }
             .status-present { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
             .status-absent { background: #dc2626; color: white; border: 1px solid #991b1b; }
             .status-late { background: #f59e0b; color: white; border: 1px solid #b45309; }
@@ -195,8 +258,19 @@ export const MasterPortfolio: React.FC<Props> = ({
             .footer { position: absolute; bottom: 15mm; left: 15mm; right: 15mm; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
             
             .student-table-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; }
-            .student-table-container .data-table th, .student-table-container .data-table td { font-size: 8.5pt; padding: 5px; line-height: 1.25; }
+            .student-table-container .data-table { table-layout: fixed; }
+            .student-table-container .data-table th, .student-table-container .data-table td { font-size: 7.4pt; padding: 4px 3px; line-height: 1.2; }
             .student-table-container .data-table td:nth-child(2) { text-align: right; }
+            .committee-operation-strip { display: grid; grid-template-columns: 1.2fr 0.8fr 0.8fr 1fr 0.8fr; gap: 2mm; margin-bottom: 4mm; }
+            .operation-card { border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 2.5mm; padding: 2.5mm; min-height: 14mm; }
+            .operation-card .label { font-size: 7pt; font-weight: 900; color: #64748b; margin-bottom: 1mm; }
+            .operation-card .value { font-size: 8pt; font-weight: 900; color: #0f172a; line-height: 1.35; }
+            .field-log-table th, .field-log-table td { font-size: 8.2pt; padding: 5px; line-height: 1.35; vertical-align: top; }
+            .field-log-table td:nth-child(6), .field-log-table td:nth-child(7) { text-align: right; }
+            .row-report td { background: #eff6ff; }
+            .row-warning td { background: #fffbeb; color: #92400e; }
+            .row-danger td { background: #fef2f2; color: #991b1b; }
+            .row-done td { background: #ecfdf5; color: #065f46; }
           }
           @media screen {
             .print-only-container { display: none; }
@@ -311,42 +385,43 @@ export const MasterPortfolio: React.FC<Props> = ({
         
         {/* التقارير الميدانية */}
         <div className="portfolio-page">
-          <OfficialPortfolioHeader title="سجل التقارير الميدانية للملاحظين" />
+          <OfficialPortfolioHeader title="سجل التقارير والبلاغات الميدانية للمراقبين" />
           
-          <table className="data-table">
+          <table className="data-table field-log-table">
             <thead>
               <tr>
                 <th>م</th>
+                <th>النوع</th>
                 <th>اللجنة</th>
-                <th>تاريخ التقرير</th>
-                <th>اسم الملاحظ</th>
-                <th>الملاحظات / المخالفات</th>
-                <th>الإجراء المتخذ</th>
+                <th>المراقب / المرسل</th>
+                <th>وقت البلاغ / التقرير</th>
+                <th>الملاحظة أو البلاغ</th>
+                <th>الحالة / الإجراء</th>
               </tr>
             </thead>
             <tbody>
-              {committeeReports.map((rep, idx) => (
-                <tr key={rep.id}>
+              {fieldLogRows.map((row, idx) => (
+                <tr key={row.id} className={`row-${row.tone}`}>
                   <td>{idx + 1}</td>
-                  <td>{rep.committee_number}</td>
-                  <td>{new Date(rep.date).toLocaleDateString('ar-SA')}</td>
-                  <td>{rep.proctor_name || getCommitteeProctors(rep.committee_number, rep.date).join(' - ') || 'غير محدد'}</td>
-                  <td>{rep.observations} <br/> {rep.issues}</td>
-                  <td>{rep.resolutions}</td>
+                  <td>{row.kind}</td>
+                  <td>{row.committee}</td>
+                  <td>{row.person}</td>
+                  <td>
+                    {new Date(row.time).toLocaleDateString('ar-SA')}
+                    <br />
+                    <span style={{fontFamily: 'monospace'}}>{safeTime(row.time)}</span>
+                  </td>
+                  <td>{row.detail}</td>
+                  <td>{row.action}</td>
                 </tr>
               ))}
-              {committeeReports.length === 0 && (
-                <tr><td colSpan={6}>لا توجد تقارير ميدانية مسجلة.</td></tr>
+              {fieldLogRows.length === 0 && (
+                <tr><td colSpan={7}>لا توجد تقارير أو بلاغات ميدانية مسجلة.</td></tr>
               )}
             </tbody>
           </table>
           
-          <div style={{marginTop: '50px', display: 'flex', justifyContent: 'space-around', fontWeight: 'bold'}}>
-             <div style={{textAlign: 'center'}}>مدير المدرسة<br/><br/>______________________</div>
-             <div style={{textAlign: 'center'}}>رئيس لجان الكنترول<br/><br/>______________________</div>
-          </div>
-          
-          <div className="footer">تم إنشاء هذا الملف آلياً عبر نظام الكنترول الرقمي - مدرسة عماد الدين زنكي</div>
+          <SignatureFooter />
         </div>
 
         {/* تقارير المواد وكشوف الطلاب */}
@@ -442,12 +517,13 @@ export const MasterPortfolio: React.FC<Props> = ({
                  <SignatureFooter />
                </div>
 
-               {/* كشوف الطلاب لكل لجنة داخل هذه المادة */}
-               {examCommittees.map(cNum => {
-                 const comStudents = examStudents.filter(s => eqCom(s.committee_number, cNum)).sort((a,b)=> a.name.localeCompare(b.name, 'ar'));
-                 
-                 // Split into two columns for the page layout
-                 const half = Math.ceil(comStudents.length / 2);
+                {/* كشوف الطلاب لكل لجنة داخل هذه المادة */}
+                {examCommittees.map(cNum => {
+                  const comStudents = examStudents.filter(s => eqCom(s.committee_number, cNum)).sort((a,b)=> a.name.localeCompare(b.name, 'ar'));
+                  const timeline = getCommitteeTimeline(cNum, exam.exam_date, exam.period);
+                  
+                  // Split into two columns for the page layout
+                  const half = Math.ceil(comStudents.length / 2);
                  const col1 = comStudents.slice(0, half);
                  const col2 = comStudents.slice(half);
 
@@ -457,18 +533,43 @@ export const MasterPortfolio: React.FC<Props> = ({
                        title="كشف مناداة ومطابقة الطلاب"
                        meta={<>لجنة: {cNum}<br />المادة: {exam.subject}</>}
                      />
-                     
-                     <div className="student-table-container">
-                       <table className="data-table" style={{marginTop: 0}}>
-                         <thead>
-                          <tr>
-                            <th style={{width: '40px'}}>م</th>
-                            <th>اسم الطالب</th>
-                            <th style={{width: '60px'}}>المقعد</th>
-                            <th style={{width: '72px'}}>الحالة</th>
-                          </tr>
-                        </thead>
-                        <tbody>
+
+                     <div className="committee-operation-strip">
+                       <div className="operation-card">
+                         <p className="label">اسم المراقب</p>
+                         <p className="value">{timeline.proctors.length ? timeline.proctors.join(' - ') : 'غير محدد'}</p>
+                       </div>
+                       <div className="operation-card">
+                         <p className="label">دخول المراقب</p>
+                         <p className="value">{safeTime(timeline.loginTime)}</p>
+                       </div>
+                       <div className="operation-card">
+                         <p className="label">إغلاق اللجنة</p>
+                         <p className="value">{safeTime(timeline.closeLog?.time)}</p>
+                       </div>
+                       <div className="operation-card">
+                         <p className="label">المستلمون في الكنترول</p>
+                         <p className="value">{timeline.receiverNames.length ? timeline.receiverNames.join(' - ') : '---'}</p>
+                       </div>
+                       <div className="operation-card">
+                         <p className="label">أوقات الاستلام</p>
+                         <p className="value">{timeline.receiptTimes.length ? timeline.receiptTimes.join(' - ') : safeTime(timeline.receiptLog?.time)}</p>
+                       </div>
+                     </div>
+                      
+                      <div className="student-table-container">
+                        <table className="data-table" style={{marginTop: 0}}>
+                          <thead>
+                           <tr>
+                             <th style={{width: '28px'}}>م</th>
+                             <th>اسم الطالب</th>
+                             <th style={{width: '50px'}}>الصف</th>
+                             <th style={{width: '36px'}}>الفصل</th>
+                             <th style={{width: '58px'}}>المقعد</th>
+                             <th style={{width: '56px'}}>الحالة</th>
+                           </tr>
+                         </thead>
+                         <tbody>
                           {col1.map((st, i) => {
                             const status = getStudentExamStatus(st, cNum, exam.exam_date, exam.period);
                             const rowClass = status?.type === 'ABSENT' ? 'student-absent' : status?.type === 'LATE' ? 'student-late' : '';
@@ -476,11 +577,13 @@ export const MasterPortfolio: React.FC<Props> = ({
                             const statusText = status?.type === 'ABSENT' ? 'غائب' : status?.type === 'LATE' ? 'متأخر' : 'حاضر';
                             return (
                               <tr key={st.id} className={rowClass}>
-                                <td>{i + 1}</td>
-                                <td>{st.name}</td>
-                                <td>{st.seating_number || '-'}</td>
-                                <td><span className={`status-pill ${statusClass}`}>{statusText}</span></td>
-                              </tr>
+                                 <td>{i + 1}</td>
+                                 <td>{st.name}</td>
+                                 <td>{st.grade}</td>
+                                 <td>{st.section || '-'}</td>
+                                 <td>{st.seating_number || '-'}</td>
+                                 <td><span className={`status-pill ${statusClass}`}>{statusText}</span></td>
+                               </tr>
                             );
                           })}
                         </tbody>
@@ -490,10 +593,12 @@ export const MasterPortfolio: React.FC<Props> = ({
                          <table className="data-table" style={{marginTop: 0}}>
                            <thead>
                              <tr>
-                               <th style={{width: '40px'}}>م</th>
+                               <th style={{width: '28px'}}>م</th>
                                <th>اسم الطالب</th>
-                               <th style={{width: '60px'}}>المقعد</th>
-                               <th style={{width: '72px'}}>الحالة</th>
+                               <th style={{width: '50px'}}>الصف</th>
+                               <th style={{width: '36px'}}>الفصل</th>
+                               <th style={{width: '58px'}}>المقعد</th>
+                               <th style={{width: '56px'}}>الحالة</th>
                              </tr>
                            </thead>
                            <tbody>
@@ -506,6 +611,8 @@ export const MasterPortfolio: React.FC<Props> = ({
                                  <tr key={st.id} className={rowClass}>
                                    <td>{i + 1 + half}</td>
                                    <td>{st.name}</td>
+                                   <td>{st.grade}</td>
+                                   <td>{st.section || '-'}</td>
                                    <td>{st.seating_number || '-'}</td>
                                    <td><span className={`status-pill ${statusClass}`}>{statusText}</span></td>
                                  </tr>
