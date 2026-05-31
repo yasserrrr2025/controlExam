@@ -248,17 +248,29 @@ const SeatingPlanner = () => {
       <style>{`
         @media print {
           @page { size: A4 landscape; margin: 0.5cm; }
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; margin: 0; padding: 0; }
-          .no-print { display: none !important; }
+          html, body, #app-root, main { 
+            margin: 0 !important; 
+            padding: 0 !important; 
+            background: white !important;
+            width: 100% !important;
+            height: 100% !important;
+            max-width: none !important;
+          }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .no-print, header, aside, .sidebar { display: none !important; }
           .print-only { display: block !important; }
           .page-break { 
             page-break-after: always; 
             page-break-inside: avoid;
             width: 100%; 
-            height: 95vh; 
+            height: 18.5cm; /* Strict height to fit A4 Landscape perfectly */
             overflow: hidden;
             display: flex;
             flex-direction: column;
+          }
+          /* Prevent the last blank page */
+          .page-break:last-of-type {
+            page-break-after: auto !important;
           }
         }
       `}</style>
