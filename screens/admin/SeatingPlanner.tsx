@@ -252,30 +252,38 @@ const SeatingPlanner = () => {
       {/* --- Print Styles --- */}
       <style>{`
         @media print {
-          @page { size: A4 landscape; margin: 10mm; }
+          @page { size: A4 landscape; margin: 0; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; margin: 0; padding: 0; }
           .no-print { display: none !important; }
           .print-only { display: block !important; }
-          .page-break { page-break-after: always; height: 185mm; width: 275mm; overflow: hidden; box-sizing: border-box; }
+          .page-break { 
+            page-break-after: always; 
+            page-break-inside: avoid;
+            width: 297mm; 
+            height: 209mm; 
+            overflow: hidden; 
+            box-sizing: border-box; 
+            padding: 10mm;
+          }
         }
       `}</style>
 
       <div className="hidden print-only print:block" dir="rtl">
         {committees.map((com) => (
-           <div key={com.number} className="page-break flex flex-col bg-white p-6 relative">
+           <div key={com.number} className="page-break flex flex-col bg-white relative">
               
               {/* Header: QR and Title */}
-              <div className="flex justify-between items-center mb-6">
-                 <div className="flex items-center gap-6">
+              <div className="flex justify-between items-center mb-4">
+                 <div className="flex items-center gap-4">
                     <img 
                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${getQrData(com)}&color=000000`}
                        alt="QR"
-                       className="w-24 h-24 border-4 border-black p-1 rounded-xl shadow-lg"
+                       className="w-20 h-20 border-2 border-black p-1 rounded-xl shadow-sm"
                        crossOrigin="anonymous"
                     />
                     <div>
-                       <h1 className="text-5xl font-black text-black">لجنة رقم {com.number}</h1>
-                       <p className="text-xl font-bold mt-2 text-slate-700 bg-slate-100 px-4 py-1 rounded-full inline-block border border-slate-300">كروكي مقاعد الطلاب</p>
+                       <h1 className="text-4xl font-black text-black">لجنة رقم {com.number}</h1>
+                       <p className="text-lg font-bold mt-1 text-slate-700 bg-slate-100 px-3 py-1 rounded-full inline-block border border-slate-300">كروكي مقاعد الطلاب</p>
                     </div>
                  </div>
 
@@ -285,17 +293,17 @@ const SeatingPlanner = () => {
                       <thead>
                          <tr className="bg-slate-800 text-white">
                             {Object.keys(com.stats).map(grade => (
-                               <th key={grade} className="border-b-2 border-black border-l-2 border-slate-600 px-4 py-2 font-black text-lg">{grade}</th>
+                               <th key={grade} className="border-b-2 border-black border-l-2 border-slate-600 px-3 py-1.5 font-black text-base">{grade}</th>
                             ))}
-                            <th className="border-b-2 border-black px-4 py-2 font-black text-lg bg-slate-900">الإجمالي</th>
+                            <th className="border-b-2 border-black px-3 py-1.5 font-black text-base bg-slate-900">الإجمالي</th>
                          </tr>
                       </thead>
                       <tbody>
                          <tr className="bg-white">
                             {Object.values(com.stats).map((count, i) => (
-                               <td key={i} className="border-l-2 border-black px-4 py-2 font-black text-2xl">{count}</td>
+                               <td key={i} className="border-l-2 border-black px-3 py-1.5 font-black text-xl">{count}</td>
                             ))}
-                            <td className="px-4 py-2 font-black text-3xl bg-slate-100 text-blue-900">{com.students.length}</td>
+                            <td className="px-3 py-1.5 font-black text-2xl bg-slate-100 text-blue-900">{com.students.length}</td>
                          </tr>
                       </tbody>
                    </table>
@@ -303,31 +311,31 @@ const SeatingPlanner = () => {
               </div>
 
               {/* Croquis Layout */}
-              <div className="flex-1 flex flex-col relative px-4">
+              <div className="flex-1 flex flex-col relative px-2">
                  
                  {/* Door (Top Right above Col 1) */}
-                 <div className="absolute right-0 -top-8 flex items-center gap-2">
-                    <div className="text-4xl filter drop-shadow-sm">🚪</div>
-                    <div className="font-black text-lg bg-slate-800 text-white px-3 py-1 rounded-lg">الباب</div>
+                 <div className="absolute right-0 -top-6 flex items-center gap-1.5">
+                    <div className="text-3xl filter drop-shadow-sm">🚪</div>
+                    <div className="font-black text-base bg-slate-800 text-white px-2 py-0.5 rounded-lg">الباب</div>
                  </div>
 
-                 <div className="flex justify-between gap-4 mt-6 h-full">
+                 <div className="flex justify-between gap-3 mt-4 h-full">
                    {com.columns.map((col, cIdx) => (
-                      <div key={cIdx} className="flex-1 flex flex-col border-4 border-slate-300 rounded-[1.5rem] p-3 bg-slate-50 relative">
-                         <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-center font-black py-2 rounded-lg mb-4 text-lg shadow-sm">
+                      <div key={cIdx} className="flex-1 flex flex-col border-2 border-black rounded-2xl p-2 bg-slate-50 relative">
+                         <div className="bg-slate-800 text-white text-center font-black py-1.5 rounded-lg mb-2 text-sm shadow-sm">
                             مسار {cIdx + 1}
                          </div>
-                         <div className="flex flex-col gap-3 flex-1">
+                         <div className="flex flex-col gap-2 flex-1">
                             {col.map((student) => (
-                               <div key={student.id} className="bg-white border-2 border-slate-400 p-3 rounded-xl flex flex-col items-center justify-center text-center relative shadow-sm h-full max-h-[85px]">
-                                  <div className="absolute top-1 right-2 text-sm font-black text-slate-400 bg-slate-100 w-6 h-6 rounded-full flex items-center justify-center">{student.seating_number}</div>
-                                  <div className="font-black text-lg truncate w-full px-2">{student.name}</div>
-                                  <div className="text-xs font-bold text-slate-500 mt-1 bg-slate-100 px-2 py-0.5 rounded-md">{student.grade} - {student.section}</div>
+                               <div key={student.id} className="bg-white border-2 border-slate-400 p-2 rounded-xl flex flex-col items-center justify-center text-center relative shadow-sm flex-1 max-h-[65px] min-h-[45px]">
+                                  <div className="absolute top-1 right-2 text-xs font-black text-slate-500">{student.seating_number}</div>
+                                  <div className="font-black text-sm truncate w-full px-1">{student.name}</div>
+                                  <div className="text-[10px] font-bold text-slate-500 mt-0.5">{student.grade} - {student.section}</div>
                                </div>
                             ))}
                             {/* Empty Seats Filler */}
                             {Array.from({ length: Math.max(0, 5 - col.length) }).map((_, i) => (
-                               <div key={`emp-${i}`} className="border-2 border-dashed border-slate-300 bg-white/40 rounded-xl flex items-center justify-center h-full max-h-[85px] text-slate-300 font-bold">
+                               <div key={`emp-${i}`} className="border-2 border-dashed border-slate-300 bg-white/40 rounded-xl flex items-center justify-center flex-1 max-h-[65px] min-h-[45px] text-slate-300 font-bold text-xs">
                                   مقعد فارغ
                                </div>
                             ))}
