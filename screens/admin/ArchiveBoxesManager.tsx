@@ -191,7 +191,7 @@ export const ArchiveBoxesManager: React.FC<Props> = ({ students }) => {
               <div 
                 key={box.id} 
                 onClick={() => setSelectedBox(box)}
-                className={\`bg-white rounded-[2.5rem] p-6 border-2 transition-all cursor-pointer group shadow-xl hover:shadow-2xl hover:-translate-y-1 \${selectedBox?.id === box.id ? 'border-indigo-500 shadow-indigo-200' : 'border-slate-100 hover:border-indigo-300'}\`}
+                className={`bg-white rounded-[2.5rem] p-6 border-2 transition-all cursor-pointer group shadow-xl hover:shadow-2xl hover:-translate-y-1 ${selectedBox?.id === box.id ? 'border-indigo-500 shadow-indigo-200' : 'border-slate-100 hover:border-indigo-300'}`}
               >
                 <div className="flex justify-between items-start mb-4">
                   <div className="bg-slate-950 text-white w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg">
@@ -331,7 +331,7 @@ export const ArchiveBoxesManager: React.FC<Props> = ({ students }) => {
                                setNewBox({...newBox, committees: [...current, c].sort((a,b)=>Number(a)-Number(b))});
                              }
                            }}
-                           className={\`px-6 py-3 rounded-2xl font-black text-sm transition-all border-2 \${isSelected ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}\`}
+                           className={`px-6 py-3 rounded-2xl font-black text-sm transition-all border-2 ${isSelected ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}
                          >
                            لجنة {c}
                          </button>

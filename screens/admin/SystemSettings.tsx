@@ -175,7 +175,6 @@ ALTER TABLE control_requests ADD COLUMN IF NOT EXISTS assistant_name TEXT;`;
                    <input type="date" value={tempActiveDate} onChange={(e) => setTempActiveDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-[1.5rem] p-4 font-black text-xl text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-sm transition-all" />
                 </div>
              </div>
-             </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-slate-100 pt-6">
                 <div className="space-y-3">
                    <label className="text-[10px] font-black text-slate-400 mr-2 uppercase flex items-center gap-2 tracking-widest"><BrainCircuit size={12}/> العام الدراسي</label>
