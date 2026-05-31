@@ -32,11 +32,18 @@ export const MasterPortfolio: React.FC<Props> = ({
   const matchesDate = (isoStr: string | undefined | null, date: string): boolean => {
     if (!isoStr || !date) return false;
     try {
+      // Try date-string prefix match first (handles both ISO and date-only formats)
+      const strVal = String(isoStr);
+      if (strVal.startsWith(date)) return true;
       const d = new Date(isoStr);
-      if (isNaN(d.getTime())) return String(isoStr).startsWith(date);
-      return d.toISOString().startsWith(date);
+      if (isNaN(d.getTime())) return false;
+      // Compare as local date YYYY-MM-DD
+      const local = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      return local === date || local.startsWith(date) || date.startsWith(local);
     } catch { return String(isoStr).startsWith(date); }
   };
+
+  const eqCom = (a: any, b: any) => String(a) === String(b);
 
   const handlePrint = () => {
     window.print();
@@ -191,8 +198,12 @@ export const MasterPortfolio: React.FC<Props> = ({
             </thead>
             <tbody>
               {absences.map((abs, idx) => {
-                const absSubject = examSchedule.find(e => matchesDate(abs.date, e.exam_date) && String(e.period) === String(abs.period))?.subject || '-';
-                const absProctor = users.find(u => u.id === abs.proctor_id || u.national_id === abs.proctor_id)?.full_name || abs.proctor_id;
+                // Try period match first, then fall back to date-only match
+                const absSubject = (
+                  examSchedule.find(e => matchesDate(abs.date, e.exam_date) && String(e.period) === String(abs.period))
+                  || examSchedule.find(e => matchesDate(abs.date, e.exam_date))
+                )?.subject || '-';
+                const absProctor = users.find(u => u.id === abs.proctor_id || u.national_id === abs.proctor_id)?.full_name || abs.proctor_id || '-';
                 return (
                   <tr key={abs.id}>
                     <td>{idx + 1}</td>
@@ -261,9 +272,21 @@ export const MasterPortfolio: React.FC<Props> = ({
         {examSchedule.map((exam, examIdx) => {
            const examGrades = exam.grades || [];
            const schedCommittees = exam.committees || [];
-           const studCommittees = examGrades.length > 0 ? students.filter(s => examGrades.includes(s.grade) && s.committee_number).map(s => String(s.committee_number)) : [];
-           const supvCommittees = supervisions.filter(s => matchesDate(s.date, exam.exam_date) && String(s.period) === String(exam.period)).map(s => String(s.committee_number));
-           const examCommittees = Array.from(new Set([...schedCommittees, ...studCommittees, ...supvCommittees])).filter(Boolean).sort((a,b)=>Number(a)-Number(b));
+           // committees from students matching grades (if grades specified)
+           const studCommittees = students
+             .filter(s => s.committee_number && (examGrades.length === 0 || examGrades.includes(s.grade)))
+             .map(s => String(s.committee_number));
+           // committees from supervisions on this exam date+period
+           const supvCommittees = supervisions
+             .filter(s => matchesDate(s.date, exam.exam_date) && String(s.period) === String(exam.period))
+             .map(s => String(s.committee_number));
+           // all unique committees for this exam
+           const examCommittees = Array.from(new Set([
+             ...schedCommittees.map(String),
+             ...studCommittees,
+             ...supvCommittees
+           ])).filter(Boolean).sort((a,b)=>Number(a)-Number(b));
+           // students belonging to this exam's committees and grades
            const examStudents = students.filter(s => {
              if (!s.committee_number) return false;
              if (!examCommittees.includes(String(s.committee_number))) return false;
@@ -300,23 +323,23 @@ export const MasterPortfolio: React.FC<Props> = ({
                    </thead>
                    <tbody>
                      {examCommittees.map(cNum => {
-                        const supvs = supervisions.filter(s => String(s.committee_number) === String(cNum) && matchesDate(s.date, exam.exam_date) && String(s.period) === String(exam.period));
+                        const supvs = supervisions.filter(s => eqCom(s.committee_number, cNum) && matchesDate(s.date, exam.exam_date) && String(s.period) === String(exam.period));
                         const proctors = supvs.map(s => {
                            const u = users.find(u => u.national_id === s.teacher_id || u.id === s.teacher_id);
                            return u ? u.full_name : s.teacher_id;
                         });
-                        
-                        const closeLog = deliveryLogs.find(l => String(l?.committee_number) === String(cNum) && matchesDate(l?.time, exam.exam_date) && l?.type === 'RECEIVE');
-                        const receiptLog = deliveryLogs.find(l => String(l?.committee_number) === String(cNum) && matchesDate(l?.time, exam.exam_date) && l?.status === 'CONFIRMED');
-                        const comAbsences = absences.filter(a => a.committee_number === cNum && a.date === exam.exam_date && a.type === 'ABSENT');
-                        const comLates = absences.filter(a => a.committee_number === cNum && a.date === exam.exam_date && a.type === 'LATE');
-                        const comRequests = controlRequests.filter(r => r.committee === cNum && matchesDate(r.time, exam.exam_date));
+                        const loginTime = supvs.map(s => s.date).filter(Boolean).sort()[0];
+                        const closeLog = deliveryLogs.find(l => eqCom(l?.committee_number, cNum) && matchesDate(l?.time, exam.exam_date) && l?.type === 'RECEIVE');
+                        const receiptLog = deliveryLogs.find(l => eqCom(l?.committee_number, cNum) && matchesDate(l?.time, exam.exam_date) && l?.status === 'CONFIRMED');
+                        const comAbsences = absences.filter(a => eqCom(a.committee_number, cNum) && matchesDate(a.date, exam.exam_date) && a.type === 'ABSENT');
+                        const comLates = absences.filter(a => eqCom(a.committee_number, cNum) && matchesDate(a.date, exam.exam_date) && a.type === 'LATE');
+                        const comRequests = controlRequests.filter(r => eqCom(r.committee, cNum) && matchesDate(r.time, exam.exam_date));
 
                         return (
                           <tr key={cNum}>
                             <td>{cNum}</td>
                             <td>{proctors.length ? proctors.join(' - ') : 'غير محدد'}</td>
-                            <td style={{fontFamily: 'monospace'}}>{safeTime(supvs[0]?.date)}</td>
+                            <td style={{fontFamily: 'monospace'}}>{safeTime(loginTime)}</td>
                             <td style={{fontFamily: 'monospace'}}>{safeTime(closeLog?.time)}</td>
                             <td style={{fontFamily: 'monospace'}}>{safeTime(receiptLog?.time)}</td>
                             <td>{comRequests.length}</td>
@@ -326,7 +349,7 @@ export const MasterPortfolio: React.FC<Props> = ({
                         );
                      })}
                      {examCommittees.length === 0 && (
-                       <tr><td colSpan={5}>لا توجد لجان مسجلة لهذه المادة.</td></tr>
+                       <tr><td colSpan={8}>لا توجد لجان مسجلة لهذه المادة.</td></tr>
                      )}
                    </tbody>
                  </table>
@@ -340,7 +363,7 @@ export const MasterPortfolio: React.FC<Props> = ({
 
                {/* كشوف الطلاب لكل لجنة داخل هذه المادة */}
                {examCommittees.map(cNum => {
-                 const comStudents = examStudents.filter(s => s.committee_number === cNum).sort((a,b)=> a.name.localeCompare(b.name, 'ar'));
+                 const comStudents = examStudents.filter(s => eqCom(s.committee_number, cNum)).sort((a,b)=> a.name.localeCompare(b.name, 'ar'));
                  
                  // Split into two columns for the page layout
                  const half = Math.ceil(comStudents.length / 2);
