@@ -307,33 +307,38 @@ const SeatingPlanner = () => {
                   if (a.grade !== b.grade) return a.grade.localeCompare(b.grade, 'ar');
                   return a.name.localeCompare(b.name, 'ar');
                });
+               const len = com.students.length;
+               const fontSize = len > 36 ? '10px' : len > 30 ? '11px' : len > 24 ? '13px' : '15px';
+               const pClass = len > 36 ? 'p-0.5' : len > 30 ? 'p-1' : len > 24 ? 'p-1.5' : 'p-2';
+               const hMargin = len > 30 ? 'mb-2' : 'mb-6';
+               
                return (
                <div key={com.number} className="page-break bg-white relative">
                   <PrintHeader date={new Date().toISOString().split('T')[0]} />
-                  <div className="text-center mb-6">
+                  <div className={`text-center ${hMargin}`}>
                      <h2 className="text-xl font-black underline underline-offset-8">بيان بأسماء طلاب لجنة رقم ({com.number})</h2>
                      <p className="text-sm font-bold text-slate-500 mt-2">إجمالي الطلاب: {com.students.length}</p>
                   </div>
-                  <table className="w-full border-collapse border border-black text-center text-[10pt] font-bold">
+                  <table className="w-full border-collapse border border-black text-center font-bold" style={{ fontSize }}>
                      <thead>
                         <tr className="bg-slate-100 font-black">
-                           <th className="border border-black p-2 w-12">م</th>
-                           <th className="border border-black p-2">رقم الجلوس</th>
-                           <th className="border border-black p-2 text-right px-3">اسم الطالب</th>
-                           <th className="border border-black p-2">الصف</th>
-                           <th className="border border-black p-2">الفصل</th>
-                           <th className="border border-black p-2 w-32">توقيع الطالب</th>
+                           <th className={`border border-black ${pClass} w-12`}>م</th>
+                           <th className={`border border-black ${pClass}`}>رقم الجلوس</th>
+                           <th className={`border border-black ${pClass} text-right px-3`}>اسم الطالب</th>
+                           <th className={`border border-black ${pClass}`}>الصف</th>
+                           <th className={`border border-black ${pClass}`}>الفصل</th>
+                           <th className={`border border-black ${pClass} w-32`}>توقيع الطالب</th>
                         </tr>
                      </thead>
                      <tbody>
                         {sortedStudents.map((s, idx) => (
                            <tr key={s.id}>
-                              <td className="border border-black p-2">{idx + 1}</td>
-                              <td className="border border-black p-2">{s.seating_number || s.national_id}</td>
-                              <td className="border border-black p-2 text-right px-3 font-black">{s.name}</td>
-                              <td className="border border-black p-2">{s.grade}</td>
-                              <td className="border border-black p-2">{s.section}</td>
-                              <td className="border border-black p-2"></td>
+                              <td className={`border border-black ${pClass}`}>{idx + 1}</td>
+                              <td className={`border border-black ${pClass}`}>{s.seating_number || s.national_id}</td>
+                              <td className={`border border-black ${pClass} text-right px-3 font-black`}>{s.name}</td>
+                              <td className={`border border-black ${pClass}`}>{s.grade}</td>
+                              <td className={`border border-black ${pClass}`}>{s.section}</td>
+                              <td className={`border border-black ${pClass}`}></td>
                            </tr>
                         ))}
                      </tbody>
