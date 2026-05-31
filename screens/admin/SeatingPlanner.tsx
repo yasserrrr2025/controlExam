@@ -238,12 +238,7 @@ const SeatingPlanner = () => {
   const totalSelectedStudents = Object.values(gradeCounts).reduce((a,b) => a + (b||0), 0);
 
   const getQrData = (com: CommitteePreview) => {
-     let text = `لجنة رقم: ${com.number}\n`;
-     text += `الطلاب: ${com.students.length}\n`;
-     Object.entries(com.stats).forEach(([grade, count]) => {
-        text += `${grade}: ${count}\n`;
-     });
-     return encodeURIComponent(text);
+     return encodeURIComponent(`${window.location.origin}/?public_committee=${com.number}`);
   };
 
   return (
@@ -272,9 +267,15 @@ const SeatingPlanner = () => {
         {committees.map((com) => (
            <div key={com.number} className="page-break bg-white relative">
               
-              {/* Header: QR and Title */}
+              {/* Header: QR, Door and Title */}
               <div className="flex justify-between items-center mb-4">
                  <div className="flex items-center gap-4">
+                    {/* Door Icon */}
+                    <div className="flex flex-col items-center justify-center border-4 border-slate-800 rounded-xl bg-slate-50 w-20 h-20 shadow-sm relative overflow-hidden">
+                       <div className="text-4xl filter drop-shadow-sm absolute top-0.5">🚪</div>
+                       <div className="font-black text-[12px] bg-slate-800 text-white w-full text-center absolute bottom-0 py-0.5">الباب</div>
+                    </div>
+                    
                     <img 
                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${getQrData(com)}&color=000000`}
                        alt="QR"
@@ -313,12 +314,6 @@ const SeatingPlanner = () => {
               {/* Croquis Layout */}
               <div className="flex-1 flex flex-col relative w-full mt-2">
                  
-                 {/* Door (Top Right above Col 1) */}
-                 <div className="absolute right-0 -top-8 flex items-center gap-1.5">
-                    <div className="text-3xl filter drop-shadow-sm">🚪</div>
-                    <div className="font-black text-base bg-slate-800 text-white px-2 py-0.5 rounded-lg">الباب</div>
-                 </div>
-
                  <div className="flex justify-between gap-3 mt-4 h-full w-full">
                    {com.columns.map((col, cIdx) => (
                       <div key={cIdx} className="flex-1 flex flex-col border-2 border-black rounded-2xl p-2 bg-slate-50 min-w-0">
@@ -329,7 +324,7 @@ const SeatingPlanner = () => {
                             {col.map((student) => (
                                <div key={student.id} className="bg-white border-2 border-slate-400 p-2 rounded-xl flex flex-col items-center justify-center text-center relative shadow-sm flex-1 min-h-[40px]">
                                   <div className="absolute top-1 right-2 text-xs font-black text-slate-500">{student.seating_number}</div>
-                                  <div className="font-black text-xs md:text-sm truncate w-full px-1">{student.name}</div>
+                                  <div className="font-black text-[11px] leading-snug break-words w-full px-1">{student.name}</div>
                                   <div className="text-[9px] font-bold text-slate-500 mt-0.5 whitespace-nowrap">{student.grade} - {student.section}</div>
                                </div>
                             ))}
