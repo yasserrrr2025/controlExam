@@ -16,6 +16,7 @@ import { ArchiveBoxesManager } from './screens/admin/ArchiveBoxesManager';
 import { MasterPortfolio } from './screens/admin/MasterPortfolio';
 import { PublicBoxReport } from './screens/public/PublicBoxReport';
 import AiDashboard from './screens/admin/AiDashboard';
+import ComprehensiveStats from './screens/admin/ComprehensiveStats';
 import CommitteeLabelsPrint from './screens/admin/CommitteeLabelsPrint';
 import ControlHeadDashboard from './screens/admin/ControlHeadDashboard';
 import ControlManager from './screens/admin/ControlManager';
@@ -55,6 +56,7 @@ const ROLE_TABS: Record<UserRole, string[]> = {
     'control-monitor',
     'control-monitor-2',
     'control-manager',
+    'comprehensive-stats',
     'master-portfolio',
     'archive-boxes',
     'proctor-excellence',
@@ -576,6 +578,7 @@ const App: React.FC = () => {
            <ControlRoomMonitor2 absences={absences} supervisions={supervisions} users={users} deliveryLogs={deliveryLogs} students={students} requests={controlRequests} />
         </div>
       );
+      case 'comprehensive-stats': return <ComprehensiveStats students={students} users={users} supervisions={allSupervisions.filter(i => !isReserveSupervision(i))} systemConfig={systemConfig} absences={allAbsences} deliveryLogs={allDeliveryLogs} controlRequests={allControlRequests} committeeReports={allCommitteeReports} examSchedule={examSchedule} />;
       case 'proctor-excellence': return <AdminProctorPerformance users={users} supervisions={supervisions} deliveryLogs={deliveryLogs} absences={absences} systemConfig={systemConfig} />;
       case 'committee-labels': return <CommitteeLabelsPrint students={students} />;
       case 'control-manager': return <ControlManager users={users} deliveryLogs={deliveryLogs} students={students} requests={controlRequests} onBroadcast={(m, t) => db.notifications.broadcast(m, t, currentUser.full_name)} onUpdateUserGrades={async (userId, grades) => { const uMatch = users.find(u => u.id === userId); if (uMatch) { await db.users.upsert([{ ...uMatch, assigned_grades: grades }]); await fetchData(); } }} systemConfig={systemConfig} absences={absences} supervisions={supervisions} smartSupervisions={allSupervisions} examSchedule={examSchedule} onUpsertExamSchedule={async (item) => { await db.examSchedule.upsert(item); await fetchData(); }} onDeleteExamSchedule={async (id) => { await db.examSchedule.delete(id); await fetchData(); }} setDeliveryLogs={async (log) => { await db.deliveryLogs.upsert(log); await fetchData(); }} setSystemConfig={async (cfg) => { await db.config.upsert(cfg); await fetchData(); }} onRemoveSupervision={async (id) => { await deleteSameDayTeacherAssignment(id, systemConfig.active_exam_date || new Date().toISOString().slice(0, 10)); await fetchData(); }} onAssignProctor={handleEmergencyProctorAssignment} onUpdateSmartDistribution={async (id, teacherId) => { const { error } = await supabase.from('supervision').update({ teacher_id: teacherId }).eq('id', id); if (error) throw new Error(error.message); await fetchData(); }} onCommitSmartDistribution={handleCommitSmartDistribution} onDeleteSmartDistributions={deleteSmartDistributions} />;
@@ -603,7 +606,7 @@ const App: React.FC = () => {
 
   if (isInitialLoading) {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('public_committee') || params.get('student_inquiry') || params.get('supervision_verify') || params.get('sv') || params.get('tv2') || params.get('box_report')) {
+    if (params.get('public_committee') || params.get('student_inquiry') || params.get('supervision_verify') || params.get('sv') || params.get('tv2') || params.get('box_report') || params.get('portfolio_live')) {
        return (
          <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-6 font-['Tajawal']" dir="rtl">
            <Loader2 size={48} className="text-blue-600 animate-spin" />
@@ -630,6 +633,11 @@ const App: React.FC = () => {
   const boxReportId = params.get('box_report');
   if (boxReportId) {
     return <PublicBoxReport boxId={boxReportId} students={students} supervisions={allSupervisions.filter(i => !isReserveSupervision(i))} deliveryLogs={allDeliveryLogs} users={users} examSchedule={examSchedule} systemConfig={systemConfig} absences={allAbsences} />;
+  }
+
+  const portfolioLive = params.get('portfolio_live');
+  if (portfolioLive) {
+    return <ComprehensiveStats publicMode students={students} users={users} supervisions={allSupervisions.filter(i => !isReserveSupervision(i))} systemConfig={systemConfig} absences={allAbsences} deliveryLogs={allDeliveryLogs} controlRequests={allControlRequests} committeeReports={allCommitteeReports} examSchedule={examSchedule} />;
   }
 
   const isTv2Public = params.get('tv2');

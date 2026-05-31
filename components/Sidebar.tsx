@@ -5,7 +5,7 @@ import {
   ShieldAlert, Inbox, FileText, Settings, X, ChevronRight, ChevronLeft,
   History, IdCard, UserCircle, ShieldCheck, ShieldHalf, Bell, Shield,
   Monitor, Fingerprint, MonitorPlay, Award, LayoutPanelTop, QrCode,
-  FileSpreadsheet, MessageSquareQuote, CalendarDays, BrainCircuit, BookOpen, PackageSearch
+  FileSpreadsheet, MessageSquareQuote, CalendarDays, BrainCircuit, BookOpen, PackageSearch, BarChart3
 } from 'lucide-react';
 import { UserRole, User, ControlRequest } from '../types';
 import { APP_CONFIG, ROLES_ARABIC } from '../constants';
@@ -46,6 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'control-monitor-2', label: 'لوحة العرض (TV2)', icon: Monitor },
     { id: 'control-manager', label: 'مركز القيادة', icon: ShieldHalf },
     { id: 'ai-insights', label: 'المحلل الذكي (AI)', icon: BrainCircuit },
+    { id: 'comprehensive-stats', label: 'إحصائيات شاملة', icon: BarChart3 },
     { id: 'master-portfolio', label: 'ملف الإنجاز 📘', icon: BookOpen },
     { id: 'proctor-excellence', label: 'سجل التميز', icon: Award },
     { id: 'archive-boxes', label: 'أرشيف الصناديق 📦', icon: PackageSearch },
