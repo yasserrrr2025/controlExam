@@ -30,6 +30,16 @@ export const MasterPortfolio: React.FC<Props> = ({
     } catch { return '---'; }
   };
 
+  const safeLoginTime = (isoStr?: string) => {
+    if (!isoStr) return '---';
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '---';
+    const hours = d.getHours();
+    const minutes = d.getMinutes();
+    if (hours === 12 && minutes === 0) return '---';
+    return safeTime(isoStr);
+  };
+
   const matchesDate = (isoStr: string | undefined | null, date: string): boolean => {
     if (!isoStr || !date) return false;
     try {
@@ -194,7 +204,7 @@ export const MasterPortfolio: React.FC<Props> = ({
           <div>
             <h2 className="text-4xl font-black tracking-tighter">ملف إنجاز الاختبارات الشامل</h2>
             <p className="text-amber-200 font-bold mt-1">
-              {publicMode ? 'نسخة حية محدثة تلقائيًا للمشرفين وإدارة التعليم مع المحافظة على هيكل ملف الإنجاز الرسمي' : 'تصدير كتاب PDF متكامل يحتوي على جميع بيانات وإحصائيات الاختبارات الميدانية'}
+              {publicMode ? 'نسخة حية محدثة تلقائيًا للمشرفين وإدارة التعليم بمحافظة جدة' : 'تصدير كتاب PDF متكامل يحتوي على جميع بيانات وإحصائيات الاختبارات الميدانية'}
             </p>
           </div>
         </div>
@@ -232,6 +242,9 @@ export const MasterPortfolio: React.FC<Props> = ({
             .cover-title { font-size: 48px; font-weight: 900; color: #0f172a; margin-bottom: 20px; }
             .cover-subtitle { font-size: 24px; font-weight: bold; color: #475569; margin-bottom: 60px; }
             .cover-details { font-size: 20px; font-weight: bold; color: #1e293b; line-height: 2; border-top: 2px solid #e2e8f0; padding-top: 40px; width: 80%; }
+            .cover-signature-footer { position: absolute; right: 28mm; left: 28mm; bottom: 24mm; display: grid; grid-template-columns: 1fr 1fr; gap: 35mm; text-align: center; color: #0f172a; font-weight: 900; }
+            .cover-signature-footer .role { font-size: 11pt; color: #475569; margin-bottom: 4mm; }
+            .cover-signature-footer .name { font-size: 12pt; color: #0f172a; }
             
             .official-report-header { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 8mm; align-items: center; border-bottom: 3px double #0f172a; padding-bottom: 4mm; margin-bottom: 5mm; min-height: 30mm; }
             .official-side { font-size: 9pt; font-weight: 900; line-height: 1.65; color: #0f172a; }
@@ -324,6 +337,9 @@ export const MasterPortfolio: React.FC<Props> = ({
             .live-portfolio-public .cover-title { font-size: clamp(30px, 5vw, 48px); font-weight: 900; color: #0f172a; margin-bottom: 20px; }
             .live-portfolio-public .cover-subtitle { font-size: clamp(18px, 3vw, 24px); font-weight: bold; color: #475569; margin-bottom: 48px; }
             .live-portfolio-public .cover-details { font-size: 18px; font-weight: bold; color: #1e293b; line-height: 2; border-top: 2px solid #e2e8f0; padding-top: 34px; width: 86%; }
+            .live-portfolio-public .cover-signature-footer { position: absolute; right: 70px; left: 70px; bottom: 70px; display: grid; grid-template-columns: 1fr 1fr; gap: 80px; text-align: center; color: #0f172a; font-weight: 900; }
+            .live-portfolio-public .cover-signature-footer .role { font-size: 14px; color: #475569; margin-bottom: 12px; }
+            .live-portfolio-public .cover-signature-footer .name { font-size: 17px; color: #0f172a; }
             .live-portfolio-public .official-report-header { display: grid; grid-template-columns: 1fr 1.25fr 1fr; gap: 24px; align-items: center; border-bottom: 3px double #0f172a; padding-bottom: 16px; margin-bottom: 20px; }
             .live-portfolio-public .official-side { font-size: 13px; font-weight: 900; line-height: 1.65; color: #0f172a; }
             .live-portfolio-public .official-side-right { text-align: right; }
@@ -367,6 +383,7 @@ export const MasterPortfolio: React.FC<Props> = ({
               .live-portfolio-public { padding: 10px; }
               .live-portfolio-public .portfolio-page { min-height: auto; padding: 22px 14px 54px; border-radius: 18px; overflow-x: auto; }
               .live-portfolio-public .cover-page { min-height: 720px; padding: 24px 14px; }
+              .live-portfolio-public .cover-signature-footer { position: static; width: 100%; grid-template-columns: 1fr; gap: 18px; margin-top: 28px; }
               .live-portfolio-public .official-report-header { grid-template-columns: 1fr; text-align: center; gap: 10px; }
               .live-portfolio-public .official-side, .live-portfolio-public .official-side-left, .live-portfolio-public .official-side-right { text-align: center; }
               .live-portfolio-public .stats-grid { grid-template-columns: 1fr; }
@@ -387,6 +404,16 @@ export const MasterPortfolio: React.FC<Props> = ({
               <p>إدارة التعليم بمحافظة جدة</p>
               <p>مدرسة عماد الدين زنكي المتوسطة</p>
               <p style={{marginTop: '40px', fontSize: '24px', color: '#0f172a'}}>العام الدراسي: {systemConfig.academic_year || '1446 / 1447'}</p>
+           </div>
+           <div className="cover-signature-footer">
+             <div>
+               <p className="role">مُعد التقرير</p>
+               <p className="name">ياسر محفوظ الحميدي</p>
+             </div>
+             <div>
+               <p className="role">مدير المدرسة</p>
+               <p className="name">{schoolManagerName}</p>
+             </div>
            </div>
         </div>
 
@@ -434,7 +461,7 @@ export const MasterPortfolio: React.FC<Props> = ({
             <li>5. تقارير المواد (المراقبون، التسليم، وكشوف الطلاب لكل مادة)</li>
           </ul>
           
-          <div className="footer">تم إنشاء هذا الملف آلياً عبر نظام الكنترول الرقمي - مدرسة عماد الدين زنكي</div>
+          <div className="footer">تم إنشاء هذا الملف آلياً عبر نظام الكنترول الرقمي - مدرسة عماد الدين زنكي - بواسطة ياسر الحميدي</div>
         </div>
 
         {/* كشف الغياب */}
@@ -479,7 +506,7 @@ export const MasterPortfolio: React.FC<Props> = ({
               )}
             </tbody>
           </table>
-          <div className="footer">تم إنشاء هذا الملف آلياً عبر نظام الكنترول الرقمي - مدرسة عماد الدين زنكي</div>
+          <div className="footer">تم إنشاء هذا الملف آلياً عبر نظام الكنترول الرقمي - مدرسة عماد الدين زنكي - بواسطة ياسر الحميدي</div>
         </div>
         
         {/* التقارير الميدانية */}
@@ -597,7 +624,7 @@ export const MasterPortfolio: React.FC<Props> = ({
                           <tr key={cNum}>
                             <td>{cNum}</td>
                             <td>{proctors.length ? proctors.join(' - ') : 'غير محدد'}</td>
-                            <td style={{fontFamily: 'monospace'}}>{safeTime(loginTime)}</td>
+                            <td style={{fontFamily: 'monospace'}}>{safeLoginTime(loginTime)}</td>
                             <td style={{fontFamily: 'monospace'}}>{safeTime(closeLog?.time)}</td>
                             <td style={{fontFamily: 'monospace'}}>{safeTime(receiptLog?.time)}</td>
                             <td>{comRequests.length}</td>
@@ -640,7 +667,7 @@ export const MasterPortfolio: React.FC<Props> = ({
                        </div>
                        <div className="operation-card">
                          <p className="label">دخول المراقب</p>
-                         <p className="value">{safeTime(timeline.loginTime)}</p>
+                         <p className="value">{safeLoginTime(timeline.loginTime)}</p>
                        </div>
                        <div className="operation-card">
                          <p className="label">إغلاق اللجنة</p>
@@ -730,7 +757,7 @@ export const MasterPortfolio: React.FC<Props> = ({
                        )}
                      </div>
 
-                     <div className="footer">تم إنشاء هذا الكشف آلياً عبر نظام الكنترول الرقمي - مدرسة عماد الدين زنكي</div>
+                     <div className="footer">تم إنشاء هذا الكشف آلياً عبر نظام الكنترول الرقمي - مدرسة عماد الدين زنكي - بواسطة ياسر الحميدي</div>
                    </div>
                  );
                })}
