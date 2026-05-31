@@ -1,7 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Save, RefreshCw, LayoutGrid, Settings2, ShieldCheck, Info, Loader2, ArrowLeftRight, Printer, Database } from 'lucide-react';
+import { Users, Save, RefreshCw, LayoutGrid, Settings2, ShieldCheck, Info, Loader2, ArrowLeftRight, Printer, Database, FileText } from 'lucide-react';
 import { db } from '../../supabase';
 import { Student } from '../../types';
+import { APP_CONFIG } from '../../constants';
+
+const PrintHeader: React.FC<{ date: string }> = ({ date }) => (
+  <div className="w-full border-b-4 border-double border-slate-900 pb-3 mb-4">
+    <div className="grid grid-cols-3 items-center gap-2">
+      <div className="text-[10pt] font-black text-right leading-relaxed space-y-0.5">
+        <p>المملكة العربية السعودية</p>
+        <p>وزارة التعليم</p>
+        <p>إدارة التعليم بمحافظة جدة</p>
+        <p>مدرسة عماد الدين زنكي المتوسطة</p>
+      </div>
+      <div className="flex flex-col items-center justify-center">
+        <img src={APP_CONFIG.LOGO_URL} alt="شعار" className="w-16 h-16 object-contain" />
+        <p className="text-[8pt] text-slate-500 font-black mt-1 text-center">نظام كنترول الاختبارات</p>
+      </div>
+      <div className="text-[10pt] font-bold text-left leading-relaxed space-y-0.5">
+        <p>التاريخ: <span className="font-black tabular-nums">{new Date(date).toLocaleDateString('ar-SA')}</span></p>
+        <p>اليوم: <span className="font-black">{new Intl.DateTimeFormat('ar-SA', { weekday: 'long' }).format(new Date(date))}</span></p>
+        <p>العام الدراسي: <span className="font-black">1446 / 1447</span></p>
+      </div>
+    </div>
+  </div>
+);
 
 interface CommitteePreview {
   number: string;
@@ -198,7 +221,7 @@ const SeatingPlanner = () => {
   };
 
   useEffect(() => {
-     if (activeTab === 'current') {
+     if (activeTab === 'current' || activeTab === 'report') {
        loadExistingCroquis();
      } else {
        setCommittees([]); 
@@ -247,7 +270,7 @@ const SeatingPlanner = () => {
       {/* --- Print Styles --- */}
       <style>{`
         @media print {
-          @page { size: A4 landscape; margin: 0 !important; }
+          @page { size: A4 ${activeTab === 'report' ? 'portrait' : 'landscape'}; margin: 0 !important; }
           html, body, #app-root, main { 
             margin: 0 !important; 
             padding: 0 !important; 
@@ -264,7 +287,7 @@ const SeatingPlanner = () => {
             page-break-inside: avoid;
             width: 100vw !important; 
             height: 100vh !important; 
-            padding: 5mm !important;
+            padding: ${activeTab === 'report' ? '10mm' : '5mm'} !important;
             margin: 0 !important;
             overflow: hidden;
             display: flex;
@@ -277,7 +300,50 @@ const SeatingPlanner = () => {
         }
       `}</style>
 
-      <div className="hidden print-only print:block w-full print:m-0 print:p-0" dir="rtl">
+      {activeTab === 'report' ? (
+         <div className="hidden print-only print:block w-full print:m-0 print:p-0" dir="rtl">
+            {committees.map((com) => {
+               const sortedStudents = [...com.students].sort((a,b) => {
+                  if (a.grade !== b.grade) return a.grade.localeCompare(b.grade, 'ar');
+                  return a.name.localeCompare(b.name, 'ar');
+               });
+               return (
+               <div key={com.number} className="page-break bg-white relative">
+                  <PrintHeader date={new Date().toISOString().split('T')[0]} />
+                  <div className="text-center mb-6">
+                     <h2 className="text-xl font-black underline underline-offset-8">بيان بأسماء طلاب لجنة رقم ({com.number})</h2>
+                     <p className="text-sm font-bold text-slate-500 mt-2">إجمالي الطلاب: {com.students.length}</p>
+                  </div>
+                  <table className="w-full border-collapse border border-black text-center text-[10pt] font-bold">
+                     <thead>
+                        <tr className="bg-slate-100 font-black">
+                           <th className="border border-black p-2 w-12">م</th>
+                           <th className="border border-black p-2">رقم الجلوس</th>
+                           <th className="border border-black p-2 text-right px-3">اسم الطالب</th>
+                           <th className="border border-black p-2">الصف</th>
+                           <th className="border border-black p-2">الفصل</th>
+                           <th className="border border-black p-2 w-32">توقيع الطالب</th>
+                        </tr>
+                     </thead>
+                     <tbody>
+                        {sortedStudents.map((s, idx) => (
+                           <tr key={s.id}>
+                              <td className="border border-black p-2">{idx + 1}</td>
+                              <td className="border border-black p-2">{s.seating_number || s.national_id}</td>
+                              <td className="border border-black p-2 text-right px-3 font-black">{s.name}</td>
+                              <td className="border border-black p-2">{s.grade}</td>
+                              <td className="border border-black p-2">{s.section}</td>
+                              <td className="border border-black p-2"></td>
+                           </tr>
+                        ))}
+                     </tbody>
+                  </table>
+               </div>
+               );
+            })}
+         </div>
+      ) : (
+         <div className="hidden print-only print:block w-full print:m-0 print:p-0" dir="rtl">
         {committees.map((com) => (
            <div key={com.number} className="page-break bg-white relative">
               
@@ -355,7 +421,8 @@ const SeatingPlanner = () => {
               </div>
            </div>
         ))}
-      </div>
+         </div>
+      )}
       {/* --- End Print --- */}
 
       <div className="no-print">
@@ -383,7 +450,13 @@ const SeatingPlanner = () => {
                  onClick={() => setActiveTab('current')}
                  className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-black transition-all ${activeTab === 'current' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-300 hover:text-white hover:bg-white/5'}`}
                >
-                 <Database size={18} /> البيانات الحالية للجان
+                 <Database size={18} /> كروكي اللجان الحالية
+               </button>
+               <button 
+                 onClick={() => setActiveTab('report')}
+                 className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-black transition-all ${activeTab === 'report' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-300 hover:text-white hover:bg-white/5'}`}
+               >
+                 <FileText size={18} /> بيان اللجان الحالية
                </button>
             </div>
           </div>
@@ -472,9 +545,9 @@ const SeatingPlanner = () => {
         {committees.length > 0 && (
           <div className="space-y-6 animate-fade-in">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200">
-               <div className="flex items-center gap-3 text-slate-800">
+                <div className="flex items-center gap-3 text-slate-800">
                  <LayoutGrid className="text-blue-600" />
-                 <h3 className="text-2xl font-black">معاينة الكروكي ({committees.length} لجان)</h3>
+                 <h3 className="text-2xl font-black">{activeTab === 'report' ? `معاينة بيان اللجان (${committees.length} لجان)` : `معاينة الكروكي (${committees.length} لجان)`}</h3>
                </div>
                
                <button 
@@ -482,12 +555,53 @@ const SeatingPlanner = () => {
                  disabled={isPrinting}
                  className="w-full md:w-auto bg-slate-900 text-white px-8 py-3.5 rounded-xl font-black text-base shadow-lg shadow-slate-900/20 hover:bg-slate-800 hover:-translate-y-1 transition-all flex items-center justify-center gap-2"
                >
-                 <Printer size={20} /> طباعة جميع اللجان (PDF / ورق بالعرض)
+                 <Printer size={20} /> {activeTab === 'report' ? 'طباعة بيان اللجان (PDF / ورق طولي)' : 'طباعة جميع اللجان (PDF / ورق بالعرض)'}
                </button>
             </div>
             
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-              {committees.map((committee) => (
+            {activeTab === 'report' ? (
+              <div className="grid grid-cols-1 gap-8">
+                 {committees.map((com) => {
+                   const sortedStudents = [...com.students].sort((a,b) => {
+                      if (a.grade !== b.grade) return a.grade.localeCompare(b.grade, 'ar');
+                      return a.name.localeCompare(b.name, 'ar');
+                   });
+                   return (
+                   <div key={com.number} className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                      <div className="text-center mb-6">
+                         <h2 className="text-2xl font-black text-slate-800">بيان بأسماء طلاب لجنة رقم ({com.number})</h2>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse border border-slate-300 text-center text-sm">
+                           <thead>
+                              <tr className="bg-slate-100">
+                                 <th className="border border-slate-300 p-3 w-12">م</th>
+                                 <th className="border border-slate-300 p-3">رقم الجلوس</th>
+                                 <th className="border border-slate-300 p-3 text-right">اسم الطالب</th>
+                                 <th className="border border-slate-300 p-3">الصف</th>
+                                 <th className="border border-slate-300 p-3">الفصل</th>
+                              </tr>
+                           </thead>
+                           <tbody>
+                              {sortedStudents.map((s, idx) => (
+                                 <tr key={s.id} className="hover:bg-slate-50">
+                                    <td className="border border-slate-300 p-2 font-bold">{idx + 1}</td>
+                                    <td className="border border-slate-300 p-2 font-bold">{s.seating_number || s.national_id}</td>
+                                    <td className="border border-slate-300 p-2 text-right font-black">{s.name}</td>
+                                    <td className="border border-slate-300 p-2">{s.grade}</td>
+                                    <td className="border border-slate-300 p-2">{s.section}</td>
+                                 </tr>
+                              ))}
+                           </tbody>
+                        </table>
+                      </div>
+                   </div>
+                   );
+                 })}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                {committees.map((committee) => (
                 <div key={committee.number} className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-md hover:shadow-xl transition-all duration-300">
                   <div className="bg-slate-50 p-5 border-b border-slate-100 flex justify-between items-center">
                     <div className="flex items-center gap-4">
@@ -532,6 +646,7 @@ const SeatingPlanner = () => {
                 </div>
               ))}
             </div>
+            )}
           </div>
         )}
       </div>
