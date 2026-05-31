@@ -54,6 +54,8 @@ const ROLE_TABS: Record<UserRole, string[]> = {
     'control-monitor',
     'control-monitor-2',
     'control-manager',
+    'master-portfolio',
+    'archive-boxes',
     'proctor-excellence',
     'committee-labels',
     'door-labels',
