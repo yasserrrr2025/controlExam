@@ -242,12 +242,12 @@ const SeatingPlanner = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in text-right pb-20">
+    <div className="space-y-8 print:space-y-0 print:m-0 print:p-0 animate-fade-in text-right pb-20 print:pb-0">
       
       {/* --- Print Styles --- */}
       <style>{`
         @media print {
-          @page { size: A4 landscape; margin: 0.5cm; }
+          @page { size: A4 landscape; margin: 0 !important; }
           html, body, #app-root, main { 
             margin: 0 !important; 
             padding: 0 !important; 
@@ -256,14 +256,16 @@ const SeatingPlanner = () => {
             height: 100% !important;
             max-width: none !important;
           }
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box !important; }
           .no-print, header, aside, .sidebar { display: none !important; }
           .print-only { display: block !important; }
           .page-break { 
             page-break-after: always; 
             page-break-inside: avoid;
-            width: 100%; 
-            height: 18.5cm; /* Strict height to fit A4 Landscape perfectly */
+            width: 100vw !important; 
+            height: 100vh !important; 
+            padding: 5mm !important;
+            margin: 0 !important;
             overflow: hidden;
             display: flex;
             flex-direction: column;
@@ -275,7 +277,7 @@ const SeatingPlanner = () => {
         }
       `}</style>
 
-      <div className="hidden print-only print:block w-full" dir="rtl">
+      <div className="hidden print-only print:block w-full print:m-0 print:p-0" dir="rtl">
         {committees.map((com) => (
            <div key={com.number} className="page-break bg-white relative">
               
