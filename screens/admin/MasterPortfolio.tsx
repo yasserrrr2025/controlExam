@@ -71,6 +71,53 @@ export const MasterPortfolio: React.FC<Props> = ({
   }, [supervisions]);
 
   const printDate = new Date().toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const controlHeadName = users.find(u => u.role === 'CONTROL_MANAGER')?.full_name || 'رئيس الكنترول';
+  const schoolManagerName = users.find(u => u.role === 'ADMIN')?.full_name || 'مدير المدرسة';
+
+  const getStudentExamStatus = (student: Student, committeeNumber: string, date: string, period?: number) => {
+    return absences.find(a =>
+      a.student_id === student.national_id &&
+      eqCom(a.committee_number, committeeNumber) &&
+      matchesDate(a.date, date) &&
+      (period === undefined || String(a.period) === String(period))
+    );
+  };
+
+  const OfficialPortfolioHeader = ({ title, meta }: { title: string; meta?: React.ReactNode }) => (
+    <div className="official-report-header">
+      <div className="official-side official-side-right">
+        <p>المملكة العربية السعودية</p>
+        <p>{APP_CONFIG.MINISTRY_NAME}</p>
+        <p>{APP_CONFIG.ADMINISTRATION_NAME}</p>
+        <p>مدرسة عماد الدين زنكي المتوسطة</p>
+      </div>
+      <div className="official-center">
+        <img src={APP_CONFIG.LOGO_URL} alt="الشعار" />
+        <h2>{title}</h2>
+        <p>ملف إنجاز أعمال الاختبارات</p>
+      </div>
+      <div className="official-side official-side-left">
+        <p>تاريخ الطباعة: {printDate}</p>
+        <p>العام الدراسي: {systemConfig.academic_year || '1446 / 1447'}</p>
+        <p>{meta || 'رقم الملف: إنجاز الاختبارات'}</p>
+      </div>
+    </div>
+  );
+
+  const SignatureFooter = () => (
+    <div className="signature-footer">
+      <div>
+        <p className="signature-title">رئيس الكنترول</p>
+        <p className="signature-name">{controlHeadName}</p>
+        <p className="signature-line">______________________</p>
+      </div>
+      <div>
+        <p className="signature-title">مدير المدرسة</p>
+        <p className="signature-name">{schoolManagerName}</p>
+        <p className="signature-line">______________________</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-8 animate-fade-in text-right">
@@ -94,7 +141,9 @@ export const MasterPortfolio: React.FC<Props> = ({
             body * { visibility: hidden; }
             .print-only-container, .print-only-container * { visibility: visible; }
             .print-only-container { position: absolute; left: 0; top: 0; width: 100%; }
-            .portfolio-page { height: 297mm; width: 210mm; margin: 0 auto; padding: 15mm; page-break-after: always; box-sizing: border-box; background: white; position: relative; }
+            @page { size: A4 portrait; margin: 8mm; }
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .portfolio-page { height: 297mm; width: 210mm; margin: 0 auto; padding: 10mm 12mm 12mm; page-break-after: always; box-sizing: border-box; background: white; position: relative; overflow: hidden; border: 1.5pt solid #0f172a; }
             .portfolio-page:last-child { page-break-after: avoid; }
             .cover-page { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; height: 100%; border: 10px double #cbd5e1; padding: 40px; border-radius: 20px; }
             .logo-large { width: 180px; margin-bottom: 40px; }
@@ -102,6 +151,14 @@ export const MasterPortfolio: React.FC<Props> = ({
             .cover-subtitle { font-size: 24px; font-weight: bold; color: #475569; margin-bottom: 60px; }
             .cover-details { font-size: 20px; font-weight: bold; color: #1e293b; line-height: 2; border-top: 2px solid #e2e8f0; padding-top: 40px; width: 80%; }
             
+            .official-report-header { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 8mm; align-items: center; border-bottom: 3px double #0f172a; padding-bottom: 4mm; margin-bottom: 5mm; min-height: 30mm; }
+            .official-side { font-size: 9pt; font-weight: 900; line-height: 1.65; color: #0f172a; }
+            .official-side-right { text-align: right; }
+            .official-side-left { text-align: left; font-size: 8.5pt; color: #334155; }
+            .official-center { text-align: center; }
+            .official-center img { width: 18mm; height: 18mm; object-fit: contain; margin: 0 auto 1mm; }
+            .official-center h2 { font-size: 15pt; font-weight: 900; color: #0f172a; line-height: 1.2; }
+            .official-center p { font-size: 8pt; font-weight: 900; color: #64748b; margin-top: 1mm; }
             .content-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
             .content-title { font-size: 24px; font-weight: 900; text-align: center; }
             .content-info { font-size: 14px; font-weight: bold; text-align: left; }
@@ -112,12 +169,34 @@ export const MasterPortfolio: React.FC<Props> = ({
             .stat-label { font-size: 16px; font-weight: bold; color: #64748b; }
             
             .data-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-            .data-table th, .data-table td { border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-size: 13px; font-weight: bold; }
+            .data-table th, .data-table td { border: 1px solid #cbd5e1; padding: 7px; text-align: center; font-size: 11pt; font-weight: bold; }
             .data-table th { background: #f1f5f9; font-weight: 900; color: #0f172a; }
+            .material-summary-page { display: flex; flex-direction: column; }
+            .material-summary-title { display: flex; justify-content: space-between; align-items: center; gap: 4mm; margin-bottom: 4mm; padding: 3mm 4mm; background: #f8fafc; border: 1pt solid #cbd5e1; border-radius: 3mm; font-weight: 900; color: #0f172a; }
+            .material-summary-page .data-table { margin-top: 0; table-layout: fixed; }
+            .material-summary-page .data-table th, .material-summary-page .data-table td { padding: 4px 5px; font-size: 8.5pt; line-height: 1.25; }
+            .material-summary-page .data-table th:nth-child(2), .material-summary-page .data-table td:nth-child(2) { width: 42mm; }
+            .material-summary-page .data-table td:nth-child(2) { text-align: right; }
+            .material-summary-page .data-table tr { break-inside: avoid; page-break-inside: avoid; }
+            .count-present { color: #047857; background: #ecfdf5; }
+            .count-absent { color: #b91c1c; background: #fef2f2; }
+            .count-late { color: #b45309; background: #fffbeb; }
+            .student-absent td { background: #fef2f2 !important; color: #991b1b; border-color: #fecaca; }
+            .student-late td { background: #fffbeb !important; color: #92400e; border-color: #fde68a; }
+            .status-pill { display: inline-block; min-width: 18mm; padding: 1.5mm 2mm; border-radius: 99px; font-size: 7.5pt; font-weight: 900; }
+            .status-present { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+            .status-absent { background: #dc2626; color: white; border: 1px solid #991b1b; }
+            .status-late { background: #f59e0b; color: white; border: 1px solid #b45309; }
+            .signature-footer { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 30mm; padding: 8mm 12mm 0; font-weight: 900; text-align: center; color: #0f172a; break-inside: avoid; page-break-inside: avoid; }
+            .signature-title { font-size: 11pt; text-decoration: underline; text-underline-offset: 4px; margin-bottom: 7mm; }
+            .signature-name { min-height: 6mm; font-size: 10pt; }
+            .signature-line { margin-top: 5mm; letter-spacing: 1px; }
             
             .footer { position: absolute; bottom: 15mm; left: 15mm; right: 15mm; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
             
-            .student-table-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+            .student-table-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; }
+            .student-table-container .data-table th, .student-table-container .data-table td { font-size: 8.5pt; padding: 5px; line-height: 1.25; }
+            .student-table-container .data-table td:nth-child(2) { text-align: right; }
           }
           @media screen {
             .print-only-container { display: none; }
@@ -140,11 +219,7 @@ export const MasterPortfolio: React.FC<Props> = ({
 
         {/* الفهرس وإحصائيات عامة */}
         <div className="portfolio-page">
-          <div className="content-header">
-            <div style={{textAlign: 'right', fontWeight: 'bold'}}>المملكة العربية السعودية<br/>وزارة التعليم</div>
-            <div className="content-title">إحصائيات الكنترول العامة</div>
-            <div className="content-info">تاريخ الطباعة:<br/>{printDate}</div>
-          </div>
+          <OfficialPortfolioHeader title="إحصائيات الكنترول العامة" />
           
           <div className="stats-grid">
             <div className="stat-box">
@@ -191,11 +266,7 @@ export const MasterPortfolio: React.FC<Props> = ({
 
         {/* كشف الغياب */}
         <div className="portfolio-page">
-          <div className="content-header">
-            <div style={{textAlign: 'right', fontWeight: 'bold'}}>المملكة العربية السعودية<br/>وزارة التعليم</div>
-            <div className="content-title">كشف حالات الغياب الكلي</div>
-            <div className="content-info">تاريخ الطباعة:<br/>{printDate}</div>
-          </div>
+          <OfficialPortfolioHeader title="كشف حالات الغياب والتأخير الكلي" />
           
           <table className="data-table">
             <thead>
@@ -240,11 +311,7 @@ export const MasterPortfolio: React.FC<Props> = ({
         
         {/* التقارير الميدانية */}
         <div className="portfolio-page">
-          <div className="content-header">
-            <div style={{textAlign: 'right', fontWeight: 'bold'}}>المملكة العربية السعودية<br/>وزارة التعليم</div>
-            <div className="content-title">سجل التقارير الميدانية للملاحظين</div>
-            <div className="content-info">تاريخ الطباعة:<br/>{printDate}</div>
-          </div>
+          <OfficialPortfolioHeader title="سجل التقارير الميدانية للملاحظين" />
           
           <table className="data-table">
             <thead>
@@ -311,15 +378,17 @@ export const MasterPortfolio: React.FC<Props> = ({
            return (
              <React.Fragment key={exam.id}>
                {/* تقرير المادة العام (التقرير اليومي للمادة) */}
-               <div className="portfolio-page">
-                 <div className="content-header">
-                   <div style={{textAlign: 'right', fontWeight: 'bold'}}>المملكة العربية السعودية<br/>وزارة التعليم</div>
-                   <div className="content-title">التقرير الشامل للجان المادة</div>
-                   <div className="content-info">المادة: {exam.subject}<br/>التاريخ: {new Date(exam.exam_date).toLocaleDateString('ar-SA')}</div>
-                 </div>
+               <div className="portfolio-page material-summary-page">
+                 <OfficialPortfolioHeader
+                   title="التقرير الشامل للجان المادة"
+                   meta={<>{exam.subject}<br />{new Date(exam.exam_date).toLocaleDateString('ar-SA')}</>}
+                 />
                  
-                 <div style={{marginBottom: '15px', fontWeight: 'bold', fontSize: '16px'}}>
-                    الصف / الصفوف: {examGrades.join(' ، ')} | الفترة: {exam.period}
+                 <div className="material-summary-title">
+                    <span>المادة: {exam.subject}</span>
+                    <span>الصف / الصفوف: {examGrades.length ? examGrades.join(' ، ') : 'كل الصفوف'}</span>
+                    <span>الفترة: {exam.period}</span>
+                    <span>عدد اللجان: {examCommittees.length}</span>
                  </div>
 
                  <table className="data-table">
@@ -358,9 +427,9 @@ export const MasterPortfolio: React.FC<Props> = ({
                             <td style={{fontFamily: 'monospace'}}>{safeTime(closeLog?.time)}</td>
                             <td style={{fontFamily: 'monospace'}}>{safeTime(receiptLog?.time)}</td>
                             <td>{comRequests.length}</td>
-                            <td>{presentCount}</td>
-                            <td>{comAbsences.length}</td>
-                            <td>{comLates.length}</td>
+                            <td className="count-present">{presentCount}</td>
+                            <td className="count-absent">{comAbsences.length}</td>
+                            <td className="count-late">{comLates.length}</td>
                           </tr>
                         );
                      })}
@@ -370,11 +439,7 @@ export const MasterPortfolio: React.FC<Props> = ({
                    </tbody>
                  </table>
 
-                 <div style={{marginTop: '50px', display: 'flex', justifyContent: 'space-around', fontWeight: 'bold'}}>
-                    <div style={{textAlign: 'center'}}>مستلم المظاريف<br/><br/>______________________</div>
-                    <div style={{textAlign: 'center'}}>رئيس لجان الكنترول<br/><br/>______________________</div>
-                 </div>
-                 <div className="footer">تم إنشاء هذا الملف آلياً عبر نظام الكنترول الرقمي - مدرسة عماد الدين زنكي</div>
+                 <SignatureFooter />
                </div>
 
                {/* كشوف الطلاب لكل لجنة داخل هذه المادة */}
@@ -388,31 +453,38 @@ export const MasterPortfolio: React.FC<Props> = ({
 
                  return (
                    <div className="portfolio-page" key={`${exam.id}-students-${cNum}`}>
-                     <div className="content-header">
-                       <div style={{textAlign: 'right', fontWeight: 'bold'}}>المملكة العربية السعودية<br/>وزارة التعليم</div>
-                       <div className="content-title">كشف مناداة ومطابقة الطلاب</div>
-                       <div className="content-info">لجنة: {cNum}<br/>المادة: {exam.subject}</div>
-                     </div>
+                     <OfficialPortfolioHeader
+                       title="كشف مناداة ومطابقة الطلاب"
+                       meta={<>لجنة: {cNum}<br />المادة: {exam.subject}</>}
+                     />
                      
                      <div className="student-table-container">
                        <table className="data-table" style={{marginTop: 0}}>
                          <thead>
-                           <tr>
-                             <th style={{width: '40px'}}>م</th>
-                             <th>اسم الطالب</th>
-                             <th style={{width: '60px'}}>المقعد</th>
-                           </tr>
-                         </thead>
-                         <tbody>
-                           {col1.map((st, i) => (
-                             <tr key={st.id}>
-                               <td>{i + 1}</td>
-                               <td>{st.name}</td>
-                               <td>{st.seating_number || '-'}</td>
-                             </tr>
-                           ))}
-                         </tbody>
-                       </table>
+                          <tr>
+                            <th style={{width: '40px'}}>م</th>
+                            <th>اسم الطالب</th>
+                            <th style={{width: '60px'}}>المقعد</th>
+                            <th style={{width: '72px'}}>الحالة</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {col1.map((st, i) => {
+                            const status = getStudentExamStatus(st, cNum, exam.exam_date, exam.period);
+                            const rowClass = status?.type === 'ABSENT' ? 'student-absent' : status?.type === 'LATE' ? 'student-late' : '';
+                            const statusClass = status?.type === 'ABSENT' ? 'status-absent' : status?.type === 'LATE' ? 'status-late' : 'status-present';
+                            const statusText = status?.type === 'ABSENT' ? 'غائب' : status?.type === 'LATE' ? 'متأخر' : 'حاضر';
+                            return (
+                              <tr key={st.id} className={rowClass}>
+                                <td>{i + 1}</td>
+                                <td>{st.name}</td>
+                                <td>{st.seating_number || '-'}</td>
+                                <td><span className={`status-pill ${statusClass}`}>{statusText}</span></td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
 
                        {col2.length > 0 ? (
                          <table className="data-table" style={{marginTop: 0}}>
@@ -421,22 +493,30 @@ export const MasterPortfolio: React.FC<Props> = ({
                                <th style={{width: '40px'}}>م</th>
                                <th>اسم الطالب</th>
                                <th style={{width: '60px'}}>المقعد</th>
+                               <th style={{width: '72px'}}>الحالة</th>
                              </tr>
                            </thead>
                            <tbody>
-                             {col2.map((st, i) => (
-                               <tr key={st.id}>
-                                 <td>{i + 1 + half}</td>
-                                 <td>{st.name}</td>
-                                 <td>{st.seating_number || '-'}</td>
-                               </tr>
-                             ))}
+                             {col2.map((st, i) => {
+                               const status = getStudentExamStatus(st, cNum, exam.exam_date, exam.period);
+                               const rowClass = status?.type === 'ABSENT' ? 'student-absent' : status?.type === 'LATE' ? 'student-late' : '';
+                               const statusClass = status?.type === 'ABSENT' ? 'status-absent' : status?.type === 'LATE' ? 'status-late' : 'status-present';
+                               const statusText = status?.type === 'ABSENT' ? 'غائب' : status?.type === 'LATE' ? 'متأخر' : 'حاضر';
+                               return (
+                                 <tr key={st.id} className={rowClass}>
+                                   <td>{i + 1 + half}</td>
+                                   <td>{st.name}</td>
+                                   <td>{st.seating_number || '-'}</td>
+                                   <td><span className={`status-pill ${statusClass}`}>{statusText}</span></td>
+                                 </tr>
+                               );
+                             })}
                            </tbody>
                          </table>
                        ) : <div></div>}
                      </div>
 
-                     <div className="footer">تم إنشاء هذا الملف آلياً عبر نظام الكنترول الرقمي - مدرسة عماد الدين زنكي</div>
+                     <div className="footer">تم إنشاء هذا الكشف آلياً عبر نظام الكنترول الرقمي - مدرسة عماد الدين زنكي</div>
                    </div>
                  );
                })}

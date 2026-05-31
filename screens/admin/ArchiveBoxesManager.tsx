@@ -267,7 +267,6 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
     );
     const totalStudents = boxStudents.length;
     const labelStats = getBoxStats(box);
-    const labelProctors = getBoxProctorNames(box);
 
     printWindow.document.write(`<!DOCTYPE html>
 <html dir="rtl" lang="ar">
@@ -276,26 +275,34 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
   <title>ملصق الصندوق ${box.box_number}</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet"/>
   <style>
-    *{margin:0;padding:0;box-sizing:border-box;}
+    @page{size:A4 portrait;margin:10mm;}
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    html{background:#fff;}
     body{
       font-family:'Cairo',sans-serif;
-      background:#f0f4ff;
+      background:#e5e7eb;
       display:flex; align-items:center; justify-content:center;
-      min-height:100vh; padding:20px;
+      min-height:100vh; padding:14mm;
     }
     .card{
-      width:600px;
+      width:186mm;
+      max-width:100%;
+      min-height:265mm;
       background:#fff;
-      border-radius:28px;
+      border-radius:18px;
       overflow:hidden;
       box-shadow:0 25px 60px rgba(30,27,75,0.18);
-      border:1px solid #e0e7ff;
+      border:3px solid #1e1b4b;
+      outline:1.5px solid #c7d2fe;
+      outline-offset:-8px;
+      display:flex;
+      flex-direction:column;
     }
 
     /* ── HEADER ── */
     .hdr{
       background:linear-gradient(135deg,#1e1b4b 0%,#3730a3 50%,#4f46e5 100%);
-      padding:22px 28px;
+      padding:18px 24px;
       display:flex; align-items:center; justify-content:space-between;
       position:relative; overflow:hidden;
     }
@@ -306,14 +313,14 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
     }
     .hdr-left{display:flex;align-items:center;gap:14px;}
     .logo-wrap{
-      width:52px;height:52px;background:white;border-radius:14px;
+      width:48px;height:48px;background:white;border-radius:14px;
       display:flex;align-items:center;justify-content:center;
       padding:4px; box-shadow:0 4px 12px rgba(0,0,0,0.2);
       flex-shrink:0;
     }
     .logo-wrap img{width:100%;height:100%;object-fit:contain;}
-    .school-name{color:rgba(255,255,255,0.95);font-weight:900;font-size:14px;line-height:1.3;}
-    .ministry{color:rgba(199,210,254,0.8);font-size:11px;font-weight:600;}
+    .school-name{color:rgba(255,255,255,0.95);font-weight:900;font-size:13px;line-height:1.3;}
+    .ministry{color:rgba(199,210,254,0.8);font-size:10px;font-weight:600;}
     .box-badge{
       background:rgba(255,255,255,0.15);
       border:1px solid rgba(255,255,255,0.2);
@@ -325,12 +332,12 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
     /* ── BIG NUMBER ── */
     .big-num-section{
       text-align:center;
-      padding:30px 28px 16px;
+      padding:22px 24px 12px;
       border-bottom:2px dashed #e0e7ff;
     }
     .big-num-label{font-size:12px;color:#94a3b8;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
     .big-num{
-      font-size:88px;font-weight:900;line-height:1;
+      font-size:76px;font-weight:900;line-height:1;
       color:#1e1b4b;letter-spacing:-3px;
       background:linear-gradient(135deg,#1e1b4b,#4338ca);
       -webkit-background-clip:text;-webkit-text-fill-color:transparent;
@@ -340,21 +347,21 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
     /* ── INFO GRID ── */
     .info-grid{
       display:grid;grid-template-columns:1fr 1fr;gap:12px;
-      padding:20px 28px 0;
+      padding:16px 24px 0;
     }
     .info-card{
       background:#f8faff;border:1.5px solid #e0e7ff;border-radius:14px;
-      padding:12px 16px;
+      padding:11px 14px;
     }
     .info-card.full{grid-column:span 2;}
     .info-label{font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:4px;letter-spacing:0.5px;}
     .info-value{font-size:15px;font-weight:900;color:#1e1b4b;}
 
     /* ── STATS ── */
-    .stats-section{padding:20px 28px 0;}
+    .stats-section{padding:16px 24px 0;}
     .stats-title{font-size:11px;color:#6366f1;font-weight:700;letter-spacing:1px;margin-bottom:10px;text-align:center;}
     .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
-    .stat-card{border-radius:14px;padding:12px 8px;text-align:center;}
+    .stat-card{border-radius:14px;padding:10px 8px;text-align:center;}
     .stat-card.blue  {background:#eff6ff;border:1.5px solid #bfdbfe;}
     .stat-card.green {background:#f0fdf4;border:1.5px solid #bbf7d0;}
     .stat-card.red   {background:#fef2f2;border:1.5px solid #fecaca;}
@@ -367,7 +374,7 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
     .stat-lbl{font-size:10px;font-weight:700;color:#64748b;margin-top:3px;}
 
     /* ── ATTENDANCE BAR ── */
-    .att-bar-wrap{padding:0 28px;margin-top:14px;}
+    .att-bar-wrap{padding:0 24px;margin-top:12px;}
     .att-bar-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
     .att-bar-label{font-size:11px;color:#64748b;font-weight:700;}
     .att-bar-pct{font-size:13px;font-weight:900;color:#4338ca;}
@@ -377,9 +384,9 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
 
     /* ── COMMITTEES ── */
     .committees{
-      margin:16px 28px 0;
+      margin:14px 24px 0;
       background:linear-gradient(135deg,#4338ca,#7c3aed);
-      border-radius:14px;padding:14px 20px;
+      border-radius:14px;padding:12px 18px;
       color:white;font-weight:900;font-size:14px;text-align:center;
       line-height:1.6;
     }
@@ -387,11 +394,13 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
     /* ── QR SECTION ── */
     .qr-section{
       display:flex;flex-direction:column;align-items:center;
-      padding:22px 28px 28px; margin-top:16px;
+      padding:18px 24px 20px; margin-top:14px;
       border-top:2px dashed #e0e7ff;
+      flex:1;
+      justify-content:center;
     }
     .qr-wrap{
-      width:180px;height:180px;background:#f8f7ff;
+      width:44mm;height:44mm;background:#f8f7ff;
       border:2px solid #e0e7ff;border-radius:20px;
       padding:10px;display:flex;align-items:center;justify-content:center;
     }
@@ -403,13 +412,24 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
     .footer-bar{
       background:#f8faff;border-top:1px solid #e0e7ff;
       padding:10px 28px;display:flex;align-items:center;justify-content:center;gap:8px;
+      margin-top:auto;
     }
     .footer-bar img{width:20px;height:20px;object-fit:contain;opacity:0.4;}
     .footer-txt{font-size:10px;color:#94a3b8;font-weight:600;}
 
     @media print{
-      body{background:white;padding:0;}
-      .card{box-shadow:none;border:2px solid #1e1b4b;width:100%;}
+      html,body{width:210mm;min-height:297mm;background:white;padding:0;}
+      body{align-items:flex-start;justify-content:center;}
+      .card{
+        width:186mm;
+        min-height:275mm;
+        box-shadow:none;
+        border:3px solid #1e1b4b !important;
+        outline:1.5px solid #c7d2fe !important;
+        outline-offset:-8px;
+        break-inside:avoid;
+        page-break-inside:avoid;
+      }
     }
   </style>
 </head>
@@ -467,9 +487,6 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
     <!-- COMMITTEES -->
     <div class="committees">
       اللجان داخل الصندوق: ${box.committees.length ? box.committees.join(' ، ') : 'لا يوجد'}
-    </div>
-    <div class="committees" style="background:linear-gradient(135deg,#0f172a,#334155);font-size:12px;">
-      المراقبون: ${labelProctors.length ? labelProctors.join(' ، ') : 'لم تسجل أسماء مراقبين لهذا الصندوق'}
     </div>
 
     <!-- QR -->
