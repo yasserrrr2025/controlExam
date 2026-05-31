@@ -621,7 +621,7 @@ const App: React.FC = () => {
 
   const boxReportId = params.get('box_report');
   if (boxReportId) {
-    return <PublicBoxReport boxId={boxReportId} students={students} supervisions={supervisions} deliveryLogs={deliveryLogs} users={users} examSchedule={examSchedule} systemConfig={systemConfig} />;
+    return <PublicBoxReport boxId={boxReportId} students={students} supervisions={supervisions} deliveryLogs={deliveryLogs} users={users} examSchedule={examSchedule} systemConfig={systemConfig} absences={absences} />;
   }
 
   const isTv2Public = params.get('tv2');

@@ -101,6 +101,23 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
     try {
       const data = await db.archiveBoxes.getAll();
       setBoxes(data as ArchiveBox[]);
+
+      // Auto-migrate localStorage data to Supabase if Supabase is empty
+      if ((data as any[]).length === 0) {
+        try {
+          const local = localStorage.getItem('control_archive_boxes');
+          if (local) {
+            const localBoxes: ArchiveBox[] = JSON.parse(local);
+            if (localBoxes.length > 0) {
+              for (const box of localBoxes) {
+                await db.archiveBoxes.upsert(box);
+              }
+              showAlert(`✅ تم نقل ${localBoxes.length} صندوق من الجهاز إلى قاعدة البيانات`);
+              setBoxes(localBoxes);
+            }
+          }
+        } catch {}
+      }
     } catch (e: any) {
       showAlert('فشل تحميل الصناديق: ' + e.message, 'error');
     } finally {
@@ -108,7 +125,28 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
     }
   };
 
+  // Manual migrate button handler
+  const handleMigrateFromLocal = async () => {
+    try {
+      const local = localStorage.getItem('control_archive_boxes');
+      if (!local) { showAlert('لا توجد صناديق محلية للنقل', 'error'); return; }
+      const localBoxes: ArchiveBox[] = JSON.parse(local);
+      if (localBoxes.length === 0) { showAlert('لا توجد صناديق محلية للنقل', 'error'); return; }
+      setSaving(true);
+      for (const box of localBoxes) {
+        await db.archiveBoxes.upsert(box);
+      }
+      await loadBoxes();
+      showAlert(`✅ تم رفع ${localBoxes.length} صندوق إلى قاعدة البيانات بنجاح`);
+    } catch (e: any) {
+      showAlert('فشل النقل: ' + e.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   useEffect(() => { loadBoxes(); }, []);
+
 
   const handleAddBox = async () => {
     if (!form.box_number || !form.grade || !form.subject || !form.exam_date) {
@@ -170,63 +208,325 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
   };
 
   const handlePrintLabel = (box: ArchiveBox) => {
-    const printWindow = window.open('', '', 'width=800,height=600');
+    const printWindow = window.open('', '', 'width=900,height=1100');
     if (!printWindow) return;
+
     const reportUrl = `${window.location.origin}/?box_report=${box.id}`;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(reportUrl)}&color=000000`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(reportUrl)}&color=1e1b4b&bgcolor=f8f7ff`;
     const dateStr = new Date(box.exam_date).toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    printWindow.document.write(`
-      <html dir="rtl">
-        <head>
-          <title>ملصق صندوق ${box.box_number}</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
-            * { margin:0; padding:0; box-sizing:border-box; }
-            body { font-family:'Cairo',sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; background:#fff; }
-            .card { width:580px; border:4px solid #1e293b; border-radius:24px; overflow:hidden; }
-            .header { background:#1e293b; color:white; padding:20px 28px; display:flex; justify-content:space-between; align-items:center; }
-            .header-title { font-size:22px; font-weight:900; }
-            .header-school { font-size:13px; opacity:0.7; text-align:left; }
-            .box-num { text-align:center; padding:24px 0 10px; }
-            .box-num-label { font-size:13px; color:#64748b; font-weight:bold; }
-            .box-num-value { font-size:90px; font-weight:900; line-height:1; color:#1e293b; letter-spacing:-4px; }
-            .details { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:0 28px 20px; }
-            .detail { background:#f8fafc; border-radius:12px; padding:12px 16px; }
-            .detail-label { font-size:11px; color:#94a3b8; font-weight:bold; margin-bottom:4px; }
-            .detail-value { font-size:16px; font-weight:900; color:#1e293b; }
-            .committees-bar { background:#4f46e5; color:white; margin:0 28px 20px; border-radius:12px; padding:14px 20px; text-align:center; font-size:18px; font-weight:900; }
-            .qr-section { text-align:center; padding:0 28px 28px; }
-            .qr-section img { width:160px; height:160px; border:2px solid #e2e8f0; border-radius:12px; padding:8px; }
-            .qr-hint { font-size:11px; color:#94a3b8; margin-top:8px; }
-            @media print { body { height:auto; } }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="header">
-              <div class="header-title">📦 صندوق أرشيف اختبارات</div>
-              <div class="header-school">مدرسة عماد الدين زنكي المتوسطة<br/>وزارة التعليم - المملكة العربية السعودية</div>
-            </div>
-            <div class="box-num">
-              <div class="box-num-label">رقم الصندوق</div>
-              <div class="box-num-value">${box.box_number}</div>
-            </div>
-            <div class="details">
-              <div class="detail"><div class="detail-label">المادة</div><div class="detail-value">${box.subject}</div></div>
-              <div class="detail"><div class="detail-label">الصف الدراسي</div><div class="detail-value">${box.grade}</div></div>
-              <div class="detail" style="grid-column:span 2"><div class="detail-label">تاريخ الاختبار</div><div class="detail-value">${dateStr}</div></div>
-            </div>
-            <div class="committees-bar">اللجان داخل الصندوق: ${box.committees.length ? box.committees.join(' ، ') : 'لا يوجد'}</div>
-            <div class="qr-section">
-              <img src="${qrUrl}" alt="QR" onload="setTimeout(()=>{window.print();window.close();},400)" />
-              <div class="qr-hint">امسح الكود QR للاطلاع على تقرير الصندوق الكامل</div>
-            </div>
-          </div>
-        </body>
-      </html>
-    `);
+    const LOGO = 'https://www.raed.net/img?id=1488645';
+
+    // ── Calculate stats ──
+    const eqCom = (a: any, b: any) => String(a) === String(b);
+    const matchDate = (iso: string | undefined | null, date: string) => {
+      if (!iso || !date) return false;
+      const s = String(iso);
+      if (s.startsWith(date)) return true;
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return false;
+        const local = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        return local === date;
+      } catch { return false; }
+    };
+
+    const boxStudents = students.filter(s =>
+      s.grade === box.grade && box.committees.some(c => eqCom(s.committee_number, c))
+    );
+    const boxAbsences = (users as any[]).length >= 0
+      ? [] // absences not in scope here, computed from props below
+      : [];
+
+    // absences prop is available via closure from props
+    const absData = typeof (window as any).__absences !== 'undefined'
+      ? (window as any).__absences
+      : [];
+
+    const totalStudents = boxStudents.length;
+    // We don't have absences directly here — show students count only
+    // The stats will be pulled from window if available
+    const attendancePct = 100; // placeholder if no absences
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8"/>
+  <title>ملصق الصندوق ${box.box_number}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{
+      font-family:'Cairo',sans-serif;
+      background:#f0f4ff;
+      display:flex; align-items:center; justify-content:center;
+      min-height:100vh; padding:20px;
+    }
+    .card{
+      width:600px;
+      background:#fff;
+      border-radius:28px;
+      overflow:hidden;
+      box-shadow:0 25px 60px rgba(30,27,75,0.18);
+      border:1px solid #e0e7ff;
+    }
+
+    /* ── HEADER ── */
+    .hdr{
+      background:linear-gradient(135deg,#1e1b4b 0%,#3730a3 50%,#4f46e5 100%);
+      padding:22px 28px;
+      display:flex; align-items:center; justify-content:space-between;
+      position:relative; overflow:hidden;
+    }
+    .hdr::before{
+      content:'';position:absolute;top:-40px;left:-40px;
+      width:200px;height:200px;border-radius:50%;
+      background:radial-gradient(circle,rgba(255,255,255,0.07),transparent);
+    }
+    .hdr-left{display:flex;align-items:center;gap:14px;}
+    .logo-wrap{
+      width:52px;height:52px;background:white;border-radius:14px;
+      display:flex;align-items:center;justify-content:center;
+      padding:4px; box-shadow:0 4px 12px rgba(0,0,0,0.2);
+      flex-shrink:0;
+    }
+    .logo-wrap img{width:100%;height:100%;object-fit:contain;}
+    .school-name{color:rgba(255,255,255,0.95);font-weight:900;font-size:14px;line-height:1.3;}
+    .ministry{color:rgba(199,210,254,0.8);font-size:11px;font-weight:600;}
+    .box-badge{
+      background:rgba(255,255,255,0.15);
+      border:1px solid rgba(255,255,255,0.2);
+      border-radius:14px; padding:8px 16px; text-align:left;
+    }
+    .box-badge-label{color:rgba(199,210,254,0.7);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+    .box-badge-num{color:white;font-size:22px;font-weight:900;line-height:1.2;}
+
+    /* ── BIG NUMBER ── */
+    .big-num-section{
+      text-align:center;
+      padding:30px 28px 16px;
+      border-bottom:2px dashed #e0e7ff;
+    }
+    .big-num-label{font-size:12px;color:#94a3b8;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
+    .big-num{
+      font-size:88px;font-weight:900;line-height:1;
+      color:#1e1b4b;letter-spacing:-3px;
+      background:linear-gradient(135deg,#1e1b4b,#4338ca);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+      background-clip:text;
+    }
+
+    /* ── INFO GRID ── */
+    .info-grid{
+      display:grid;grid-template-columns:1fr 1fr;gap:12px;
+      padding:20px 28px 0;
+    }
+    .info-card{
+      background:#f8faff;border:1.5px solid #e0e7ff;border-radius:14px;
+      padding:12px 16px;
+    }
+    .info-card.full{grid-column:span 2;}
+    .info-label{font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:4px;letter-spacing:0.5px;}
+    .info-value{font-size:15px;font-weight:900;color:#1e1b4b;}
+
+    /* ── STATS ── */
+    .stats-section{padding:20px 28px 0;}
+    .stats-title{font-size:11px;color:#6366f1;font-weight:700;letter-spacing:1px;margin-bottom:10px;text-align:center;}
+    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+    .stat-card{border-radius:14px;padding:12px 8px;text-align:center;}
+    .stat-card.blue  {background:#eff6ff;border:1.5px solid #bfdbfe;}
+    .stat-card.green {background:#f0fdf4;border:1.5px solid #bbf7d0;}
+    .stat-card.red   {background:#fef2f2;border:1.5px solid #fecaca;}
+    .stat-card.amber {background:#fffbeb;border:1.5px solid #fde68a;}
+    .stat-num{font-size:26px;font-weight:900;line-height:1;}
+    .stat-num.blue  {color:#1d4ed8;}
+    .stat-num.green {color:#16a34a;}
+    .stat-num.red   {color:#dc2626;}
+    .stat-num.amber {color:#d97706;}
+    .stat-lbl{font-size:10px;font-weight:700;color:#64748b;margin-top:3px;}
+
+    /* ── ATTENDANCE BAR ── */
+    .att-bar-wrap{padding:0 28px;margin-top:14px;}
+    .att-bar-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+    .att-bar-label{font-size:11px;color:#64748b;font-weight:700;}
+    .att-bar-pct{font-size:13px;font-weight:900;color:#4338ca;}
+    .att-bar-bg{height:8px;background:#e0e7ff;border-radius:99px;overflow:hidden;}
+    .att-bar-fill{height:100%;border-radius:99px;}
+    .att-note{font-size:10px;color:#94a3b8;font-weight:600;margin-top:4px;text-align:left;}
+
+    /* ── COMMITTEES ── */
+    .committees{
+      margin:16px 28px 0;
+      background:linear-gradient(135deg,#4338ca,#7c3aed);
+      border-radius:14px;padding:14px 20px;
+      color:white;font-weight:900;font-size:14px;text-align:center;
+      line-height:1.6;
+    }
+
+    /* ── QR SECTION ── */
+    .qr-section{
+      display:flex;flex-direction:column;align-items:center;
+      padding:22px 28px 28px; margin-top:16px;
+      border-top:2px dashed #e0e7ff;
+    }
+    .qr-wrap{
+      width:180px;height:180px;background:#f8f7ff;
+      border:2px solid #e0e7ff;border-radius:20px;
+      padding:10px;display:flex;align-items:center;justify-content:center;
+    }
+    .qr-wrap img{width:100%;height:100%;object-fit:contain;border-radius:8px;}
+    .qr-hint{font-size:11px;color:#94a3b8;font-weight:600;margin-top:10px;text-align:center;}
+    .qr-url{font-size:9px;color:#cbd5e1;margin-top:3px;font-family:monospace;word-break:break-all;text-align:center;max-width:300px;}
+
+    /* ── FOOTER ── */
+    .footer-bar{
+      background:#f8faff;border-top:1px solid #e0e7ff;
+      padding:10px 28px;display:flex;align-items:center;justify-content:center;gap:8px;
+    }
+    .footer-bar img{width:20px;height:20px;object-fit:contain;opacity:0.4;}
+    .footer-txt{font-size:10px;color:#94a3b8;font-weight:600;}
+
+    @media print{
+      body{background:white;padding:0;}
+      .card{box-shadow:none;border:2px solid #1e1b4b;width:100%;}
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <!-- HEADER -->
+    <div class="hdr">
+      <div class="hdr-left">
+        <div class="logo-wrap"><img src="${LOGO}" alt="شعار"/></div>
+        <div>
+          <div class="ministry">وزارة التعليم — المملكة العربية السعودية</div>
+          <div class="school-name">مدرسة عماد الدين زنكي المتوسطة</div>
+        </div>
+      </div>
+      <div class="box-badge">
+        <div class="box-badge-label">صندوق</div>
+        <div class="box-badge-num">${box.box_number}</div>
+      </div>
+    </div>
+
+    <!-- BIG NUMBER -->
+    <div class="big-num-section">
+      <div class="big-num-label">رقم الصندوق</div>
+      <div class="big-num">${box.box_number}</div>
+    </div>
+
+    <!-- INFO GRID -->
+    <div class="info-grid">
+      <div class="info-card"><div class="info-label">📚 المادة</div><div class="info-value">${box.subject}</div></div>
+      <div class="info-card"><div class="info-label">🎓 الصف الدراسي</div><div class="info-value">${box.grade}</div></div>
+      <div class="info-card full"><div class="info-label">📅 تاريخ الاختبار</div><div class="info-value">${dateStr}</div></div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-section">
+      <div class="stats-title">📊 إحصائيات الصف — جميع اللجان في الصندوق</div>
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card blue"><div class="stat-num blue" id="s-total">${totalStudents}</div><div class="stat-lbl">إجمالي الطلاب</div></div>
+        <div class="stat-card green"><div class="stat-num green" id="s-present">—</div><div class="stat-lbl">إجمالي الحضور</div></div>
+        <div class="stat-card red"><div class="stat-num red" id="s-absent">—</div><div class="stat-lbl">إجمالي الغياب</div></div>
+        <div class="stat-card amber"><div class="stat-num amber" id="s-late">—</div><div class="stat-lbl">التأخير (من الحضور)</div></div>
+      </div>
+    </div>
+
+    <!-- ATTENDANCE BAR -->
+    <div class="att-bar-wrap">
+      <div class="att-bar-row">
+        <span class="att-bar-label">نسبة الحضور</span>
+        <span class="att-bar-pct" id="s-pct">—%</span>
+      </div>
+      <div class="att-bar-bg"><div class="att-bar-fill" id="att-fill" style="width:0%;background:linear-gradient(90deg,#16a34a,#4ade80)"></div></div>
+      <div class="att-note">* التأخير محسوب ضمن الحضور</div>
+    </div>
+
+    <!-- COMMITTEES -->
+    <div class="committees">
+      اللجان داخل الصندوق: ${box.committees.length ? box.committees.join(' ، ') : 'لا يوجد'}
+    </div>
+
+    <!-- QR -->
+    <div class="qr-section">
+      <div class="qr-wrap">
+        <img src="${qrUrl}" alt="QR Code" onload="fillStats(); setTimeout(()=>{window.print();},600);"/>
+      </div>
+      <div class="qr-hint">امسح رمز QR للاطلاع على التقرير الكامل</div>
+      <div class="qr-url">${reportUrl}</div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer-bar">
+      <img src="${LOGO}" alt=""/>
+      <span class="footer-txt">نظام الكنترول الرقمي — مدرسة عماد الدين زنكي المتوسطة</span>
+    </div>
+  </div>
+
+  <script>
+    // Try to fetch absences from Supabase to compute real stats
+    const SUPABASE_URL = 'https://upfavagxyuwnqmjgiibo.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwZmF2YWd4eXV3bnFtamdpaWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0MDQ0OTYsImV4cCI6MjA4MTk4MDQ5Nn0.AxsPO_Vw04aVuoa2KkFS_63OX1lz1yYthzBLLIkotuw';
+    const boxDate   = '${box.exam_date}';
+    const committees = ${JSON.stringify(box.committees)};
+    const totalStudents = ${totalStudents};
+
+    function matchDate(iso, date) {
+      if (!iso || !date) return false;
+      const s = String(iso);
+      if (s.startsWith(date)) return true;
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return false;
+        const local = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+        return local === date;
+      } catch { return false; }
+    }
+
+    function fillStats(absences) {
+      if (!absences || absences.length === 0) {
+        // No absences data — just show total
+        document.getElementById('s-present').textContent = totalStudents;
+        document.getElementById('s-absent').textContent = '0';
+        document.getElementById('s-late').textContent = '0';
+        document.getElementById('s-pct').textContent = '100%';
+        const fill = document.getElementById('att-fill');
+        if (fill) { fill.style.width = '100%'; }
+        return;
+      }
+      const comAbs = absences.filter(a =>
+        committees.some(c => String(c) === String(a.committee_number)) && matchDate(a.date, boxDate)
+      );
+      const absentIds = new Set(comAbs.filter(a => a.type === 'ABSENT').map(a => a.student_id));
+      const lateIds   = new Set(comAbs.filter(a => a.type === 'LATE').map(a => a.student_id));
+      const totalAbsent  = absentIds.size;
+      const totalLate    = lateIds.size;
+      const totalPresent = totalStudents - totalAbsent;
+      const pct = totalStudents > 0 ? Math.round((totalPresent/totalStudents)*100) : 100;
+      const color = pct >= 90 ? 'linear-gradient(90deg,#16a34a,#4ade80)'
+                  : pct >= 70 ? 'linear-gradient(90deg,#d97706,#fbbf24)'
+                              : 'linear-gradient(90deg,#dc2626,#f87171)';
+      document.getElementById('s-present').textContent = totalPresent;
+      document.getElementById('s-absent').textContent  = totalAbsent;
+      document.getElementById('s-late').textContent    = totalLate;
+      document.getElementById('s-pct').textContent     = pct + '%';
+      const fill = document.getElementById('att-fill');
+      if (fill) { fill.style.width = pct + '%'; fill.style.background = color; }
+    }
+
+    // Fetch absences for this date from Supabase
+    fetch(SUPABASE_URL + '/rest/v1/absences?select=student_id,committee_number,type,date&date=gte.' + boxDate + 'T00:00:00Z&date=lte.' + boxDate + 'T23:59:59Z', {
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }
+    })
+    .then(r => r.json())
+    .then(data => { fillStats(Array.isArray(data) ? data : []); })
+    .catch(() => { fillStats([]); });
+  </script>
+</body>
+</html>`);
     printWindow.document.close();
   };
+
 
   const filteredBoxes = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -261,6 +561,9 @@ export const ArchiveBoxesManager: React.FC<Props> = ({
         <div className="flex items-center gap-4 relative z-10">
           <button onClick={loadBoxes} className="p-4 bg-white/10 hover:bg-white/20 rounded-2xl transition-all" title="تحديث">
             <RefreshCw size={22} />
+          </button>
+          <button onClick={handleMigrateFromLocal} className="p-4 bg-amber-500/20 hover:bg-amber-500/40 rounded-2xl transition-all text-amber-200 font-bold text-sm flex items-center gap-2" title="نقل البيانات القديمة من هذا الجهاز إلى قاعدة البيانات">
+            <Archive size={20} /> رفع القديم
           </button>
           <button onClick={() => setIsAdding(true)} className="bg-white text-slate-950 px-8 py-4 rounded-[2rem] font-black flex items-center gap-3 hover:bg-indigo-50 transition-all shadow-xl active:scale-95">
             <Plus size={24} /> إضافة صندوق جديد
