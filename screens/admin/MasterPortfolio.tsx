@@ -190,34 +190,70 @@ export const MasterPortfolio: React.FC<Props> = ({
     </div>
   );
 
+  const [activeTab, setActiveTab] = React.useState<string>(publicMode ? 'COVER' : 'ALL');
+
   return (
-    <div className={`space-y-8 animate-fade-in text-right ${publicMode ? 'live-portfolio-public min-h-screen bg-slate-100 px-3 py-5 md:px-8' : ''}`}>
-      <div className={`bg-slate-950 p-10 rounded-[3.5rem] shadow-2xl relative overflow-hidden text-white flex flex-col md:flex-row items-center justify-between gap-6 border-b-8 border-amber-500 ${publicMode ? '' : 'no-print'}`}>
-        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/20 blur-[100px] rounded-full"></div>
-        <div className="flex items-center gap-6 relative z-10">
-          <div className="bg-amber-500 p-5 rounded-3xl shadow-xl text-slate-950">{publicMode ? <Sparkles size={40} /> : <BookOpen size={40} />}</div>
+    <div className={`space-y-8 animate-fade-in text-right ${publicMode ? 'live-portfolio-public min-h-screen bg-slate-100 pb-20' : ''}`}>
+      {publicMode && (
+        <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-200 p-3 overflow-x-auto print:hidden no-scrollbar">
+          <div className="flex gap-2 min-w-max">
+            <button 
+              onClick={() => setActiveTab('COVER')}
+              className={`px-4 py-2 rounded-xl text-sm font-black transition-all ${activeTab === 'COVER' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              الغلاف والإحصائيات
+            </button>
+            {examSchedule.map(e => (
+              <button 
+                key={e.id}
+                onClick={() => setActiveTab(e.id)}
+                className={`px-4 py-2 rounded-xl text-sm font-black transition-all ${activeTab === e.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >
+                {e.subject} ({new Date(e.exam_date).toLocaleDateString('ar-SA', {weekday:'short'})})
+              </button>
+            ))}
+            <button 
+              onClick={() => {
+                if(window.confirm('تحذير: عرض جميع الصفحات قد يتسبب في بطء أو إغلاق المتصفح على الجوال. هل تود المتابعة؟')) {
+                  setActiveTab('ALL');
+                }
+              }}
+              className={`px-4 py-2 rounded-xl text-sm font-black transition-all ${activeTab === 'ALL' ? 'bg-amber-500 text-white shadow-md' : 'bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100'}`}
+            >
+              عرض كامل الملف (للطباعة)
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className={`bg-slate-950 p-8 md:p-10 rounded-b-[2rem] md:rounded-[3.5rem] shadow-2xl relative overflow-hidden text-white flex flex-col md:flex-row items-center justify-between gap-6 border-b-8 border-amber-500 ${publicMode ? 'mx-0 rounded-none md:mx-4' : 'no-print'}`}>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/20 blur-[100px] rounded-full pointer-events-none"></div>
+        <div className="flex flex-col md:flex-row items-center md:items-start text-center md:text-right gap-6 relative z-10">
+          <div className="bg-gradient-to-br from-amber-400 to-amber-600 p-5 rounded-[2rem] shadow-xl text-slate-950 shrink-0">
+            {publicMode ? <Sparkles size={40} /> : <BookOpen size={40} />}
+          </div>
           <div>
-            <h2 className="text-4xl font-black tracking-tighter">ملف إنجاز الاختبارات الشامل</h2>
-            <p className="text-amber-200 font-bold mt-1">
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-2">ملف إنجاز الاختبارات الشامل</h2>
+            <p className="text-amber-200 font-bold text-sm md:text-base leading-relaxed max-w-xl">
               {publicMode ? 'نسخة حية محدثة تلقائيًا للمشرفين وإدارة التعليم بمحافظة جدة' : 'تصدير كتاب PDF متكامل يحتوي على جميع بيانات وإحصائيات الاختبارات الميدانية'}
             </p>
           </div>
         </div>
         {!publicMode ? (
-          <div className="flex flex-col gap-3 relative z-10">
-            <button onClick={handlePrint} className="bg-white text-slate-950 px-8 py-4 rounded-[2rem] font-black flex items-center gap-3 hover:bg-amber-50 transition-all shadow-xl active:scale-95">
+          <div className="flex flex-col gap-3 relative z-10 w-full md:w-auto">
+            <button onClick={handlePrint} className="bg-white text-slate-950 px-8 py-4 rounded-[2rem] font-black flex items-center justify-center gap-3 hover:bg-amber-50 transition-all shadow-xl active:scale-95">
               <Printer size={24}/> طباعة / تصدير PDF
             </button>
             <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <p className="text-[11px] font-black text-slate-400">رابط ملف الإنجاز الحي</p>
-              <p className="mt-1 text-left text-xs font-bold text-amber-100" dir="ltr">{livePortfolioUrl}</p>
+              <p className="text-[11px] font-black text-slate-400 mb-1">رابط ملف الإنجاز الحي</p>
+              <p className="text-left text-xs font-bold text-amber-100 truncate w-full max-w-[250px] md:max-w-none" dir="ltr">{livePortfolioUrl}</p>
             </div>
           </div>
         ) : (
-          <div className="relative z-10 rounded-3xl border border-white/10 bg-white/5 p-5 text-center">
+          <div className="relative z-10 rounded-3xl border border-white/10 bg-white/5 p-5 text-center w-full md:w-auto">
             <LinkIcon size={24} className="mx-auto mb-2 text-amber-300" />
-            <p className="text-xs font-black text-slate-300">رابط حي قابل للمشاركة</p>
-            <p className="mt-2 text-xs font-bold text-amber-100" dir="ltr">{livePortfolioUrl}</p>
+            <p className="text-xs font-black text-slate-300 mb-1">رابط حي قابل للمشاركة</p>
+            <p className="text-xs font-bold text-amber-100 truncate w-full max-w-[250px] md:max-w-none mx-auto" dir="ltr">{livePortfolioUrl}</p>
           </div>
         )}
       </div>
@@ -389,11 +425,13 @@ export const MasterPortfolio: React.FC<Props> = ({
         `}} />
 
         {/* الغلاف */}
-        <div className="portfolio-page cover-page">
-           <img src={APP_CONFIG.LOGO_URL} alt="الشعار" className="logo-large" />
-           <h1 className="cover-title">ملف إنجاز أعمال الاختبارات</h1>
-           <h2 className="cover-subtitle">نظام الكنترول الرقمي الموحد</h2>
-           <div className="cover-details">
+        {(activeTab === 'ALL' || activeTab === 'COVER') && (
+          <>
+            <div className="portfolio-page cover-page">
+               <img src={APP_CONFIG.LOGO_URL} alt="الشعار" className="logo-large" />
+               <h1 className="cover-title">ملف إنجاز أعمال الاختبارات</h1>
+               <h2 className="cover-subtitle">نظام الكنترول الرقمي الموحد</h2>
+             <div className="cover-details">
               <p>المملكة العربية السعودية</p>
               <p>وزارة التعليم</p>
               <p>إدارة التعليم بمحافظة جدة</p>
@@ -544,9 +582,12 @@ export const MasterPortfolio: React.FC<Props> = ({
           
           <SignatureFooter />
         </div>
+          </>
+        )}
 
         {/* تقارير المواد وكشوف الطلاب */}
         {examSchedule.map((exam, examIdx) => {
+           if (activeTab !== 'ALL' && activeTab !== exam.id) return null;
            const examGrades = exam.grades || [];
            const schedCommittees = exam.committees || [];
            // committees from students matching grades (if grades specified)
