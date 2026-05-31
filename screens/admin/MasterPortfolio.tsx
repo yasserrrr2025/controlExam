@@ -144,8 +144,12 @@ export const MasterPortfolio: React.FC<Props> = ({
                <div className="stat-label">المراقبين المكلفين</div>
             </div>
             <div className="stat-box">
-               <div className="stat-value">{absences.length}</div>
+               <div className="stat-value">{absences.filter(a => a.type === 'ABSENT').length}</div>
                <div className="stat-label">إجمالي حالات الغياب المسجلة</div>
+            </div>
+            <div className="stat-box">
+               <div className="stat-value">{absences.filter(a => a.type === 'LATE').length}</div>
+               <div className="stat-label">إجمالي حالات التأخير المسجلة</div>
             </div>
             <div className="stat-box">
                <div className="stat-value">{committeeReports.length}</div>
@@ -253,7 +257,7 @@ export const MasterPortfolio: React.FC<Props> = ({
            const schedCommittees = exam.committees || [];
            const examStudents = students.filter(s => examGrades.includes(s.grade) && s.committee_number);
            const studCommittees = examStudents.map(s => String(s.committee_number));
-           const supvCommittees = supervisions.filter(s => s.date === exam.exam_date && s.period === exam.period).map(s => String(s.committee_number));
+           const supvCommittees = supervisions.filter(s => matchesDate(s.date, exam.exam_date) && String(s.period) === String(exam.period)).map(s => String(s.committee_number));
            const examCommittees = Array.from(new Set([...schedCommittees, ...studCommittees, ...supvCommittees])).filter(Boolean).sort((a,b)=>Number(a)-Number(b));
 
            return (
@@ -285,10 +289,10 @@ export const MasterPortfolio: React.FC<Props> = ({
                    </thead>
                    <tbody>
                      {examCommittees.map(cNum => {
-                        const supvs = supervisions.filter(s => s.committee === cNum && s.date === exam.exam_date && s.period === exam.period);
+                        const supvs = supervisions.filter(s => String(s.committee_number) === String(cNum) && matchesDate(s.date, exam.exam_date) && String(s.period) === String(exam.period));
                         const proctors = supvs.map(s => {
-                           const u = users.find(u => u.national_id === s.proctor_id);
-                           return u ? u.full_name : s.proctor_id;
+                           const u = users.find(u => u.national_id === s.teacher_id || u.id === s.teacher_id);
+                           return u ? u.full_name : s.teacher_id;
                         });
                         
                         const closeLog = deliveryLogs.find(l => String(l?.committee_number) === String(cNum) && matchesDate(l?.time, exam.exam_date) && l?.type === 'RECEIVE');
