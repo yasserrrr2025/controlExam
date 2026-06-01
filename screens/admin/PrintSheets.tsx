@@ -295,8 +295,8 @@ const MarksSheetPage = ({
     user.role === 'CONTROL' &&
     (grade === 'كل الصفوف' || (user.assigned_grades || []).map(String).includes(String(grade)))
   ) || users.find(user => user.role === 'CONTROL');
-  const subjectTeacherName = firstRealName(pendingReceiveLog?.proctor_name, resolveUserName(users, supervision?.teacher_id));
-  const reviewerName = firstRealName(controlForGrade?.full_name, confirmedReceiveLog?.teacher_name);
+  const subjectTeacherName = '';
+  const reviewerName = '';
   const controlHeadName = users.find(user => user.role === 'CONTROL_MANAGER')?.full_name || '';
 
   return (
