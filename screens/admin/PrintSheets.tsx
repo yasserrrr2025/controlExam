@@ -25,10 +25,15 @@ type SheetPage = {
   date?: string;
   period?: number;
   groupMode: GroupMode;
+  part?: number;
+  parts?: number;
 };
 
 const SCHOOL_NAME = 'مدرسة عماد الدين زنكي المتوسطة';
 const DEFAULT_ACADEMIC_YEAR = '1447 / 1448';
+const SIGNATURE_SINGLE_COLUMN_LIMIT = 34;
+const SIGNATURE_ROWS_PER_PAGE = 68;
+const MARK_ROWS_PER_PAGE = 29;
 
 const dateKey = (value?: string | null) => String(value || '').slice(0, 10);
 const sameDate = (value?: string | null, date?: string | null) => !!value && !!date && dateKey(value) === dateKey(date);
@@ -48,6 +53,15 @@ const sortBySeat = (a: Student, b: Student) =>
 
 const sortByName = (a: Student, b: Student) =>
   a.name.localeCompare(b.name, 'ar') || sortBySeat(a, b);
+
+const chunkRows = <T,>(rows: T[], size: number) => {
+  if (!rows.length) return [[] as T[]];
+  const chunks: T[][] = [];
+  for (let index = 0; index < rows.length; index += size) {
+    chunks.push(rows.slice(index, index + size));
+  }
+  return chunks;
+};
 
 const resolveUserName = (users: User[], teacherId?: string) =>
   users.find(user => user.id === teacherId || user.national_id === teacherId)?.full_name || '';
@@ -129,6 +143,22 @@ const SignatureSheetPage = ({
   supervisions?: Supervision[];
 }) => {
   const rows = students;
+  const useTwoColumn = rows.length > SIGNATURE_SINGLE_COLUMN_LIMIT;
+  const splitIndex = Math.ceil(rows.length / 2);
+  const rightRows = rows.slice(0, splitIndex);
+  const leftRows = rows.slice(splitIndex);
+  const twoColumnRows = Array.from({ length: splitIndex });
+
+  const renderSignatureCells = (student?: Student, fallbackIndex = 0) => (
+    <>
+      <td>{student ? fallbackIndex + 1 : ''}</td>
+      <td className="name-cell">{student?.name || ''}</td>
+      <td>{student?.grade || ''}</td>
+      <td>{student?.section || ''}</td>
+      <td>{student?.seating_number || ''}</td>
+      <td className="sign-cell"></td>
+    </>
+  );
 
   const supervision = supervisions.find(item =>
     String(item.committee_number) === String(committee) &&
@@ -158,31 +188,57 @@ const SignatureSheetPage = ({
         <span>عدد الطلاب: {students.length}</span>
       </div>
 
-      <table className="sheet-table signature-table single-signature-table">
-        <thead>
-          <tr>
-            <th>م</th>
-            <th>اسم الطالب</th>
-            <th>الصف</th>
-            <th>الفصل</th>
-            <th>المقعد</th>
-            <th>التوقيع</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((student, index) => (
-            <tr key={student.id || index} className={!student.name ? 'blank-row' : ''}>
-              <td>{student.name ? index + 1 : ''}</td>
-              <td className="name-cell">{student.name}</td>
-              <td>{student.grade}</td>
-              <td>{student.section}</td>
-              <td>{student.seating_number}</td>
-              <td className="sign-cell"></td>
+      {useTwoColumn ? (
+        <table className="sheet-table signature-table two-column-signature-table">
+          <thead>
+            <tr>
+              <th>م</th>
+              <th>اسم الطالب</th>
+              <th>الصف</th>
+              <th>الفصل</th>
+              <th>المقعد</th>
+              <th>التوقيع</th>
+              <th className="splitter"></th>
+              <th>م</th>
+              <th>اسم الطالب</th>
+              <th>الصف</th>
+              <th>الفصل</th>
+              <th>المقعد</th>
+              <th>التوقيع</th>
             </tr>
-          ))}
-          {!students.length && <tr><td colSpan={6}>لا يوجد طلاب في هذا الكشف.</td></tr>}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {twoColumnRows.map((_, index) => (
+              <tr key={`signature-row-${index}`}>
+                {renderSignatureCells(rightRows[index], index)}
+                <td className="splitter"></td>
+                {renderSignatureCells(leftRows[index], splitIndex + index)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <table className="sheet-table signature-table single-signature-table">
+          <thead>
+            <tr>
+              <th>م</th>
+              <th>اسم الطالب</th>
+              <th>الصف</th>
+              <th>الفصل</th>
+              <th>المقعد</th>
+              <th>التوقيع</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((student, index) => (
+              <tr key={student.id || index}>
+                {renderSignatureCells(student, index)}
+              </tr>
+            ))}
+            {!students.length && <tr><td colSpan={6}>لا يوجد طلاب في هذا الكشف.</td></tr>}
+          </tbody>
+        </table>
+      )}
 
       <div className="sheet-signatures">
         <SignatureBlock title="مراقب اللجنة" name={proctorName} />
@@ -334,7 +390,7 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, us
     const baseSubjects = exams.length
       ? exams
       : [{ id: 'manual', subject: selectedSubject === 'ALL' ? 'جميع المواد' : selectedSubject, exam_date: selectedDate, period: 1 } as ExamSchedule];
-    const output: SheetPage[] = [];
+    const groups: SheetPage[] = [];
 
     baseSubjects.forEach(exam => {
       if (groupMode === 'grade-alpha') {
@@ -346,7 +402,7 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, us
             .filter(student => !query || student.name.includes(query) || String(student.seating_number || '').includes(query))
             .sort(sortByName);
 
-          output.push({
+          groups.push({
             type: sheetType,
             students: gradeStudents,
             committee: 'الصف كامل',
@@ -373,7 +429,7 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, us
           .filter(student => !query || student.name.includes(query) || String(student.seating_number || '').includes(query))
           .sort(sortBySeat);
 
-        output.push({
+        groups.push({
           type: sheetType,
           students: committeeStudents,
           committee,
@@ -386,8 +442,19 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, us
       });
     });
 
-    const filtered = printScope === 'single' ? output.slice(0, 1) : output;
-    return filtered.filter(page => page.students.length || printScope === 'single');
+    const selectedGroups = printScope === 'single' ? groups.slice(0, 1) : groups;
+    return selectedGroups
+      .flatMap(group => {
+        const size = group.type === 'marks' ? MARK_ROWS_PER_PAGE : SIGNATURE_ROWS_PER_PAGE;
+        const chunks = chunkRows(group.students, size);
+        return chunks.map((chunk, index) => ({
+          ...group,
+          students: chunk,
+          part: index + 1,
+          parts: chunks.length,
+        }));
+      })
+      .filter(page => page.students.length || printScope === 'single');
   }, [groupMode, printScope, query, selectedCommittee, selectedDate, selectedExams, selectedGrade, selectedSubject, sheetType, students]);
 
   const handlePrint = () => window.print();
@@ -472,41 +539,67 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, us
           flex: 0 0 auto;
         }
 
-        .sheet-table { width: 100%; border-collapse: collapse; table-layout: fixed; direction: rtl; }
+        .sheet-table { width: 100%; border-collapse: collapse; table-layout: fixed; direction: rtl; flex: 0 0 auto; }
         .sheet-table th, .sheet-table td {
           border: 1px solid #cbd5e1;
-          padding: 2px 3px;
+          padding: 1.4px 2px;
           text-align: center;
-          font-size: 8.6px;
+          font-size: 7.8px;
           font-weight: 800;
           color: #0f172a;
           vertical-align: middle;
         }
         .sheet-table th { background: #eef2f7; font-weight: 900; }
-        .sheet-table .name-cell { text-align: right; font-size: 9.2px; line-height: 1.05; word-break: break-word; }
+        .sheet-table .name-cell { text-align: right; font-size: 8.2px; line-height: 1.04; word-break: break-word; }
         .sheet-table .blank-row td { color: transparent; }
 
-        .single-signature-table { flex: 1 1 auto; }
-        .single-signature-table th:nth-child(1), .single-signature-table td:nth-child(1) { width: 28px; }
+        .single-signature-table { flex: 0 0 auto; }
+        .single-signature-table th:nth-child(1), .single-signature-table td:nth-child(1) { width: 24px; }
+        .single-signature-table th:nth-child(2), .single-signature-table td:nth-child(2) { width: auto; }
         .single-signature-table th:nth-child(3), .single-signature-table td:nth-child(3) { width: 76px; }
-        .single-signature-table th:nth-child(4), .single-signature-table td:nth-child(4) { width: 42px; }
-        .single-signature-table th:nth-child(5), .single-signature-table td:nth-child(5) { width: 78px; }
-        .single-signature-table th:nth-child(6), .single-signature-table td:nth-child(6) { width: 120px; }
-        .single-signature-table td { height: 17.4px; }
+        .single-signature-table th:nth-child(4), .single-signature-table td:nth-child(4) { width: 34px; }
+        .single-signature-table th:nth-child(5), .single-signature-table td:nth-child(5) { width: 76px; }
+        .single-signature-table th:nth-child(6), .single-signature-table td:nth-child(6) { width: 124px; }
+        .single-signature-table td { height: 5.4mm; }
         .single-signature-table .sign-cell { background: white; }
 
-        .marks-table { flex: 1 1 auto; }
+        .two-column-signature-table { flex: 0 0 auto; }
+        .two-column-signature-table th:nth-child(1), .two-column-signature-table td:nth-child(1),
+        .two-column-signature-table th:nth-child(8), .two-column-signature-table td:nth-child(8) { width: 18px; }
+        .two-column-signature-table th:nth-child(2), .two-column-signature-table td:nth-child(2),
+        .two-column-signature-table th:nth-child(9), .two-column-signature-table td:nth-child(9) { width: auto; }
+        .two-column-signature-table th:nth-child(3), .two-column-signature-table td:nth-child(3),
+        .two-column-signature-table th:nth-child(10), .two-column-signature-table td:nth-child(10) { width: 54px; }
+        .two-column-signature-table th:nth-child(4), .two-column-signature-table td:nth-child(4),
+        .two-column-signature-table th:nth-child(11), .two-column-signature-table td:nth-child(11) { width: 26px; }
+        .two-column-signature-table th:nth-child(5), .two-column-signature-table td:nth-child(5),
+        .two-column-signature-table th:nth-child(12), .two-column-signature-table td:nth-child(12) { width: 54px; }
+        .two-column-signature-table th:nth-child(6), .two-column-signature-table td:nth-child(6),
+        .two-column-signature-table th:nth-child(13), .two-column-signature-table td:nth-child(13) { width: 72px; }
+        .two-column-signature-table td { height: 5.25mm; }
+        .two-column-signature-table .name-cell { font-size: 7.2px; line-height: 1.02; }
+        .two-column-signature-table .splitter {
+          width: 7px;
+          min-width: 7px;
+          padding: 0;
+          background: white;
+          border-top-color: transparent;
+          border-bottom-color: transparent;
+        }
+
+        .marks-table { flex: 0 0 auto; }
         .marks-table th:nth-child(1), .marks-table td:nth-child(1) { width: 28px; }
-        .marks-table th:nth-child(3), .marks-table td:nth-child(3) { width: 54px; }
+        .marks-table th:nth-child(2), .marks-table td:nth-child(2) { width: 25%; }
+        .marks-table th:nth-child(3), .marks-table td:nth-child(3) { width: 58px; }
         .marks-table th:nth-child(4), .marks-table td:nth-child(4),
         .marks-table th:nth-child(5), .marks-table td:nth-child(5) { width: 42px; }
         .marks-table th:nth-child(6), .marks-table td:nth-child(6) { width: 58px; }
-        .marks-table th:nth-child(7), .marks-table td:nth-child(7) { width: 68px; }
-        .marks-table th:nth-child(8), .marks-table td:nth-child(8) { width: 92px; }
+        .marks-table th:nth-child(7), .marks-table td:nth-child(7) { width: 64px; }
+        .marks-table th:nth-child(8), .marks-table td:nth-child(8) { width: 86px; }
         .marks-table th:nth-child(9), .marks-table td:nth-child(9),
-        .marks-table th:nth-child(10), .marks-table td:nth-child(10) { width: 64px; }
-        .marks-table th:nth-child(11), .marks-table td:nth-child(11) { width: 82px; }
-        .marks-table td { height: 22px; }
+        .marks-table th:nth-child(10), .marks-table td:nth-child(10) { width: 60px; }
+        .marks-table th:nth-child(11), .marks-table td:nth-child(11) { width: 76px; }
+        .marks-table td { height: 6.4mm; }
 
         .sheet-signatures {
           display: grid;
