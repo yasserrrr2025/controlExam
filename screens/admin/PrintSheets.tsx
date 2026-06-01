@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { BookOpenCheck, FileSpreadsheet, Layers, Printer, Search, Signature, UsersRound } from 'lucide-react';
-import { ExamSchedule, Student, Supervision, SystemConfig, User } from '../../types';
+import { DeliveryLog, ExamSchedule, Student, Supervision, SystemConfig, User } from '../../types';
 import { APP_CONFIG } from '../../constants';
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
   systemConfig: SystemConfig;
   users?: User[];
   supervisions?: Supervision[];
+  deliveryLogs?: DeliveryLog[];
 }
 
 type SheetType = 'signature' | 'marks';
@@ -48,10 +49,11 @@ const sortBySeat = (a: Student, b: Student) =>
 const sortByName = (a: Student, b: Student) =>
   a.name.localeCompare(b.name, 'ar') || sortBySeat(a, b);
 
-const blankRows = (count: number) => Array.from({ length: Math.max(0, count) });
-
 const resolveUserName = (users: User[], teacherId?: string) =>
   users.find(user => user.id === teacherId || user.national_id === teacherId)?.full_name || '';
+
+const firstRealName = (...values: Array<string | undefined | null>) =>
+  values.map(value => String(value || '').trim()).find(value => value && value !== 'بانتظار الكنترول' && value !== '---') || '';
 
 const OfficialHeader = ({
   title,
@@ -98,7 +100,7 @@ const PageFooter = ({ page }: { page: number }) => (
 const SignatureBlock = ({ title, name }: { title: string; name: string }) => (
   <div>
     <b>{title}</b>
-    <em>{name || title}</em>
+    <em>{name || ''}</em>
     <span></span>
   </div>
 );
@@ -126,19 +128,7 @@ const SignatureSheetPage = ({
   users?: User[];
   supervisions?: Supervision[];
 }) => {
-  const rows = [
-    ...students,
-    ...blankRows(31 - students.length).map((_, index) => ({
-      id: `blank-signature-${index}`,
-      national_id: '',
-      name: '',
-      grade: '',
-      section: '',
-      parent_phone: '',
-      committee_number: '',
-      seating_number: '',
-    } as Student)),
-  ];
+  const rows = students;
 
   const supervision = supervisions.find(item =>
     String(item.committee_number) === String(committee) &&
@@ -210,32 +200,48 @@ const MarksSheetPage = ({
   grade,
   subject,
   date,
+  period,
   page,
   groupMode,
   academicYear,
+  users = [],
+  supervisions = [],
+  deliveryLogs = [],
 }: {
   students: Student[];
   committee: string;
   grade: string;
   subject: string;
   date?: string;
+  period?: number;
   page: number;
   groupMode: GroupMode;
   academicYear?: string;
+  users?: User[];
+  supervisions?: Supervision[];
+  deliveryLogs?: DeliveryLog[];
 }) => {
-  const displayedRows = [
-    ...students,
-    ...blankRows(Math.max(0, 28 - students.length)).map((_, index) => ({
-      id: `blank-marks-${index}`,
-      national_id: '',
-      name: '',
-      grade: '',
-      section: '',
-      parent_phone: '',
-      committee_number: '',
-      seating_number: '',
-    } as Student)),
-  ];
+  const displayedRows = students;
+  const matchingLogs = deliveryLogs.filter(log =>
+    sameDate(log.time, date) &&
+    (!period || Number(log.period || 1) === Number(period)) &&
+    (groupMode === 'grade-alpha' || String(log.committee_number) === String(committee)) &&
+    (grade === 'كل الصفوف' || String(log.grade || '') === String(grade))
+  );
+  const confirmedReceiveLog = matchingLogs.find(log => log.type === 'RECEIVE' && log.status === 'CONFIRMED');
+  const pendingReceiveLog = matchingLogs.find(log => log.type === 'RECEIVE' && log.proctor_name);
+  const supervision = supervisions.find(item =>
+    String(item.committee_number) === String(committee) &&
+    sameDate(item.date, date) &&
+    (!period || Number(item.period || 1) === Number(period))
+  );
+  const controlForGrade = users.find(user =>
+    user.role === 'CONTROL' &&
+    (grade === 'كل الصفوف' || (user.assigned_grades || []).map(String).includes(String(grade)))
+  ) || users.find(user => user.role === 'CONTROL');
+  const subjectTeacherName = firstRealName(pendingReceiveLog?.proctor_name, resolveUserName(users, supervision?.teacher_id));
+  const reviewerName = firstRealName(controlForGrade?.full_name, confirmedReceiveLog?.teacher_name);
+  const controlHeadName = users.find(user => user.role === 'CONTROL_MANAGER')?.full_name || '';
 
   return (
     <section className="sheet-page marks-page">
@@ -290,16 +296,16 @@ const MarksSheetPage = ({
       </table>
 
       <div className="sheet-signatures">
-        <SignatureBlock title="معلم المادة" name="" />
-        <SignatureBlock title="المراجع" name="" />
-        <SignatureBlock title="رئيس الكنترول" name="" />
+        <SignatureBlock title="معلم المادة" name={subjectTeacherName} />
+        <SignatureBlock title="المراجع" name={reviewerName} />
+        <SignatureBlock title="رئيس الكنترول" name={controlHeadName} />
       </div>
       <PageFooter page={page} />
     </section>
   );
 };
 
-const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, users = [], supervisions = [] }) => {
+const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, users = [], supervisions = [], deliveryLogs = [] }) => {
   const today = systemConfig.active_exam_date || examSchedule.at(-1)?.exam_date || new Date().toISOString().slice(0, 10);
   const [sheetType, setSheetType] = useState<SheetType>('signature');
   const [printScope, setPrintScope] = useState<PrintScope>('single');
@@ -632,9 +638,13 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, us
             grade={page.grade}
             subject={page.subject}
             date={page.date}
+            period={page.period}
             page={index + 1}
             groupMode={page.groupMode}
             academicYear={systemConfig.academic_year}
+            users={users}
+            supervisions={supervisions}
+            deliveryLogs={deliveryLogs}
           />
         ))}
       </div>
