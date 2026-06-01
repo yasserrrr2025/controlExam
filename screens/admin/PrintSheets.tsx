@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { BookOpenCheck, FileSpreadsheet, Layers, Printer, Search, Signature, UsersRound } from 'lucide-react';
-import { ExamSchedule, Student, SystemConfig } from '../../types';
+import { ExamSchedule, Student, Supervision, SystemConfig, User } from '../../types';
 import { APP_CONFIG } from '../../constants';
 
 interface Props {
   students: Student[];
   examSchedule: ExamSchedule[];
   systemConfig: SystemConfig;
+  users?: User[];
+  supervisions?: Supervision[];
 }
 
 type SheetType = 'signature' | 'marks';
@@ -20,6 +22,7 @@ type SheetPage = {
   grade: string;
   subject: string;
   date?: string;
+  period?: number;
   groupMode: GroupMode;
 };
 
@@ -27,6 +30,7 @@ const SCHOOL_NAME = 'مدرسة عماد الدين زنكي المتوسطة';
 const DEFAULT_ACADEMIC_YEAR = '1447 / 1448';
 
 const dateKey = (value?: string | null) => String(value || '').slice(0, 10);
+const sameDate = (value?: string | null, date?: string | null) => !!value && !!date && dateKey(value) === dateKey(date);
 
 const unique = (values: Array<string | undefined | null>) =>
   Array.from(new Set(values.filter(Boolean).map(String))).sort((a, b) => a.localeCompare(b, 'ar', { numeric: true }));
@@ -44,12 +48,10 @@ const sortBySeat = (a: Student, b: Student) =>
 const sortByName = (a: Student, b: Student) =>
   a.name.localeCompare(b.name, 'ar') || sortBySeat(a, b);
 
-const splitColumns = <T,>(items: T[]) => {
-  const half = Math.ceil(items.length / 2);
-  return [items.slice(0, half), items.slice(half)];
-};
-
 const blankRows = (count: number) => Array.from({ length: Math.max(0, count) });
+
+const resolveUserName = (users: User[], teacherId?: string) =>
+  users.find(user => user.id === teacherId || user.national_id === teacherId)?.full_name || '';
 
 const OfficialHeader = ({
   title,
@@ -93,25 +95,62 @@ const PageFooter = ({ page }: { page: number }) => (
   </footer>
 );
 
+const SignatureBlock = ({ title, name }: { title: string; name: string }) => (
+  <div>
+    <b>{title}</b>
+    <em>{name || title}</em>
+    <span></span>
+  </div>
+);
+
 const SignatureSheetPage = ({
   students,
   committee,
   grade,
   subject,
   date,
+  period,
   page,
   academicYear,
+  users = [],
+  supervisions = [],
 }: {
   students: Student[];
   committee: string;
   grade: string;
   subject: string;
   date?: string;
+  period?: number;
   page: number;
   academicYear?: string;
+  users?: User[];
+  supervisions?: Supervision[];
 }) => {
-  const [right, left] = splitColumns(students);
-  const rowsPerColumn = Math.max(16, right.length, left.length);
+  const rows = [
+    ...students,
+    ...blankRows(31 - students.length).map((_, index) => ({
+      id: `blank-signature-${index}`,
+      national_id: '',
+      name: '',
+      grade: '',
+      section: '',
+      parent_phone: '',
+      committee_number: '',
+      seating_number: '',
+    } as Student)),
+  ];
+
+  const supervision = supervisions.find(item =>
+    String(item.committee_number) === String(committee) &&
+    sameDate(item.date, date) &&
+    (!period || Number(item.period || 1) === Number(period))
+  ) || supervisions.find(item =>
+    String(item.committee_number) === String(committee) &&
+    sameDate(item.date, date)
+  );
+  const proctorName = resolveUserName(users, supervision?.teacher_id);
+  const controlHeadName = users.find(user => user.role === 'CONTROL_MANAGER')?.full_name || '';
+  const schoolManagerName = users.find(user => user.role === 'ADMIN')?.full_name || '';
 
   return (
     <section className="sheet-page signature-page">
@@ -129,16 +168,9 @@ const SignatureSheetPage = ({
         <span>عدد الطلاب: {students.length}</span>
       </div>
 
-      <table className="sheet-table signature-table">
+      <table className="sheet-table signature-table single-signature-table">
         <thead>
           <tr>
-            <th>م</th>
-            <th>اسم الطالب</th>
-            <th>الصف</th>
-            <th>الفصل</th>
-            <th>المقعد</th>
-            <th>التوقيع</th>
-            <th className="splitter" aria-hidden="true"></th>
             <th>م</th>
             <th>اسم الطالب</th>
             <th>الصف</th>
@@ -148,53 +180,24 @@ const SignatureSheetPage = ({
           </tr>
         </thead>
         <tbody>
-          {Array.from({ length: rowsPerColumn }).map((_, index) => {
-            const rightStudent = right[index];
-            const leftStudent = left[index];
-            return (
-              <tr key={index}>
-                {rightStudent ? (
-                  <>
-                    <td>{index + 1}</td>
-                    <td className="name-cell">{rightStudent.name}</td>
-                    <td>{rightStudent.grade}</td>
-                    <td>{rightStudent.section || '-'}</td>
-                    <td>{rightStudent.seating_number || '-'}</td>
-                    <td className="sign-cell"></td>
-                  </>
-                ) : (
-                  <>
-                    <td></td><td></td><td></td><td></td><td></td><td className="sign-cell"></td>
-                  </>
-                )}
-                <td className="splitter" aria-hidden="true"></td>
-                {leftStudent ? (
-                  <>
-                    <td>{right.length + index + 1}</td>
-                    <td className="name-cell">{leftStudent.name}</td>
-                    <td>{leftStudent.grade}</td>
-                    <td>{leftStudent.section || '-'}</td>
-                    <td>{leftStudent.seating_number || '-'}</td>
-                    <td className="sign-cell"></td>
-                  </>
-                ) : (
-                  <>
-                    <td></td><td></td><td></td><td></td><td></td><td className="sign-cell"></td>
-                  </>
-                )}
-              </tr>
-            );
-          })}
-          {!students.length && (
-            <tr><td colSpan={13}>لا يوجد طلاب في هذا الكشف.</td></tr>
-          )}
+          {rows.map((student, index) => (
+            <tr key={student.id || index} className={!student.name ? 'blank-row' : ''}>
+              <td>{student.name ? index + 1 : ''}</td>
+              <td className="name-cell">{student.name}</td>
+              <td>{student.grade}</td>
+              <td>{student.section}</td>
+              <td>{student.seating_number}</td>
+              <td className="sign-cell"></td>
+            </tr>
+          ))}
+          {!students.length && <tr><td colSpan={6}>لا يوجد طلاب في هذا الكشف.</td></tr>}
         </tbody>
       </table>
 
       <div className="sheet-signatures">
-        <div><b>مراقب اللجنة</b><span></span></div>
-        <div><b>رئيس الكنترول</b><span></span></div>
-        <div><b>مدير المدرسة</b><span></span></div>
+        <SignatureBlock title="مراقب اللجنة" name={proctorName} />
+        <SignatureBlock title="رئيس الكنترول" name={controlHeadName} />
+        <SignatureBlock title="مدير المدرسة" name={schoolManagerName} />
       </div>
       <PageFooter page={page} />
     </section>
@@ -220,15 +223,19 @@ const MarksSheetPage = ({
   groupMode: GroupMode;
   academicYear?: string;
 }) => {
-  const minimumRows = groupMode === 'committee' ? 24 : Math.max(24, students.length);
-  const displayedRows = [...students, ...blankRows(minimumRows - students.length).map((_, index) => ({
-    id: `blank-${index}`,
-    name: '',
-    grade: '',
-    section: '',
-    committee_number: '',
-    seating_number: '',
-  } as Student))];
+  const displayedRows = [
+    ...students,
+    ...blankRows(Math.max(0, 28 - students.length)).map((_, index) => ({
+      id: `blank-marks-${index}`,
+      national_id: '',
+      name: '',
+      grade: '',
+      section: '',
+      parent_phone: '',
+      committee_number: '',
+      seating_number: '',
+    } as Student)),
+  ];
 
   return (
     <section className="sheet-page marks-page">
@@ -278,23 +285,21 @@ const MarksSheetPage = ({
               <td></td>
             </tr>
           ))}
-          {!students.length && (
-            <tr><td colSpan={11}>لا يوجد طلاب في هذا الكشف.</td></tr>
-          )}
+          {!students.length && <tr><td colSpan={11}>لا يوجد طلاب في هذا الكشف.</td></tr>}
         </tbody>
       </table>
 
       <div className="sheet-signatures">
-        <div><b>معلم المادة</b><span></span></div>
-        <div><b>المراجع</b><span></span></div>
-        <div><b>رئيس الكنترول</b><span></span></div>
+        <SignatureBlock title="معلم المادة" name="" />
+        <SignatureBlock title="المراجع" name="" />
+        <SignatureBlock title="رئيس الكنترول" name="" />
       </div>
       <PageFooter page={page} />
     </section>
   );
 };
 
-const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig }) => {
+const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, users = [], supervisions = [] }) => {
   const today = systemConfig.active_exam_date || examSchedule.at(-1)?.exam_date || new Date().toISOString().slice(0, 10);
   const [sheetType, setSheetType] = useState<SheetType>('signature');
   const [printScope, setPrintScope] = useState<PrintScope>('single');
@@ -322,7 +327,7 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig }) 
     const exams = selectedSubject === 'ALL' ? selectedExams : selectedExams.slice(0, 1);
     const baseSubjects = exams.length
       ? exams
-      : [{ id: 'manual', subject: selectedSubject === 'ALL' ? 'جميع المواد' : selectedSubject, exam_date: selectedDate } as ExamSchedule];
+      : [{ id: 'manual', subject: selectedSubject === 'ALL' ? 'جميع المواد' : selectedSubject, exam_date: selectedDate, period: 1 } as ExamSchedule];
     const output: SheetPage[] = [];
 
     baseSubjects.forEach(exam => {
@@ -342,6 +347,7 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig }) 
             grade,
             subject: exam.subject,
             date: dateKey(exam.exam_date),
+            period: Number(exam.period || 1),
             groupMode,
           });
         });
@@ -349,9 +355,7 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig }) 
       }
 
       const gradeFilter = selectedGrade === 'ALL' ? null : selectedGrade;
-      const committeeSource = gradeFilter
-        ? students.filter(student => student.grade === gradeFilter)
-        : students;
+      const committeeSource = gradeFilter ? students.filter(student => student.grade === gradeFilter) : students;
       const targetCommittees = selectedCommittee === 'ALL'
         ? unique(committeeSource.map(student => student.committee_number))
         : [selectedCommittee];
@@ -370,6 +374,7 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig }) 
           grade: gradeFilter || 'كل الصفوف',
           subject: exam.subject,
           date: dateKey(exam.exam_date),
+          period: Number(exam.period || 1),
           groupMode,
         });
       });
@@ -395,7 +400,7 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig }) 
             width: 100%;
             height: 285mm;
             margin: 0;
-            padding: 7mm 8mm 8mm;
+            padding: 6mm 7mm 7mm;
             page-break-after: always;
             page-break-inside: avoid;
             box-sizing: border-box;
@@ -414,7 +419,7 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig }) 
             width: min(100%, 940px);
             min-height: 1120px;
             margin: 0 auto 22px;
-            padding: 38px 44px 34px;
+            padding: 34px 38px 28px;
             box-sizing: border-box;
             position: relative;
             background: white;
@@ -429,33 +434,33 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig }) 
 
         .sheet-header {
           display: grid;
-          grid-template-columns: 1fr 1.2fr 1fr;
+          grid-template-columns: 1fr 1.18fr 1fr;
           align-items: center;
-          gap: 14px;
+          gap: 12px;
           border-bottom: 3px double #0f172a;
-          padding-bottom: 10px;
-          margin-bottom: 12px;
+          padding-bottom: 8px;
+          margin-bottom: 10px;
           flex: 0 0 auto;
         }
-        .sheet-side { font-size: 11px; line-height: 1.55; font-weight: 900; color: #0f172a; }
+        .sheet-side { font-size: 10.5px; line-height: 1.42; font-weight: 900; color: #0f172a; }
         .sheet-side p { margin: 0; }
         .sheet-side-left { text-align: left; color: #334155; }
         .sheet-side-left span { color: #0f172a; }
         .sheet-center { text-align: center; }
-        .sheet-center img { width: 54px; height: 54px; object-fit: contain; margin: 0 auto 2px; }
-        .sheet-center h2 { font-size: 20px; font-weight: 900; color: #0f172a; line-height: 1.15; margin: 0; }
-        .sheet-center p { font-size: 11px; font-weight: 900; color: #64748b; margin: 3px 0 0; }
+        .sheet-center img { width: 50px; height: 50px; object-fit: contain; margin: 0 auto 1px; }
+        .sheet-center h2 { font-size: 19px; font-weight: 900; color: #0f172a; line-height: 1.1; margin: 0; }
+        .sheet-center p { font-size: 10.5px; font-weight: 900; color: #64748b; margin: 2px 0 0; }
 
         .sheet-band {
           display: flex;
           justify-content: space-between;
-          gap: 10px;
+          gap: 8px;
           background: #f8fafc;
           border: 1px solid #cbd5e1;
-          border-radius: 10px;
-          padding: 8px 12px;
-          margin-bottom: 10px;
-          font-size: 11px;
+          border-radius: 8px;
+          padding: 6px 10px;
+          margin-bottom: 8px;
+          font-size: 10.5px;
           font-weight: 900;
           color: #0f172a;
           flex: 0 0 auto;
@@ -464,43 +469,29 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig }) 
         .sheet-table { width: 100%; border-collapse: collapse; table-layout: fixed; direction: rtl; }
         .sheet-table th, .sheet-table td {
           border: 1px solid #cbd5e1;
-          padding: 3.5px 4px;
+          padding: 2px 3px;
           text-align: center;
-          font-size: 9.5px;
+          font-size: 8.6px;
           font-weight: 800;
           color: #0f172a;
           vertical-align: middle;
         }
         .sheet-table th { background: #eef2f7; font-weight: 900; }
-        .sheet-table .name-cell { text-align: right; font-size: 10px; line-height: 1.2; word-break: break-word; }
+        .sheet-table .name-cell { text-align: right; font-size: 9.2px; line-height: 1.05; word-break: break-word; }
         .sheet-table .blank-row td { color: transparent; }
 
-        .signature-table { flex: 1 1 auto; }
-        .signature-table th:nth-child(1), .signature-table td:nth-child(1),
-        .signature-table th:nth-child(8), .signature-table td:nth-child(8) { width: 24px; }
-        .signature-table th:nth-child(3), .signature-table td:nth-child(3),
-        .signature-table th:nth-child(10), .signature-table td:nth-child(10) { width: 44px; }
-        .signature-table th:nth-child(4), .signature-table td:nth-child(4),
-        .signature-table th:nth-child(11), .signature-table td:nth-child(11) { width: 34px; }
-        .signature-table th:nth-child(5), .signature-table td:nth-child(5),
-        .signature-table th:nth-child(12), .signature-table td:nth-child(12) { width: 58px; }
-        .signature-table th:nth-child(6), .signature-table td:nth-child(6),
-        .signature-table th:nth-child(13), .signature-table td:nth-child(13) { width: 72px; }
-        .signature-table .splitter {
-          width: 12px;
-          min-width: 12px;
-          padding: 0;
-          border-top: 0;
-          border-bottom: 0;
-          background: white;
-          border-color: transparent;
-        }
-        .signature-table td { height: 28px; }
-        .signature-table .sign-cell { background: white; }
+        .single-signature-table { flex: 1 1 auto; }
+        .single-signature-table th:nth-child(1), .single-signature-table td:nth-child(1) { width: 28px; }
+        .single-signature-table th:nth-child(3), .single-signature-table td:nth-child(3) { width: 76px; }
+        .single-signature-table th:nth-child(4), .single-signature-table td:nth-child(4) { width: 42px; }
+        .single-signature-table th:nth-child(5), .single-signature-table td:nth-child(5) { width: 78px; }
+        .single-signature-table th:nth-child(6), .single-signature-table td:nth-child(6) { width: 120px; }
+        .single-signature-table td { height: 17.4px; }
+        .single-signature-table .sign-cell { background: white; }
 
         .marks-table { flex: 1 1 auto; }
         .marks-table th:nth-child(1), .marks-table td:nth-child(1) { width: 28px; }
-        .marks-table th:nth-child(3), .marks-table td:nth-child(3) { width: 56px; }
+        .marks-table th:nth-child(3), .marks-table td:nth-child(3) { width: 54px; }
         .marks-table th:nth-child(4), .marks-table td:nth-child(4),
         .marks-table th:nth-child(5), .marks-table td:nth-child(5) { width: 42px; }
         .marks-table th:nth-child(6), .marks-table td:nth-child(6) { width: 58px; }
@@ -509,27 +500,29 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig }) 
         .marks-table th:nth-child(9), .marks-table td:nth-child(9),
         .marks-table th:nth-child(10), .marks-table td:nth-child(10) { width: 64px; }
         .marks-table th:nth-child(11), .marks-table td:nth-child(11) { width: 82px; }
-        .marks-table td { height: 23px; }
+        .marks-table td { height: 22px; }
 
         .sheet-signatures {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 18mm;
+          gap: 16mm;
           text-align: center;
-          font-size: 11px;
+          font-size: 10.5px;
           font-weight: 900;
           color: #0f172a;
-          margin: auto 14mm 8mm;
+          margin: 7mm 12mm 6mm;
           flex: 0 0 auto;
         }
-        .sheet-signatures span { display: block; height: 18px; margin-top: 10px; border-bottom: 1px solid #0f172a; }
+        .sheet-signatures b, .sheet-signatures em { display: block; font-style: normal; }
+        .sheet-signatures em { min-height: 14px; margin-top: 3px; font-size: 9.5px; color: #334155; }
+        .sheet-signatures span { display: block; height: 14px; margin-top: 7px; border-bottom: 1px solid #0f172a; }
         .sheet-footer {
           border-top: 1px solid #e2e8f0;
           padding-top: 5px;
           display: flex;
           justify-content: space-between;
           gap: 10px;
-          font-size: 9px;
+          font-size: 8.5px;
           font-weight: 800;
           color: #94a3b8;
           flex: 0 0 auto;
@@ -539,7 +532,7 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig }) 
           .sheet-page { min-height: auto; padding: 22px 12px 24px; overflow-x: auto; border-radius: 16px; }
           .sheet-header { grid-template-columns: 1fr; text-align: center; }
           .sheet-side, .sheet-side-left { text-align: center; }
-          .sheet-table { min-width: 860px; }
+          .sheet-table { min-width: 760px; }
           .sheet-signatures { margin: 24px 0 12px; gap: 10px; }
           .sheet-footer { flex-direction: column; text-align: center; }
         }
@@ -625,8 +618,11 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig }) 
             grade={page.grade}
             subject={page.subject}
             date={page.date}
+            period={page.period}
             page={index + 1}
             academicYear={systemConfig.academic_year}
+            users={users}
+            supervisions={supervisions}
           />
         ) : (
           <MarksSheetPage
