@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { BookOpenCheck, FileSpreadsheet, Layers, Printer, Search, Signature, UsersRound } from 'lucide-react';
-import { DeliveryLog, ExamSchedule, Student, Supervision, SystemConfig, User } from '../../types';
+import { Absence, ArchiveBox, ControlRequest, DeliveryLog, ExamSchedule, Student, Supervision, SystemConfig, User } from '../../types';
 import { APP_CONFIG } from '../../constants';
+import { db } from '../../supabase';
 
 interface Props {
   students: Student[];
@@ -10,9 +11,11 @@ interface Props {
   users?: User[];
   supervisions?: Supervision[];
   deliveryLogs?: DeliveryLog[];
+  controlRequests?: ControlRequest[];
+  absences?: Absence[];
 }
 
-type SheetType = 'signature' | 'marks';
+type SheetType = 'signature' | 'marks' | 'student-distribution' | 'committee-closures' | 'answer-receipts' | 'requests-by-committee' | 'box-archive' | 'box-contents';
 type PrintScope = 'single' | 'batch';
 type GroupMode = 'committee' | 'grade-alpha';
 
@@ -34,6 +37,7 @@ const DEFAULT_ACADEMIC_YEAR = '1447 / 1448';
 const SIGNATURE_SINGLE_COLUMN_LIMIT = 34;
 const SIGNATURE_ROWS_PER_PAGE = 68;
 const MARK_ROWS_PER_PAGE = 29;
+const GENERIC_ROWS_PER_PAGE = 32;
 
 const dateKey = (value?: string | null) => String(value || '').slice(0, 10);
 const sameDate = (value?: string | null, date?: string | null) => !!value && !!date && dateKey(value) === dateKey(date);
@@ -68,6 +72,13 @@ const resolveUserName = (users: User[], teacherId?: string) =>
 
 const firstRealName = (...values: Array<string | undefined | null>) =>
   values.map(value => String(value || '').trim()).find(value => value && value !== 'بانتظار الكنترول' && value !== '---') || '';
+
+const formatTime = (value?: string | null) => {
+  if (!value) return '---';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '---';
+  return d.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+};
 
 const OfficialHeader = ({
   title,
@@ -117,6 +128,72 @@ const SignatureBlock = ({ title, name }: { title: string; name: string }) => (
     <em>{name || ''}</em>
     <span></span>
   </div>
+);
+
+type GenericColumn = { key: string; label: string; width?: string; align?: 'right' | 'center' };
+type GenericRow = Record<string, React.ReactNode>;
+type GenericPage = {
+  type: 'generic';
+  title: string;
+  subject: string;
+  date?: string;
+  meta?: string;
+  columns: GenericColumn[];
+  rows: GenericRow[];
+};
+
+const GenericSheetPage = ({
+  title,
+  subject,
+  date,
+  meta,
+  columns,
+  rows,
+  page,
+  academicYear,
+}: GenericPage & { page: number; academicYear?: string }) => (
+  <section className="sheet-page generic-page">
+    <OfficialHeader title={title} date={date} subject={subject} meta={meta} academicYear={academicYear} />
+
+    <div className="sheet-band">
+      <span>{meta || title}</span>
+      <span>عدد السجلات: {rows.length}</span>
+      <span>صفحة {page}</span>
+    </div>
+
+    <table className="sheet-table generic-table">
+      <thead>
+        <tr>
+          <th style={{ width: '28px' }}>م</th>
+          {columns.map(column => (
+            <th key={column.key} style={{ width: column.width }}>{column.label}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, index) => (
+          <tr key={String(row.id || index)}>
+            <td>{index + 1}</td>
+            {columns.map(column => (
+              <td key={column.key} className={column.align === 'right' ? 'name-cell' : ''}>
+                {row[column.key] ?? '---'}
+              </td>
+            ))}
+          </tr>
+        ))}
+        {!rows.length && (
+          <tr><td colSpan={columns.length + 1}>لا توجد بيانات لهذا الكشف.</td></tr>
+        )}
+      </tbody>
+    </table>
+
+    <div className="sheet-signatures">
+      <SignatureBlock title="رئيس الكنترول" name="" />
+      <SignatureBlock title="مدير المدرسة" name="" />
+      <SignatureBlock title="الختم" name="" />
+    </div>
+    <PageFooter page={page} />
+  </section>
 );
 
 const SignatureSheetPage = ({
@@ -361,7 +438,16 @@ const MarksSheetPage = ({
   );
 };
 
-const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, users = [], supervisions = [], deliveryLogs = [] }) => {
+const PrintSheets: React.FC<Props> = ({
+  students,
+  examSchedule,
+  systemConfig,
+  users = [],
+  supervisions = [],
+  deliveryLogs = [],
+  controlRequests = [],
+  absences = [],
+}) => {
   const today = systemConfig.active_exam_date || examSchedule.at(-1)?.exam_date || new Date().toISOString().slice(0, 10);
   const [sheetType, setSheetType] = useState<SheetType>('signature');
   const [printScope, setPrintScope] = useState<PrintScope>('single');
@@ -371,6 +457,24 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, us
   const [selectedGrade, setSelectedGrade] = useState('ALL');
   const [selectedCommittee, setSelectedCommittee] = useState('ALL');
   const [query, setQuery] = useState('');
+  const [archiveBoxes, setArchiveBoxes] = useState<ArchiveBox[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadBoxes = async () => {
+      try {
+        const data = await db.archiveBoxes.getAll();
+        if (!cancelled) setArchiveBoxes(data as ArchiveBox[]);
+      } catch {
+        try {
+          const local = localStorage.getItem('control_archive_boxes');
+          if (!cancelled && local) setArchiveBoxes(JSON.parse(local));
+        } catch {}
+      }
+    };
+    loadBoxes();
+    return () => { cancelled = true; };
+  }, []);
 
   const dates = unique(examSchedule.map(exam => dateKey(exam.exam_date)));
   const subjects = unique(examSchedule.filter(exam => !selectedDate || dateKey(exam.exam_date) === selectedDate).map(exam => exam.subject));
@@ -385,7 +489,187 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, us
     });
   }, [examSchedule, selectedDate, selectedSubject]);
 
-  const pages = useMemo<SheetPage[]>(() => {
+  const pages = useMemo<Array<SheetPage | GenericPage>>(() => {
+    const isStudentSheet = sheetType === 'signature' || sheetType === 'marks';
+    const makeGenericPages = (
+      title: string,
+      rows: GenericRow[],
+      columns: GenericColumn[],
+      subject = selectedSubject === 'ALL' ? 'جميع المواد' : selectedSubject,
+      meta?: string,
+    ): GenericPage[] => {
+      const filteredRows = rows.filter(row => {
+        if (!query) return true;
+        const text = Object.values(row).map(value => String(value ?? '')).join(' ');
+        return text.includes(query);
+      });
+      const selectedRows = printScope === 'single' ? filteredRows.slice(0, GENERIC_ROWS_PER_PAGE) : filteredRows;
+      return chunkRows(selectedRows, GENERIC_ROWS_PER_PAGE)
+        .filter(chunk => chunk.length || printScope === 'single')
+        .map(chunk => ({
+          type: 'generic',
+          title,
+          subject,
+          date: selectedDate,
+          meta,
+          columns,
+          rows: chunk,
+        }));
+    };
+
+    if (!isStudentSheet) {
+      const gradeMatches = (grade?: string) => selectedGrade === 'ALL' || String(grade || '') === selectedGrade;
+      const committeeMatches = (committee?: string) => selectedCommittee === 'ALL' || String(committee || '') === selectedCommittee;
+      const dateMatches = (value?: string | null) => !selectedDate || sameDate(value, selectedDate);
+      const subjectMatches = (subject?: string) => selectedSubject === 'ALL' || String(subject || '') === selectedSubject;
+
+      if (sheetType === 'student-distribution') {
+        const rows = students
+          .filter(student => gradeMatches(student.grade) && committeeMatches(student.committee_number))
+          .sort((a, b) => String(a.committee_number).localeCompare(String(b.committee_number), 'ar', { numeric: true }) || sortBySeat(a, b))
+          .map(student => ({
+            committee: student.committee_number,
+            seat: student.seating_number || '---',
+            name: student.name,
+            grade: student.grade,
+            section: student.section,
+            location: student.location || '---',
+          }));
+        return makeGenericPages('كشف توزيع الطلاب على اللجان وأرقام الجلوس', rows, [
+          { key: 'committee', label: 'اللجنة', width: '50px' },
+          { key: 'seat', label: 'رقم الجلوس', width: '72px' },
+          { key: 'name', label: 'اسم الطالب', align: 'right' },
+          { key: 'grade', label: 'الصف', width: '82px' },
+          { key: 'section', label: 'الفصل', width: '45px' },
+          { key: 'location', label: 'الموقع', width: '90px' },
+        ], selectedSubject === 'ALL' ? 'كل المواد' : selectedSubject, selectedCommittee === 'ALL' ? 'كل اللجان' : `اللجنة: ${selectedCommittee}`);
+      }
+
+      if (sheetType === 'committee-closures') {
+        const committeeList = selectedCommittee === 'ALL' ? committees : [selectedCommittee];
+        const rows = committeeList.map(committee => {
+          const committeeSupervision = supervisions.find(item => String(item.committee_number) === String(committee) && dateMatches(item.date));
+          const closeLogs = deliveryLogs.filter(log => String(log.committee_number) === String(committee) && dateMatches(log.time) && log.type === 'RECEIVE' && log.status === 'PENDING');
+          const receiveLogs = deliveryLogs.filter(log => String(log.committee_number) === String(committee) && dateMatches(log.time) && log.type === 'RECEIVE' && log.status === 'CONFIRMED');
+          return {
+            committee,
+            proctor: firstRealName(closeLogs[0]?.proctor_name, resolveUserName(users, committeeSupervision?.teacher_id)),
+            grades: unique(closeLogs.map(log => log.grade)).join('، ') || '---',
+            closeTime: closeLogs.length ? formatTime(closeLogs[0].time) : '---',
+            receiptTime: receiveLogs.length ? formatTime(receiveLogs[0].time) : '---',
+            status: receiveLogs.length ? 'مستلمة' : closeLogs.length ? 'مغلقة ميدانياً' : 'لم تغلق',
+          };
+        });
+        return makeGenericPages('كشف إغلاق اللجان من المراقبين', rows, [
+          { key: 'committee', label: 'اللجنة', width: '50px' },
+          { key: 'proctor', label: 'المراقب', align: 'right' },
+          { key: 'grades', label: 'الصفوف', width: '95px' },
+          { key: 'closeTime', label: 'وقت الإغلاق', width: '78px' },
+          { key: 'receiptTime', label: 'وقت الاستلام', width: '78px' },
+          { key: 'status', label: 'الحالة', width: '92px' },
+        ], 'متابعة اللجان', selectedCommittee === 'ALL' ? 'كل اللجان' : `اللجنة: ${selectedCommittee}`);
+      }
+
+      if (sheetType === 'answer-receipts') {
+        const rows = deliveryLogs
+          .filter(log => dateMatches(log.time) && log.type === 'RECEIVE')
+          .filter(log => gradeMatches(log.grade) && committeeMatches(log.committee_number))
+          .sort((a, b) => String(a.committee_number).localeCompare(String(b.committee_number), 'ar', { numeric: true }) || String(a.grade).localeCompare(String(b.grade), 'ar'))
+          .map(log => ({
+            committee: log.committee_number,
+            grade: log.grade,
+            proctor: firstRealName(log.proctor_name),
+            receiver: log.status === 'CONFIRMED' ? log.teacher_name : '',
+            time: formatTime(log.time),
+            status: log.status === 'CONFIRMED' ? 'مستلم' : 'بانتظار الاستلام',
+          }));
+        return makeGenericPages('كشف استلام أوراق الإجابة', rows, [
+          { key: 'committee', label: 'اللجنة', width: '50px' },
+          { key: 'grade', label: 'الصف', width: '90px' },
+          { key: 'proctor', label: 'المراقب', align: 'right' },
+          { key: 'receiver', label: 'المستلم', align: 'right' },
+          { key: 'time', label: 'الوقت', width: '70px' },
+          { key: 'status', label: 'الحالة', width: '92px' },
+        ], 'أوراق الإجابة', 'استلام الكنترول');
+      }
+
+      if (sheetType === 'requests-by-committee') {
+        const rows = controlRequests
+          .filter(request => dateMatches(request.time) && committeeMatches(request.committee))
+          .sort((a, b) => String(a.committee).localeCompare(String(b.committee), 'ar', { numeric: true }) || a.time.localeCompare(b.time))
+          .map(request => ({
+            committee: request.committee,
+            from: request.from,
+            time: formatTime(request.time),
+            report: request.text,
+            assistant: request.assistant_name || '---',
+            status: request.status === 'DONE' ? 'منجز' : request.status === 'IN_PROGRESS' ? 'قيد المتابعة' : request.status === 'REJECTED' ? 'مرفوض' : 'مفتوح',
+          }));
+        return makeGenericPages('كشف البلاغات حسب اللجنة', rows, [
+          { key: 'committee', label: 'اللجنة', width: '50px' },
+          { key: 'from', label: 'المراقب', align: 'right', width: '120px' },
+          { key: 'time', label: 'الوقت', width: '62px' },
+          { key: 'report', label: 'البلاغ', align: 'right' },
+          { key: 'assistant', label: 'المتابع', width: '110px' },
+          { key: 'status', label: 'الحالة', width: '78px' },
+        ], 'البلاغات', selectedCommittee === 'ALL' ? 'كل اللجان' : `اللجنة: ${selectedCommittee}`);
+      }
+
+      const scopedBoxes = archiveBoxes
+        .filter(box => dateMatches(box.exam_date) && gradeMatches(box.grade) && subjectMatches(box.subject))
+        .filter(box => selectedCommittee === 'ALL' || box.committees.some(committee => String(committee) === String(selectedCommittee)))
+        .sort((a, b) => String(a.box_number).localeCompare(String(b.box_number), 'ar', { numeric: true }));
+
+      if (sheetType === 'box-archive') {
+        const rows = scopedBoxes.map(box => {
+          const boxStudents = students.filter(student => student.grade === box.grade && box.committees.some(committee => String(committee) === String(student.committee_number)));
+          const boxAbsences = absences.filter(absence => dateMatches(absence.date) && box.committees.some(committee => String(committee) === String(absence.committee_number)));
+          return {
+            box: box.box_number,
+            subject: box.subject,
+            grade: box.grade,
+            committees: box.committees.join('، ') || '---',
+            students: boxStudents.length,
+            absent: boxAbsences.filter(absence => absence.type === 'ABSENT').length,
+            late: boxAbsences.filter(absence => absence.type === 'LATE').length,
+          };
+        });
+        return makeGenericPages('كشف الصناديق والأرشفة', rows, [
+          { key: 'box', label: 'الصندوق', width: '70px' },
+          { key: 'subject', label: 'المادة', width: '95px' },
+          { key: 'grade', label: 'الصف', width: '95px' },
+          { key: 'committees', label: 'اللجان', align: 'right' },
+          { key: 'students', label: 'الطلاب', width: '55px' },
+          { key: 'absent', label: 'غياب', width: '45px' },
+          { key: 'late', label: 'تأخير', width: '45px' },
+        ], 'الأرشفة', 'أرشيف الصناديق');
+      }
+
+      if (sheetType === 'box-contents') {
+        const rows = scopedBoxes.flatMap(box =>
+          students
+            .filter(student => student.grade === box.grade && box.committees.some(committee => String(committee) === String(student.committee_number)))
+            .sort((a, b) => String(a.committee_number).localeCompare(String(b.committee_number), 'ar', { numeric: true }) || sortBySeat(a, b))
+            .map(student => ({
+              box: box.box_number,
+              committee: student.committee_number,
+              seat: student.seating_number || '---',
+              name: student.name,
+              grade: student.grade,
+              section: student.section,
+            }))
+        );
+        return makeGenericPages('كشف محتويات الصندوق', rows, [
+          { key: 'box', label: 'الصندوق', width: '65px' },
+          { key: 'committee', label: 'اللجنة', width: '50px' },
+          { key: 'seat', label: 'المقعد', width: '70px' },
+          { key: 'name', label: 'اسم الطالب', align: 'right' },
+          { key: 'grade', label: 'الصف', width: '95px' },
+          { key: 'section', label: 'الفصل', width: '45px' },
+        ], 'الأرشفة', 'تفاصيل محتويات الصناديق');
+      }
+    }
+
     const exams = selectedSubject === 'ALL' ? selectedExams : selectedExams.slice(0, 1);
     const baseSubjects = exams.length
       ? exams
@@ -601,6 +885,9 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, us
         .marks-table th:nth-child(11), .marks-table td:nth-child(11) { width: 76px; }
         .marks-table td { height: 6.4mm; }
 
+        .generic-table td { height: 6.1mm; }
+        .generic-table .name-cell { font-size: 8px; line-height: 1.05; }
+
         .sheet-signatures {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -658,6 +945,12 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, us
             <Segment value={sheetType} onChange={setSheetType} items={[
               { value: 'signature', label: 'توقيع اللجان', icon: Signature },
               { value: 'marks', label: 'رصد مادة', icon: FileSpreadsheet },
+              { value: 'student-distribution', label: 'توزيع الطلاب', icon: UsersRound },
+              { value: 'committee-closures', label: 'إغلاق اللجان', icon: BookOpenCheck },
+              { value: 'answer-receipts', label: 'استلام الأوراق', icon: Layers },
+              { value: 'requests-by-committee', label: 'بلاغات اللجان', icon: Search },
+              { value: 'box-archive', label: 'الصناديق', icon: FileSpreadsheet },
+              { value: 'box-contents', label: 'محتويات الصندوق', icon: FileSpreadsheet },
             ]} />
           </Control>
           <Control label="طريقة الطباعة">
@@ -709,7 +1002,14 @@ const PrintSheets: React.FC<Props> = ({ students, examSchedule, systemConfig, us
       </div>
 
       <div className="sheets-print-area">
-        {pages.map((page, index) => page.type === 'signature' ? (
+        {pages.map((page, index) => page.type === 'generic' ? (
+          <GenericSheetPage
+            key={`generic-${page.title}-${index}`}
+            {...page}
+            page={index + 1}
+            academicYear={systemConfig.academic_year}
+          />
+        ) : page.type === 'signature' ? (
           <SignatureSheetPage
             key={`${page.subject}-${page.grade}-${page.committee}-${index}`}
             students={page.students}
