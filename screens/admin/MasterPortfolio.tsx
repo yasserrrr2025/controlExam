@@ -21,7 +21,6 @@ export const MasterPortfolio: React.FC<Props> = ({
   students, users, supervisions, systemConfig, absences, committeeReports, 
   examSchedule = [], deliveryLogs = [], controlRequests = [], publicMode = false
 }) => {
-
   const safeTime = (isoStr?: string) => {
     if (!isoStr) return '---';
     try {
