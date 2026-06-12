@@ -175,6 +175,12 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
     <div key={pageIdx} className="gs-1021-sheet">
       {pageCommittees.map(committee => {
         const stats = committeeStats[committee] || [];
+        const displayedStats = stats.length > 3
+          ? [
+              ...stats.slice(0, 2),
+              { grade: 'أخرى', count: stats.slice(2).reduce((sum, row) => sum + row.count, 0) },
+            ]
+          : stats;
         return (
           <div key={committee} className="gs-1021-label">
             <div className="committee-info-content">
@@ -195,7 +201,7 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {stats.slice(0, 5).map(row => (
+                    {displayedStats.map(row => (
                       <tr key={row.grade}>
                         <td>{row.grade}</td>
                         <td>{row.count}</td>
@@ -306,8 +312,9 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
               .committee-info-content {
                 align-items: stretch;
                 justify-content: space-between;
-                padding: 2.1mm;
-                gap: 2.2mm;
+                padding: 1.25mm;
+                gap: 1.25mm;
+                overflow: hidden;
               }
               .committee-info-main {
                 flex: 1;
@@ -315,6 +322,7 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
+                overflow: hidden;
               }
               .committee-info-top {
                 display: flex;
@@ -322,11 +330,12 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 justify-content: space-between;
                 gap: 1.5mm;
                 border-bottom: .7pt solid #000;
-                padding-bottom: 1mm;
+                padding-bottom: .6mm;
+                flex-shrink: 0;
               }
               .committee-info-logo {
-                width: 11mm;
-                height: 11mm;
+                width: 9mm;
+                height: 9mm;
                 object-fit: contain;
               }
               .committee-title-block {
@@ -337,12 +346,12 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
               }
               .committee-title-block span {
                 display: block;
-                font-size: 7pt;
+                font-size: 6.4pt;
               }
               .committee-title-block strong {
                 display: block;
-                font-size: 24pt;
-                margin-top: .8mm;
+                font-size: 20pt;
+                margin-top: .35mm;
                 letter-spacing: 0;
                 color: #000 !important;
               }
@@ -350,44 +359,53 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 width: 100%;
                 border-collapse: collapse;
                 table-layout: fixed;
-                margin-top: 1.2mm;
+                margin-top: .75mm;
+                flex: 1;
               }
               .committee-mini-table th,
               .committee-mini-table td {
                 border: .65pt solid #000;
-                padding: .7mm .8mm;
+                padding: .35mm .45mm;
                 text-align: center;
                 color: #000 !important;
                 font-weight: 900;
-                line-height: 1.05;
+                line-height: 1;
+                white-space: nowrap;
+                overflow: hidden;
               }
               .committee-mini-table th {
-                font-size: 7.4pt;
+                font-size: 7pt;
                 background: #f1f5f9 !important;
               }
               .committee-mini-table td {
-                font-size: 8.2pt;
+                font-size: 7.6pt;
+              }
+              .committee-mini-table td:first-child {
+                font-size: 6.2pt;
+                line-height: .9;
               }
               .committee-info-qr {
-                width: 23mm;
+                width: 21mm;
                 height: 100%;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
                 border-right: 1pt solid #000;
-                padding-right: 1.5mm;
+                padding-right: 1mm;
+                overflow: hidden;
               }
               .committee-info-qr-img {
-                width: 20mm;
-                height: 20mm;
+                width: 17.5mm;
+                height: 17.5mm;
               }
               .committee-info-qr span {
                 color: #000 !important;
-                font-size: 5.8pt;
+                font-size: 5.2pt;
                 font-weight: 900;
-                margin-top: 1mm;
+                margin-top: .65mm;
                 line-height: 1;
+                white-space: nowrap;
               }
               .text-black-bold {
                 color: #000 !important;
