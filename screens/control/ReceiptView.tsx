@@ -50,13 +50,23 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
   };
 
   /* ── مطابقة التاريخ بمرونة (يتعامل مع ISO كامل أو YYYY-MM-DD) ── */
+  const getRiyadhDateKey = (value: string | Date) => {
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value).slice(0, 10);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Riyadh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(d);
+    const get = (type: string) => parts.find(part => part.type === type)?.value || '';
+    return `${get('year')}-${get('month')}-${get('day')}`;
+  };
+
   const matchDate = (isoStr: string | undefined | null, date: string): boolean => {
     if (!isoStr || !date) return false;
-    try {
-      const d = new Date(isoStr);
-      if (isNaN(d.getTime())) return String(isoStr).startsWith(date);
-      return d.toISOString().startsWith(date);
-    } catch { return String(isoStr ?? '').startsWith(date); }
+    const text = String(isoStr);
+    return text.startsWith(date) || getRiyadhDateKey(text) === date;
   };
 
   const getUniqueKey = (committee: string | number, grade: string): string => {
@@ -64,14 +74,7 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
   };
 
   const actualTodayDate = useMemo(() => {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Riyadh',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(new Date());
-    const get = (type: string) => parts.find(part => part.type === type)?.value || '';
-    return `${get('year')}-${get('month')}-${get('day')}`;
+    return getRiyadhDateKey(new Date());
   }, []);
 
   const matchesReceiptWorkDate = (value?: string | null) => {
