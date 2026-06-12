@@ -47,6 +47,15 @@ const formatTime = (value?: string) => {
   return new Date(value).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
 };
 
+const isReceiverSummon = (request: ControlRequest) => request.text?.startsWith('[CALL_RECEIVER]');
+const cleanSummonText = (text?: string) => String(text || '').replace('[CALL_RECEIVER]', '').trim();
+const summonAgeMinutes = (time?: string) => {
+  if (!time) return 0;
+  const value = new Date(time).getTime();
+  if (Number.isNaN(value)) return 0;
+  return Math.max(0, Math.round((Date.now() - value) / 60000));
+};
+
 const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, deliveryLogs, students, requests }) => {
   const [now, setNow] = useState(new Date());
   const [scene, setScene] = useState<Scene>('overview');
@@ -134,8 +143,21 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
       const logs = deliveryLogs.filter(l => l.committee_number === num && l.time.startsWith(activeDate));
       const confirmed = grades.length > 0 && grades.every(g => logs.some(l => l.grade === g && l.status === 'CONFIRMED'));
       const submitted = !confirmed && grades.length > 0 && grades.every(g => logs.some(l => l.grade === g));
-      const pendingAlert = requests.some(r => r.committee === num && r.status === 'PENDING');
-      const inProgressAlert = requests.some(r => r.committee === num && r.status === 'IN_PROGRESS');
+      const normalRequests = requests.filter(r => r.committee === num && !isReceiverSummon(r));
+      const receiverSummons = requests
+        .filter(r => r.committee === num && r.status !== 'DONE' && isReceiverSummon(r))
+        .sort((a, b) => b.time.localeCompare(a.time));
+      const activeSummon = receiverSummons[0];
+      const activeSummonAge = activeSummon ? summonAgeMinutes(activeSummon.time) : 0;
+      const summonTone = activeSummon
+        ? activeSummonAge >= 10
+          ? 'late'
+          : activeSummon.status === 'IN_PROGRESS'
+            ? 'ack'
+            : 'new'
+        : null;
+      const pendingAlert = normalRequests.some(r => r.status === 'PENDING');
+      const inProgressAlert = normalRequests.some(r => r.status === 'IN_PROGRESS');
       const committeeAbsences = absences.filter(a => a.committee_number === num);
       const hasActualJoin = supervision && !isPlaceholderProctorStart(supervision.date);
       const status = confirmed ? 'confirmed' : submitted ? 'submitted' : pendingAlert ? 'alert' : inProgressAlert ? 'progress' : hasActualJoin ? 'active' : 'idle';
@@ -151,6 +173,9 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
         lates: committeeAbsences.filter(a => a.type === 'LATE').length,
         hasPendingAlert: pendingAlert,
         hasInProgressAlert: inProgressAlert,
+        activeSummon,
+        summonTone,
+        summonCount: receiverSummons.length,
         status,
         joinedAt: hasActualJoin ? supervision?.date : undefined,
         closedAt: closeLog?.time,
@@ -250,16 +275,21 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
   }, [absences, deliveryLogs, requests]);
 
   const alertBoardItems = useMemo(() => {
-    return requests.map(req => ({
-      id: `request-${req.id}`,
-      time: req.time,
-      committee: req.committee,
-      title: req.status === 'DONE' ? 'بلاغ مغلق' : 'بلاغ كنترول',
-      text: req.text,
-      source: req.from,
-      tone: req.status === 'DONE' ? 'done' : 'request',
-      status: req.status,
-    }))
+    return requests.map(req => {
+      const receiverSummon = isReceiverSummon(req);
+      return {
+        id: `request-${req.id}`,
+        time: req.time,
+        committee: req.committee,
+        title: receiverSummon
+          ? req.status === 'IN_PROGRESS' ? 'استلم المراقب الاستدعاء' : req.status === 'DONE' ? 'استدعاء مغلق' : 'استدعاء مراقب'
+          : req.status === 'DONE' ? 'بلاغ مغلق' : 'بلاغ كنترول',
+        text: receiverSummon ? cleanSummonText(req.text) : req.text,
+        source: req.from,
+        tone: receiverSummon ? (req.status === 'DONE' ? 'done' : req.status === 'IN_PROGRESS' ? 'summonAck' : 'summon') : req.status === 'DONE' ? 'done' : 'request',
+        status: req.status,
+      };
+    })
       .sort((a, b) => b.time.localeCompare(a.time))
       .slice(0, 8);
   }, [requests]);
@@ -277,7 +307,10 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
     return [...items, ...items];
   }, [insights]);
 
-  const statusStyle = (status: string) => {
+  const statusStyle = (status: string, summonTone?: string | null) => {
+    if (summonTone === 'late') return 'from-orange-600 to-amber-500 border-orange-100 shadow-orange-500/70 animate-pulse';
+    if (summonTone === 'ack') return 'from-violet-600 to-indigo-500 border-violet-100 shadow-violet-500/60';
+    if (summonTone === 'new') return 'from-blue-700 to-cyan-500 border-cyan-100 shadow-cyan-500/60 animate-pulse';
     switch (status) {
       case 'confirmed': return 'from-emerald-500 to-teal-500 border-emerald-200 shadow-emerald-500/30';
       case 'alert': return 'from-red-600 to-rose-500 border-red-200 shadow-red-500/60 animate-pulse';
@@ -600,8 +633,23 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
               </div>
               <div className="tv2-map-grid grid h-[calc(100%-7rem)] grid-cols-[repeat(auto-fit,minmax(13rem,1fr))] gap-5 overflow-hidden">
                 {committees.map(c => (
-                  <div key={c.num} className={`relative min-h-0 overflow-hidden rounded-[2rem] border-2 bg-gradient-to-br p-5 shadow-2xl ${statusStyle(c.status)}`}>
+                  <div key={c.num} className={`relative min-h-0 overflow-hidden rounded-[2rem] border-2 bg-gradient-to-br p-5 shadow-2xl ${statusStyle(c.status, c.summonTone)}`}>
                     <div className="absolute -left-8 -top-8 h-24 w-24 rounded-full bg-white/20 blur-2xl" />
+                    {c.activeSummon && (
+                      <div className={`absolute right-3 top-3 z-20 flex max-w-[75%] items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black text-white shadow-xl ${
+                        c.summonTone === 'late'
+                          ? 'bg-orange-700'
+                          : c.summonTone === 'ack'
+                            ? 'bg-violet-700'
+                            : 'bg-blue-800'
+                      }`}>
+                        <BellRing size={12} />
+                        <span className="truncate">
+                          {c.summonTone === 'late' ? 'استدعاء متأخر' : c.summonTone === 'ack' ? 'استلمه المراقب' : 'استدعاء مراقب'}
+                        </span>
+                        {c.summonCount > 1 && <span className="rounded-full bg-white/20 px-1.5">+{c.summonCount - 1}</span>}
+                      </div>
+                    )}
                     {c.status === 'submitted' && <Truck className="absolute left-4 top-4 animate-bounce text-white/80" size={26} />}
                     {c.status === 'alert' && <BellRing className="absolute left-4 top-4 animate-pulse text-white" size={26} />}
                     {c.status === 'submitted' && (c.hasPendingAlert || c.hasInProgressAlert) && (
@@ -617,6 +665,11 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
                       </div>
                       <div className="rounded-2xl bg-slate-950/22 px-3 py-2 backdrop-blur-sm">
                         <p className="tv2-proctor-name text-sm font-black leading-5 text-white drop-shadow-sm">{c.proctorName}</p>
+                        {c.activeSummon && (
+                          <p className="mt-1 truncate text-[10px] font-black text-white/90">
+                            {cleanSummonText(c.activeSummon.text)} · {c.activeSummon.from}
+                          </p>
+                        )}
                         <p className="mt-1 text-[11px] font-black opacity-75">{c.totalStudents} طالب · {c.grades.length} صف</p>
                       </div>
                     </div>
@@ -643,6 +696,10 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
                       className={`rounded-[2rem] border p-5 ${
                         item.tone === 'done'
                           ? 'border-white/10 bg-white/5 opacity-60'
+                          : item.tone === 'summonAck'
+                            ? 'border-violet-300/40 bg-violet-600/25'
+                            : item.tone === 'summon'
+                              ? 'border-cyan-300/40 bg-blue-600/25'
                           : item.tone === 'late'
                             ? 'border-amber-300/30 bg-amber-500/20'
                             : item.tone === 'absence'
@@ -656,6 +713,10 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
                           <span className={`rounded-2xl px-4 py-2 text-xs font-black ${
                             item.tone === 'late'
                               ? 'bg-amber-500'
+                              : item.tone === 'summonAck'
+                                ? 'bg-violet-600'
+                                : item.tone === 'summon'
+                                  ? 'bg-blue-600'
                               : item.tone === 'absence'
                                 ? 'bg-rose-500'
                                 : item.tone === 'done'

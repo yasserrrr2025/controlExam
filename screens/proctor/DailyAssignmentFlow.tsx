@@ -252,13 +252,27 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
       controlRequests
         .filter(
           (r) =>
-            r.from === user.full_name &&
             r.committee === activeCommittee &&
-            r.status !== "DONE",
+            r.status !== "DONE" &&
+            (r.from === user.full_name || r.text?.startsWith('[CALL_RECEIVER]')),
         )
         .sort((a, b) => b.time.localeCompare(a.time)),
     [controlRequests, user.full_name, activeCommittee],
   );
+
+  const isReceiverSummon = (request: ControlRequest) => request.text?.startsWith('[CALL_RECEIVER]');
+  const cleanRequestText = (text?: string) => String(text || '').replace('[CALL_RECEIVER]', '').trim();
+
+  const acknowledgeReceiverSummon = async (request: ControlRequest) => {
+    if (!isReceiverSummon(request) || request.status !== 'PENDING') return;
+    try {
+      await db.controlRequests.updateStatus(request.id, 'IN_PROGRESS', user.full_name);
+      await setSupervisions();
+      onAlert('تم استلام استدعاء المستلم. يرجى مراجعة نقطة الاستلام.', 'success');
+    } catch (error: any) {
+      onAlert(error.message || 'تعذر استلام الاستدعاء.', 'error');
+    }
+  };
 
   useEffect(() => {
     if (!activeAssignmentStartTime) return;
@@ -1157,30 +1171,55 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
             </h3>
           </div>
           <div className="space-y-4">
-            {myActiveRequests.map((req) => (
+            {myActiveRequests.map((req) => {
+              const receiverSummon = isReceiverSummon(req);
+              const requestText = receiverSummon ? cleanRequestText(req.text) : req.text;
+              const requestStatusText = receiverSummon
+                ? req.status === "PENDING" ? "استدعاء من المستلم" : "بانتظار إغلاق المستلم"
+                : req.status === "PENDING" ? "بانتظار المباشرة" : "المساعد في الطريق إليك";
+              return (
               <div
                 key={req.id}
-                className="flex flex-col md:flex-row justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100 group"
+                className={`flex flex-col md:flex-row justify-between items-center p-4 rounded-2xl border group ${
+                  receiverSummon ? "bg-blue-50 border-blue-100" : "bg-slate-50 border-slate-100"
+                }`}
               >
-                <div className="flex items-center gap-4 flex-1">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
                   <div
-                    className={`w-3 h-3 rounded-full ${req.status === "PENDING" ? "bg-amber-500 animate-pulse" : "bg-blue-500"}`}
+                    className={`w-3 h-3 rounded-full shrink-0 ${
+                      receiverSummon
+                        ? req.status === "PENDING" ? "bg-blue-600 animate-pulse" : "bg-violet-600"
+                        : req.status === "PENDING" ? "bg-amber-500 animate-pulse" : "bg-blue-500"
+                    }`}
                   ></div>
-                  <p className="font-black text-slate-700 text-sm">
-                    {req.text}
-                  </p>
+                  <div className="min-w-0 text-right">
+                    <p className="font-black text-slate-700 text-sm truncate">
+                      {requestText}
+                    </p>
+                    {receiverSummon && (
+                      <p className="mt-1 text-[10px] font-bold text-blue-500 truncate">
+                        من: {req.from}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 mt-3 md:mt-0">
+                <div className="flex flex-wrap items-center justify-end gap-3 mt-3 md:mt-0">
+                  {receiverSummon && req.status === "PENDING" && (
+                    <button
+                      onClick={() => acknowledgeReceiverSummon(req)}
+                      className="px-4 py-2 rounded-xl bg-blue-600 text-white font-black text-xs shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+                    >
+                      استلام الطلب
+                    </button>
+                  )}
                   <span
                     className={`px-4 py-1 rounded-full font-black text-[9px] uppercase tracking-widest ${
-                      req.status === "PENDING"
-                        ? "bg-amber-100 text-amber-600"
-                        : "bg-blue-600 text-white shadow-lg"
+                      receiverSummon
+                        ? req.status === "PENDING" ? "bg-blue-100 text-blue-700" : "bg-violet-600 text-white shadow-lg"
+                        : req.status === "PENDING" ? "bg-amber-100 text-amber-600" : "bg-blue-600 text-white shadow-lg"
                     }`}
                   >
-                    {req.status === "PENDING"
-                      ? "بانتظار المباشرة"
-                      : "المساعد في الطريق إليك"}
+                    {requestStatusText}
                   </span>
                   <div className="text-[9px] font-bold text-slate-400 font-mono">
                     {new Date(req.time).toLocaleTimeString("ar-SA", {
@@ -1190,7 +1229,8 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

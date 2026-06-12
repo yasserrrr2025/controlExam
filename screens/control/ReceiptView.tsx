@@ -37,6 +37,9 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'READY' | 'WAITING' | 'RECEIVED'>('ALL');
   const [receiptNote, setReceiptNote] = useState('');
   const [listSearch, setListSearch] = useState('');
+  const [summonReason, setSummonReason] = useState('مراجعة المستلم');
+  const [summonNote, setSummonNote] = useState('');
+  const [isSummonSaving, setIsSummonSaving] = useState(false);
   const qrScannerRef = useRef<Html5Qrcode | null>(null);
 
   const todayDate = systemConfig?.active_exam_date || new Date().toISOString().split('T')[0];
@@ -115,6 +118,52 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
       .sort((a,b) => b.time.localeCompare(a.time))
       .slice(0, 5);
   }, [deliveryLogs, todayDate, user.full_name]);
+
+  const isReceiverSummon = (request: ControlRequest) => request.text?.startsWith('[CALL_RECEIVER]');
+  const cleanSummonText = (text?: string) => String(text || '').replace('[CALL_RECEIVER]', '').trim();
+
+  const activeCommitteeSummons = useMemo(() => {
+    if (!activeCommitteeId) return [];
+    return controlRequests
+      .filter(request => request.committee === activeCommitteeId && request.status !== 'DONE' && isReceiverSummon(request))
+      .sort((a, b) => b.time.localeCompare(a.time));
+  }, [activeCommitteeId, controlRequests]);
+
+  const handleSendSummon = async () => {
+    if (!activeCommitteeId || isSummonSaving) return;
+    setIsSummonSaving(true);
+    try {
+      const notePart = summonNote.trim() ? ` - ${summonNote.trim()}` : '';
+      await db.controlRequests.insert({
+        from: `${user.full_name} - المستلم`,
+        committee: activeCommitteeId,
+        text: `[CALL_RECEIVER] استدعاء المراقب: ${summonReason}${notePart}`,
+        time: new Date().toISOString(),
+        status: 'PENDING',
+      });
+      setSummonNote('');
+      await setControlRequests();
+      onAlert('تم إرسال استدعاء المراقب لهذه اللجنة.', 'success');
+    } catch (error: any) {
+      onAlert(error.message || 'تعذر إرسال استدعاء المراقب.', 'error');
+    } finally {
+      setIsSummonSaving(false);
+    }
+  };
+
+  const handleCloseSummon = async (requestId: string) => {
+    if (isSummonSaving) return;
+    setIsSummonSaving(true);
+    try {
+      await db.controlRequests.updateStatus(requestId, 'DONE', user.full_name);
+      await setControlRequests();
+      onAlert('تم إغلاق الاستدعاء من شاشة الاستلام.', 'success');
+    } catch (error: any) {
+      onAlert(error.message || 'تعذر إغلاق الاستدعاء.', 'error');
+    } finally {
+      setIsSummonSaving(false);
+    }
+  };
 
   const progressPercentage = useMemo(() => {
     const total = Object.keys(myTotalScope).length;
@@ -505,6 +554,74 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
                               <h5 className="text-base font-black text-emerald-900 leading-tight">{user.full_name}</h5>
                             </div>
                           </div>
+                        </div>
+
+                        <div className="bg-indigo-50 border border-indigo-100 rounded-[2rem] p-5 space-y-4">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-11 h-11 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shrink-0">
+                                <ShieldAlert size={21} />
+                              </div>
+                              <div className="text-right">
+                                <p className="font-black text-indigo-950">استدعاء مراقب اللجنة</p>
+                                <p className="text-xs font-bold text-indigo-500 mt-1">يظهر للمراقب المرتبط بهذه اللجنة ويظهر في TV2 بالألوان.</p>
+                              </div>
+                            </div>
+                            <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black text-indigo-700 border border-indigo-100">
+                              {activeCommitteeSummons.length ? `${activeCommitteeSummons.length} استدعاء نشط` : 'لا يوجد استدعاء نشط'}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-[170px_1fr_auto] gap-3">
+                            <select
+                              value={summonReason}
+                              onChange={e => setSummonReason(e.target.value)}
+                              className="rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-sm font-black text-slate-800 outline-none focus:border-indigo-400"
+                            >
+                              <option>مراجعة المستلم</option>
+                              <option>مطابقة عدد الأوراق</option>
+                              <option>نقص أو زيادة أوراق</option>
+                              <option>ملاحظة على المحضر</option>
+                              <option>توقيع أو اعتماد مطلوب</option>
+                              <option>أخرى</option>
+                            </select>
+                            <input
+                              value={summonNote}
+                              onChange={e => setSummonNote(e.target.value)}
+                              placeholder="ملاحظة اختيارية للمراقب"
+                              className="rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:border-indigo-400"
+                            />
+                            <button
+                              onClick={handleSendSummon}
+                              disabled={isSummonSaving}
+                              className="rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                            >
+                              {isSummonSaving ? 'جاري...' : 'إرسال الاستدعاء'}
+                            </button>
+                          </div>
+
+                          {activeCommitteeSummons.length > 0 && (
+                            <div className="space-y-2">
+                              {activeCommitteeSummons.map(request => (
+                                <div key={request.id} className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl bg-white border border-indigo-100 p-4">
+                                  <div className="text-right">
+                                    <p className="font-black text-slate-900">{cleanSummonText(request.text)}</p>
+                                    <p className="mt-1 text-[11px] font-bold text-slate-500">
+                                      الحالة: {request.status === 'PENDING' ? 'مرسل وينتظر استلام المراقب' : 'استلمه المراقب'}
+                                      {request.assistant_name ? ` - ${request.assistant_name}` : ''}
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={() => handleCloseSummon(request.id)}
+                                    disabled={isSummonSaving}
+                                    className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white disabled:opacity-50"
+                                  >
+                                    إغلاق الاستدعاء
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
 
                         {controlRequests.some(r => r.committee === activeCommitteeId && r.status !== 'DONE') && (
