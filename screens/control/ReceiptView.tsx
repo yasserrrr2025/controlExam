@@ -63,14 +63,29 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
     return `${cleanId(committee)}_${grade.trim()}`;
   };
 
+  const actualTodayDate = useMemo(() => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Riyadh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const get = (type: string) => parts.find(part => part.type === type)?.value || '';
+    return `${get('year')}-${get('month')}-${get('day')}`;
+  }, []);
+
+  const matchesReceiptWorkDate = (value?: string | null) => {
+    return matchDate(value, todayDate) || matchDate(value, actualTodayDate);
+  };
+
   // اللجان التي أغلقها المراقب ميدانياً اليوم وتنتظر الاستلام الفعلي
   const proctorSubmittedCommittees = useMemo(() => {
     return new Set(
       deliveryLogs
-        .filter(l => l.type === 'RECEIVE' && matchDate(l.time, todayDate) && (l.status === 'PENDING' || l.proctor_name))
+        .filter(l => l.type === 'RECEIVE' && (l.status === 'PENDING' || l.proctor_name) && matchesReceiptWorkDate(l.time))
         .map(l => cleanId(l.committee_number))
     );
-  }, [deliveryLogs, todayDate]);
+  }, [deliveryLogs, todayDate, actualTodayDate]);
 
   const receivedKeys = useMemo(() => {
     return new Set(deliveryLogs.filter(l => l.type === 'RECEIVE' && l.status === 'CONFIRMED' && matchDate(l.time, todayDate)).map(l => getUniqueKey(l.committee_number, l.grade)));
@@ -176,11 +191,12 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
     return Object.values(myTotalScope)
       .map(info => {
         const isReceived = receivedKeys.has(info.key);
-        const isReady = !isReceived && proctorSubmittedCommittees.has(info.committee);
         const sv = supervisions.find(s => cleanId(s.committee_number) === info.committee && matchDate(s.date, todayDate));
         const proctor = users.find(u => u.id === sv?.teacher_id);
         const confirmedLog = deliveryLogs.find(l => l.status === 'CONFIRMED' && matchDate(l.time, todayDate) && getUniqueKey(l.committee_number, l.grade) === info.key);
-        const pendingLog = deliveryLogs.find(l => l.status === 'PENDING' && matchDate(l.time, todayDate) && getUniqueKey(l.committee_number, l.grade) === info.key);
+        const pendingLog = deliveryLogs.find(l => l.status === 'PENDING' && matchesReceiptWorkDate(l.time) && getUniqueKey(l.committee_number, l.grade) === info.key)
+          || deliveryLogs.find(l => l.type === 'RECEIVE' && l.status === 'PENDING' && matchesReceiptWorkDate(l.time) && cleanId(l.committee_number) === info.committee);
+        const isReady = !isReceived && (proctorSubmittedCommittees.has(info.committee) || Boolean(pendingLog));
         const gradeAbsences = absences.filter(a => a.committee_number === info.committee && a.type === 'ABSENT' && matchDate(a.date, todayDate) && students.find(s => s.national_id === a.student_id)?.grade === info.grade);
         const gradeLates = absences.filter(a => a.committee_number === info.committee && a.type === 'LATE' && matchDate(a.date, todayDate) && students.find(s => s.national_id === a.student_id)?.grade === info.grade);
         const openAlerts = controlRequests.filter(r => r.committee === info.committee && r.status !== 'DONE');
@@ -212,7 +228,7 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
         const rank = { READY: 0, WAITING: 1, RECEIVED: 2 } as Record<string, number>;
         return rank[a.status] - rank[b.status] || Number(a.committee) - Number(b.committee) || a.grade.localeCompare(b.grade);
       });
-  }, [absences, controlRequests, deliveryLogs, listSearch, myTotalScope, proctorSubmittedCommittees, receivedKeys, statusFilter, students, supervisions, todayDate, users]);
+  }, [absences, actualTodayDate, controlRequests, deliveryLogs, listSearch, myTotalScope, proctorSubmittedCommittees, receivedKeys, statusFilter, students, supervisions, todayDate, users]);
 
   const personalStats = useMemo(() => {
     const cards = Object.values(myTotalScope);

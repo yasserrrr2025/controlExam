@@ -185,8 +185,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
 
   const buildActiveDateTimestamp = () => {
     const now = new Date();
-    const pad = (value: number) => String(value).padStart(2, '0');
-    return `${activeDate}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    return now.toISOString();
   };
 
   function getRiyadhDateKeyFromValue(value?: string | null) {
@@ -219,8 +218,20 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   useEffect(() => {
     if (!activeAssignment || !isEmergencyAssignment || !isAssignmentStarted(activeAssignment.date)) return;
     if (confirmedAssignments.includes(activeAssignment.id)) return;
-    markAssignmentStarted(activeAssignment.id, activeAssignment.date);
-    setOptimisticAssignment(activeAssignment);
+    const startedAt = buildActiveDateTimestamp();
+    supabase
+      .from('supervision')
+      .update({ date: startedAt })
+      .eq('id', activeAssignment.id)
+      .then(({ error }) => {
+        if (error) {
+          onAlert(error.message || 'تعذر تحديث وقت مباشرة الطوارئ', 'error');
+          return;
+        }
+        setSupervisions();
+      });
+    markAssignmentStarted(activeAssignment.id, startedAt);
+    setOptimisticAssignment({ ...activeAssignment, date: startedAt });
     onAlert(`تمت مباشرة اللجنة رقم ${activeAssignment.committee_number} كاحتياط / بديل طارئ.`, 'success');
   }, [activeAssignment?.id, activeAssignment?.date, isEmergencyAssignment, confirmedAssignments]);
 
