@@ -19,7 +19,7 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
   const [selectedCommittee, setSelectedCommittee] = useState<string>('ALL');
 
   const uniqueCommittees = useMemo(() => {
-    return Array.from(new Set(students.map(s => s.committee_number)))
+    return Array.from(new Set(students.map(student => student.committee_number)))
       .filter(Boolean)
       .map(String)
       .sort((a, b) => Number(a) - Number(b));
@@ -45,9 +45,11 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
   const committeePages = useMemo(() => {
     const pages: string[][] = [];
     const committeesToProcess = selectedCommittee === 'ALL' ? uniqueCommittees : [selectedCommittee];
+
     for (let i = 0; i < committeesToProcess.length; i += 21) {
       pages.push(committeesToProcess.slice(i, i + 21));
     }
+
     return pages;
   }, [uniqueCommittees, selectedCommittee]);
 
@@ -57,7 +59,8 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
         students
           .filter(student => String(student.committee_number) === String(committee))
           .reduce((map, student) => {
-            map.set(student.grade, (map.get(student.grade) || 0) + 1);
+            const grade = student.grade || 'غير محدد';
+            map.set(grade, (map.get(grade) || 0) + 1);
             return map;
           }, new Map<string, number>())
       )
@@ -86,7 +89,7 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
         });
       });
     } else {
-      committeePages.forEach(page => page.forEach(committee => imageUrlsToPreload.push(qrUrl(committee, 200))));
+      committeePages.forEach(page => page.forEach(committee => imageUrlsToPreload.push(qrUrl(committee, 220))));
     }
 
     await Promise.allSettled(
@@ -109,10 +112,10 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
 
   const renderStudentPrint = () => pagesByCommittee.map((page, pageIdx) => (
     <div key={pageIdx} className="gs-1021-sheet">
-      {page.students.map((student) => (
+      {page.students.map(student => (
         <div key={student.id} className="gs-1021-label">
           <div className="student-label-content">
-            <div className="student-label-details flex flex-col justify-between" style={{ flex: 1 }}>
+            <div className="student-label-details">
               <div className="flex justify-between items-start">
                 <img src={APP_CONFIG.LOGO_URL} alt="Logo" className="w-6 h-6 object-contain" />
                 <div className="text-left text-[8pt] font-black text-black-bold">لجنة: {student.committee_number}</div>
@@ -144,12 +147,12 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
 
   const renderCommitteeCodePrint = () => committeePages.map((pageCommittees, pageIdx) => (
     <div key={pageIdx} className="gs-1021-sheet">
-      {pageCommittees.map((committee) => (
+      {pageCommittees.map(committee => (
         <div key={committee} className="gs-1021-label">
           <div className="committee-code-content">
             <div className="w-[40%] flex items-center justify-center">
               <img
-                src={qrUrl(committee, 200)}
+                src={qrUrl(committee, 220)}
                 alt="QR"
                 className="w-20 h-20"
                 style={{ imageRendering: 'pixelated' }}
@@ -170,55 +173,57 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
 
   const renderCommitteeInfoPrint = () => committeePages.map((pageCommittees, pageIdx) => (
     <div key={pageIdx} className="gs-1021-sheet">
-      {pageCommittees.map((committee) => (
-        <div key={committee} className="gs-1021-label">
-          <div className="committee-info-content">
-            <div className="committee-info-panel">
-              <div className="flex items-center justify-between gap-1">
-                <img src={APP_CONFIG.LOGO_URL} alt="Logo" className="w-8 h-8 object-contain" />
-                <div className="text-left">
-                  <div className="text-[6pt] font-black text-black-bold leading-none">QR لجنة</div>
-                  <div className="text-[24pt] font-black text-black-bold leading-none tabular-nums">{committee}</div>
+      {pageCommittees.map(committee => {
+        const stats = committeeStats[committee] || [];
+        return (
+          <div key={committee} className="gs-1021-label">
+            <div className="committee-info-content">
+              <div className="committee-info-main">
+                <div className="committee-info-top">
+                  <img src={APP_CONFIG.LOGO_URL} alt="Logo" className="committee-info-logo" />
+                  <div className="committee-title-block">
+                    <span>معلومات اللجنة</span>
+                    <strong>{committee}</strong>
+                  </div>
                 </div>
-              </div>
-              <table className="committee-mini-table">
-                <thead>
-                  <tr>
-                    <th>الصف</th>
-                    <th>العدد</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(committeeStats[committee] || []).slice(0, 4).map(row => (
-                    <tr key={row.grade}>
-                      <td>{row.grade}</td>
-                      <td>{row.count}</td>
+
+                <table className="committee-mini-table">
+                  <thead>
+                    <tr>
+                      <th>الصف</th>
+                      <th>العدد</th>
                     </tr>
-                  ))}
-                  {!(committeeStats[committee] || []).length && (
-                    <tr><td colSpan={2}>لا يوجد طلاب</td></tr>
-                  )}
-                </tbody>
-              </table>
-              <div className="text-[5pt] font-black text-black-bold text-center leading-none mt-1">امسح الرمز لفتح اللجنة</div>
-            </div>
-            <div className="committee-qr-panel">
-              <img
-                src={qrUrl(committee, 200)}
-                alt="QR"
-                className="w-[18mm] h-[18mm]"
-                style={{ imageRendering: 'pixelated' }}
-                crossOrigin="anonymous"
-              />
-              <span className="text-[5pt] font-black text-black-bold mt-1">رقم اللجنة</span>
+                  </thead>
+                  <tbody>
+                    {stats.slice(0, 5).map(row => (
+                      <tr key={row.grade}>
+                        <td>{row.grade}</td>
+                        <td>{row.count}</td>
+                      </tr>
+                    ))}
+                    {!stats.length && <tr><td colSpan={2}>لا يوجد طلاب</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="committee-info-qr">
+                <img
+                  src={qrUrl(committee, 220)}
+                  alt="QR"
+                  className="committee-info-qr-img"
+                  style={{ imageRendering: 'pixelated' }}
+                  crossOrigin="anonymous"
+                />
+                <span>QR رقم اللجنة</span>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   ));
 
-  const modeTitle = printMode === 'STUDENT' ? 'الطلاب' : printMode === 'COMMITTEE' ? 'كود اللجان' : 'معلومات اللجان';
+  const modeTitle = printMode === 'STUDENT' ? 'الطلاب' : printMode === 'COMMITTEE' ? 'كود تفعيل اللجان' : 'معلومات اللجان';
 
   return (
     <div className="space-y-10 animate-fade-in text-right pb-24 max-w-7xl mx-auto px-4 md:px-0">
@@ -229,7 +234,10 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
               #labels-print-portal { display: none !important; }
             }
             @media print {
-              @page { size: A4 portrait; margin: 0; }
+              @page {
+                size: A4 portrait;
+                margin: 0;
+              }
               body {
                 background: white !important;
                 margin: 0;
@@ -238,7 +246,9 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 print-color-adjust: exact;
                 color: black !important;
               }
-              #root, #app-root, header, nav, .no-print { display: none !important; }
+              #root, #app-root, header, nav, .no-print {
+                display: none !important;
+              }
               #labels-print-portal {
                 display: block !important;
                 position: absolute;
@@ -284,51 +294,108 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 flex: 1;
                 display: flex;
                 flex-direction: column;
+                justify-content: space-between;
                 border-left: 1pt solid #000;
                 padding-left: 2mm;
               }
+              .committee-code-content {
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 5mm;
+              }
               .committee-info-content {
-                align-items: center;
+                align-items: stretch;
                 justify-content: space-between;
+                padding: 2.1mm;
+                gap: 2.2mm;
               }
-              .committee-qr-panel {
-                width: 21mm;
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                border-left: 1pt solid #000;
-                padding-left: 1.5mm;
-              }
-              .committee-info-panel {
+              .committee-info-main {
                 flex: 1;
-                height: 100%;
+                min-width: 0;
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
-                min-width: 0;
+              }
+              .committee-info-top {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 1.5mm;
+                border-bottom: .7pt solid #000;
+                padding-bottom: 1mm;
+              }
+              .committee-info-logo {
+                width: 11mm;
+                height: 11mm;
+                object-fit: contain;
+              }
+              .committee-title-block {
+                text-align: left;
+                color: #000 !important;
+                font-weight: 900;
+                line-height: 1;
+              }
+              .committee-title-block span {
+                display: block;
+                font-size: 7pt;
+              }
+              .committee-title-block strong {
+                display: block;
+                font-size: 24pt;
+                margin-top: .8mm;
+                letter-spacing: 0;
+                color: #000 !important;
               }
               .committee-mini-table {
                 width: 100%;
                 border-collapse: collapse;
                 table-layout: fixed;
-                margin-top: .8mm;
+                margin-top: 1.2mm;
               }
               .committee-mini-table th,
               .committee-mini-table td {
-                border: .45pt solid #000;
-                padding: .35mm .5mm;
-                font-size: 5.6pt;
-                line-height: 1;
+                border: .65pt solid #000;
+                padding: .7mm .8mm;
                 text-align: center;
                 color: #000 !important;
                 font-weight: 900;
+                line-height: 1.05;
               }
-              .committee-mini-table th { background: #f1f5f9 !important; }
-              .text-black-bold { color: #000 !important; font-weight: 900 !important; }
+              .committee-mini-table th {
+                font-size: 7.4pt;
+                background: #f1f5f9 !important;
+              }
+              .committee-mini-table td {
+                font-size: 8.2pt;
+              }
+              .committee-info-qr {
+                width: 23mm;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                border-right: 1pt solid #000;
+                padding-right: 1.5mm;
+              }
+              .committee-info-qr-img {
+                width: 20mm;
+                height: 20mm;
+              }
+              .committee-info-qr span {
+                color: #000 !important;
+                font-size: 5.8pt;
+                font-weight: 900;
+                margin-top: 1mm;
+                line-height: 1;
+              }
+              .text-black-bold {
+                color: #000 !important;
+                font-weight: 900 !important;
+              }
             }
           `}</style>
+
           <div className="print-only-labels" dir="rtl">
             {printMode === 'STUDENT' && renderStudentPrint()}
             {printMode === 'COMMITTEE' && renderCommitteeCodePrint()}
@@ -346,7 +413,9 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
               <div className="bg-blue-600 p-4 rounded-[1.5rem] shadow-xl text-white"><QrCode size={32} /></div>
               <div>
                 <h3 className="text-3xl font-black tracking-tighter">منظومة طباعة الملصقات (GS-1021)</h3>
-                <p className="text-slate-400 font-bold mt-1 text-sm bg-slate-800/50 inline-block px-3 py-1 rounded-full">تصميم واضح ومخصص للطباعة</p>
+                <p className="text-slate-400 font-bold mt-1 text-sm bg-slate-800/50 inline-block px-3 py-1 rounded-full">
+                  أرقام جلوس الطلاب، كود تفعيل اللجان، ومعلومات اللجان مع QR
+                </p>
               </div>
             </div>
 
@@ -376,6 +445,7 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 <Filter size={20} className="text-blue-400" />
                 <span className="font-black text-sm">تحديد اللجان:</span>
               </div>
+
               <div className="relative flex-1 w-full">
                 <select
                   value={selectedCommittee}
@@ -385,7 +455,7 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                   <option value="ALL">الكل - طباعة كل اللجان</option>
                   {uniqueCommittees.map(committee => (
                     <option key={committee} value={committee}>
-                      لجنة رقم {committee} ({students.filter(s => String(s.committee_number) === String(committee)).length} طالب)
+                      لجنة رقم {committee} ({students.filter(student => String(student.committee_number) === String(committee)).length} طالب)
                     </option>
                   ))}
                 </select>
@@ -470,7 +540,7 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
               <div key={pageIdx} className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-200 flex flex-col items-center gap-6 hover:shadow-2xl transition-all group">
                 <div className="flex justify-between w-full items-center border-b pb-3 border-dashed border-slate-200">
                   <span className="text-[11px] font-black text-slate-500 bg-slate-100 px-3 py-1 rounded-lg">صفحة رقم #{pageIdx + 1}</span>
-                  <span className="text-[13px] font-black text-blue-600 bg-blue-50 px-4 py-1.5 rounded-xl border border-blue-100 shadow-sm">{printMode === 'COMMITTEE' ? 'كود تفعيل اللجان' : 'معلومات اللجان'}</span>
+                  <span className="text-[13px] font-black text-blue-600 bg-blue-50 px-4 py-1.5 rounded-xl border border-blue-100 shadow-sm">{printMode === 'COMMITTEE' ? 'كود تفعيل اللجان' : 'معلومات اللجان مع QR'}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-1 border border-slate-300 bg-slate-50 p-2 shadow-inner w-full max-w-[400px] aspect-[210/297] rounded-md overflow-hidden" dir="rtl">
                   {pageCommittees.map(committee => (
@@ -489,16 +559,16 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                       ) : (
                         <>
                           <div className="flex-1 min-w-0 flex flex-col justify-between">
-                            <div className="flex items-center justify-between gap-1">
+                            <div className="flex items-center justify-between gap-1 border-b border-slate-300 pb-1">
                               <img src={APP_CONFIG.LOGO_URL} alt="Logo" className="w-4 h-4 object-contain" />
                               <div className="text-left">
-                                <span className="block text-[5px] font-black text-slate-500 leading-none">QR لجنة</span>
+                                <span className="block text-[5px] font-black text-slate-500 leading-none">معلومات اللجنة</span>
                                 <span className="block text-lg font-black text-slate-900 leading-none">{committee}</span>
                               </div>
                             </div>
-                            <div className="mt-1 border border-slate-200 text-[5px] font-black text-slate-700">
-                              {(committeeStats[committee] || []).slice(0, 3).map(row => (
-                                <div key={row.grade} className="flex justify-between border-b border-slate-100 last:border-b-0 px-1 py-0.5">
+                            <div className="mt-1 border border-slate-300 text-[6px] font-black text-slate-800">
+                              {(committeeStats[committee] || []).slice(0, 4).map(row => (
+                                <div key={row.grade} className="flex justify-between border-b border-slate-200 last:border-b-0 px-1 py-0.5">
                                   <span>{row.grade}</span>
                                   <span>{row.count}</span>
                                 </div>

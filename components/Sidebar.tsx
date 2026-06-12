@@ -149,23 +149,23 @@ const Sidebar: React.FC<SidebarProps> = ({
         {(!isCollapsed || isOpen) && (
           <div className="px-4 pb-4">
             <div className="relative rounded-[1.8rem] overflow-hidden">
-              {/* خلفية البطاقة */}
+              {/* خلفية الكارت */}
               <div className="absolute inset-0 bg-gradient-to-br from-[#0f1e35] to-[#0a1525] border border-blue-500/20 rounded-[1.8rem] shadow-[0_0_30px_rgba(37,99,235,0.15)]" />
-              {/* توهج علوي */}
+              {/* توهج أزرق علوي */}
               <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-32 h-12 bg-blue-600/30 blur-2xl rounded-full" />
 
               <div className="relative z-10 p-5 flex flex-col items-center gap-0">
-                {/* الشعار */}
+                {/* الشعار مع إطار ضوئي */}
                 <div className="relative mb-3">
                   <div className="absolute inset-0 bg-blue-500/20 rounded-2xl blur-md scale-110" />
                   <div className="relative w-16 h-16 bg-white rounded-2xl p-2 shadow-[0_4px_24px_rgba(37,99,235,0.25)] border border-white/20">
                     <img src={APP_CONFIG.LOGO_URL} alt="Logo" className="w-full h-full object-contain" />
                   </div>
-                  {/* حالة الاتصال */}
+                  {/* نقطة أون لاين */}
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-[#0f1729] shadow-[0_0_8px_rgba(52,211,153,0.7)]" />
                 </div>
 
-                {/* الاسم */}
+                {/* الاسم كاملاً */}
                 <h4 className="text-white font-black text-center text-sm leading-snug break-words w-full px-1 mb-3">
                   {user.full_name}
                 </h4>
