@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { User, Student, Absence, DeliveryLog, ControlRequest, Supervision, SystemConfig } from '../../types';
 import { ROLES_ARABIC } from '../../constants';
+import { cleanControlRequestText, isInternalSignatureRecord, isSignatureRequest } from '../../services/signatures';
 
 interface Props {
   users?: User[];
@@ -49,7 +50,8 @@ const ControlHeadDashboard: React.FC<Props> = ({
     const activeComs = (supervisions || []).length;
     const readiness = committeeNums.size > 0 ? Math.round((activeComs / committeeNums.size) * 100) : 0;
 
-    const pendingRequests = (requests || []).filter(r => r.status === 'PENDING');
+    const visibleRequests = (requests || []).filter(r => !isInternalSignatureRecord(r) && !isSignatureRequest(r));
+    const pendingRequests = visibleRequests.filter(r => r.status === 'PENDING');
     const urgentRequests = (requests || []).filter(r => r.status === 'PENDING' && (r.text.includes('صحية') || r.text.includes('نقص')));
 
     return {
@@ -128,13 +130,13 @@ const ControlHeadDashboard: React.FC<Props> = ({
                        <p className="font-black text-xl italic">لا توجد بلاغات حالياً</p>
                     </div>
                   ) : (
-                    requests.filter(r => r.status !== 'DONE').map(req => (
+                    requests.filter(r => r.status !== 'DONE' && !isInternalSignatureRecord(r) && !isSignatureRequest(r)).map(req => (
                       <div key={req.id} className="p-5 rounded-[1.5rem] border bg-red-500/[0.08] border-red-500/20 hover:border-red-500/40 transition-all">
                          <div className="flex justify-between items-start mb-3">
                             <span className="bg-slate-900 text-white px-3 py-1 rounded-lg font-black text-xs">لجنة {req.committee}</span>
                             <span className="text-[10px] text-slate-500">{new Date(req.time).toLocaleTimeString('ar-SA')}</span>
                          </div>
-                         <p className="text-lg font-black text-white">{req.text}</p>
+                         <p className="text-lg font-black text-white">{cleanControlRequestText(req.text)}</p>
                       </div>
                     ))
                   )}

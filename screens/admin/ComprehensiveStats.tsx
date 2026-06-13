@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Absence, CommitteeReport, ControlRequest, DeliveryLog, ExamSchedule, Student, Supervision, SystemConfig, User, UserRole } from '../../types';
 import { getActualSupervisionStart } from '../../utils/proctorTime';
+import { cleanControlRequestText, isInternalSignatureRecord } from '../../services/signatures';
 
 interface Props {
   students: Student[];
@@ -149,7 +150,7 @@ export const ComprehensiveStats: React.FC<Props> = ({
 
     const dayAbsences = absences.filter(item => sameDate(item.date, selectedDate));
     const dayLogs = deliveryLogs.filter(item => sameDate(item.time, selectedDate));
-    const dayRequests = controlRequests.filter(item => sameDate(item.time, selectedDate));
+    const dayRequests = controlRequests.filter(item => sameDate(item.time, selectedDate) && !isInternalSignatureRecord(item));
     const daySupervisions = supervisions.filter(item => sameDate(item.date, selectedDate));
     const dayReports = committeeReports.filter(item => sameDate(item.date, selectedDate));
 
@@ -233,7 +234,7 @@ export const ComprehensiveStats: React.FC<Props> = ({
       });
       const examAbsences = absences.filter(item => sameDate(item.date, examDate) && String(item.period) === String(exam.period));
       const examLogs = deliveryLogs.filter(item => sameDate(item.time, examDate) && String(item.period) === String(exam.period));
-      const examRequests = controlRequests.filter(item => sameDate(item.time, examDate) && (!examCommittees.length || examCommittees.includes(String(item.committee))));
+      const examRequests = controlRequests.filter(item => sameDate(item.time, examDate) && !isInternalSignatureRecord(item) && (!examCommittees.length || examCommittees.includes(String(item.committee))));
       const examReports = committeeReports.filter(item => sameDate(item.date, examDate) && (!examCommittees.length || examCommittees.includes(String(item.committee_number))));
       const absent = examAbsences.filter(item => item.type === 'ABSENT').length;
       const late = examAbsences.filter(item => item.type === 'LATE').length;
@@ -321,7 +322,7 @@ export const ComprehensiveStats: React.FC<Props> = ({
       ...dayExams.map(item => ({ time: `${selectedDate}T${item.start_time || '00:00'}`, title: `بداية اختبار ${item.subject}`, tone: 'blue' })),
       ...committeeStats.filter(item => item.joinTime).map(item => ({ time: item.joinTime!, title: `دخول مراقب لجنة ${item.num}`, tone: 'emerald' })),
       ...committeeStats.filter(item => item.receiptTime).map(item => ({ time: item.receiptTime!, title: `استلام كنترول لجنة ${item.num}`, tone: 'indigo' })),
-      ...dayRequests.map(item => ({ time: item.time, title: `بلاغ لجنة ${item.committee}: ${item.text}`, tone: statusDone(item.status) ? 'slate' : 'red' })),
+      ...dayRequests.map(item => ({ time: item.time, title: `بلاغ لجنة ${item.committee}: ${cleanControlRequestText(item.text)}`, tone: statusDone(item.status) ? 'slate' : 'red' })),
     ].sort((a, b) => String(a.time).localeCompare(String(b.time)));
 
     return {

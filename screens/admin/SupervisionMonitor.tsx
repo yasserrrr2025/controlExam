@@ -15,8 +15,27 @@ interface Props {
 }
 
 const AdminSupervisionMonitor: React.FC<Props> = ({ supervisions, users, students, absences, deliveryLogs, controlRequests = [] }) => {
+  const getRiyadhDateKey = (value: string | Date) => {
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value).slice(0, 10);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Riyadh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(d);
+    const get = (type: string) => parts.find(part => part.type === type)?.value || '';
+    return `${get('year')}-${get('month')}-${get('day')}`;
+  };
+
+  const matchesReportDate = (value?: string | null) => {
+    if (!value) return false;
+    const text = String(value);
+    return text.startsWith(reportInfo.date) || getRiyadhDateKey(text) === reportInfo.date;
+  };
+
   const [reportInfo, setReportInfo] = useState({ 
-    date: new Date().toISOString().split('T')[0], 
+    date: getRiyadhDateKey(new Date()), 
     subject: '' 
   });
 
@@ -52,18 +71,18 @@ const AdminSupervisionMonitor: React.FC<Props> = ({ supervisions, users, student
 
       return gradesInCommittee.map(grade => {
         const gradeStudents = committeeStudents.filter(s => s.grade === grade);
-        const gradeAbsences = absences.filter(a => a.date.startsWith(reportInfo.date) && a.committee_number === num && a.type === 'ABSENT' && gradeStudents.some(s => s.national_id === a.student_id));
-        const gradeLates = absences.filter(a => a.date.startsWith(reportInfo.date) && a.committee_number === num && a.type === 'LATE' && gradeStudents.some(s => s.national_id === a.student_id));
+        const gradeAbsences = absences.filter(a => matchesReportDate(a.date) && a.committee_number === num && a.type === 'ABSENT' && gradeStudents.some(s => s.national_id === a.student_id));
+        const gradeLates = absences.filter(a => matchesReportDate(a.date) && a.committee_number === num && a.type === 'LATE' && gradeStudents.some(s => s.national_id === a.student_id));
         
         const closeLog = deliveryLogs.find(l => 
-          l.time.startsWith(reportInfo.date) && 
+          matchesReportDate(l.time) && 
           l.committee_number === num && 
           l.status === 'PENDING' && 
           (l.grade === grade || l.grade.includes(grade))
         );
 
         const delivery = deliveryLogs.find(l => 
-          l.time.startsWith(reportInfo.date) && 
+          matchesReportDate(l.time) && 
           l.committee_number === num && 
           l.status === 'CONFIRMED' && 
           (l.grade === grade || l.grade.includes(grade))

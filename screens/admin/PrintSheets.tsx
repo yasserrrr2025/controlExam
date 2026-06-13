@@ -3,6 +3,7 @@ import { BookOpenCheck, FileSpreadsheet, Layers, Printer, Search, Signature, Use
 import { Absence, ArchiveBox, ControlRequest, DeliveryLog, ExamSchedule, Student, Supervision, SystemConfig, User } from '../../types';
 import { APP_CONFIG } from '../../constants';
 import { db } from '../../supabase';
+import { cleanControlRequestText, isInternalSignatureRecord } from '../../services/signatures';
 
 interface Props {
   students: Student[];
@@ -595,13 +596,13 @@ const PrintSheets: React.FC<Props> = ({
 
       if (sheetType === 'requests-by-committee') {
         const rows = controlRequests
-          .filter(request => dateMatches(request.time) && committeeMatches(request.committee))
+          .filter(request => dateMatches(request.time) && committeeMatches(request.committee) && !isInternalSignatureRecord(request))
           .sort((a, b) => String(a.committee).localeCompare(String(b.committee), 'ar', { numeric: true }) || a.time.localeCompare(b.time))
           .map(request => ({
             committee: request.committee,
             from: request.from,
             time: formatTime(request.time),
-            report: request.text,
+            report: cleanControlRequestText(request.text),
             assistant: request.assistant_name || '---',
             status: request.status === 'DONE' ? 'منجز' : request.status === 'IN_PROGRESS' ? 'قيد المتابعة' : request.status === 'REJECTED' ? 'مرفوض' : 'مفتوح',
           }));

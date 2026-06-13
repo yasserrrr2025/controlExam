@@ -28,6 +28,7 @@ import {
 import { Absence, ControlRequest, DeliveryLog, Student, Supervision, User } from '../../types';
 import { getAbsenceKindLabel, getAbsenceReceipt } from '../../services/absenceReceipt';
 import { isPlaceholderProctorStart } from '../../utils/proctorTime';
+import { cleanControlRequestText, isInternalSignatureRecord, isSignatureRequest } from '../../services/signatures';
 
 interface Props {
   absences: Absence[];
@@ -162,7 +163,7 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
       const logs = deliveryLogs.filter(l => l.committee_number === num && matchesMonitorDate(l.time, activeDate));
       const confirmed = grades.length > 0 && grades.every(g => logs.some(l => l.grade === g && l.status === 'CONFIRMED'));
       const submitted = !confirmed && grades.length > 0 && grades.every(g => logs.some(l => l.grade === g));
-      const normalRequests = requests.filter(r => r.committee === num && !isReceiverSummon(r));
+      const normalRequests = requests.filter(r => r.committee === num && !isReceiverSummon(r) && !isSignatureRequest(r) && !isInternalSignatureRecord(r));
       const receiverSummons = requests
         .filter(r => r.committee === num && r.status !== 'DONE' && isReceiverSummon(r))
         .sort((a, b) => b.time.localeCompare(a.time));
@@ -280,7 +281,7 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
       time: req.time,
       tone: req.status === 'DONE' ? 'slate' : 'red',
       title: req.status === 'DONE' ? 'إغلاق بلاغ' : 'بلاغ لجنة',
-      text: `لجنة ${req.committee} - ${req.text}`,
+      text: `لجنة ${req.committee} - ${cleanControlRequestText(req.text)}`,
       icon: BellRing,
     }));
     const absenceEvents = absences.map(absence => ({
@@ -294,18 +295,21 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
   }, [absences, deliveryLogs, requests]);
 
   const alertBoardItems = useMemo(() => {
-    return requests.map(req => {
+    return requests.filter(req => !isInternalSignatureRecord(req)).map(req => {
       const receiverSummon = isReceiverSummon(req);
+      const signatureRequest = isSignatureRequest(req);
       return {
         id: `request-${req.id}`,
         time: req.time,
         committee: req.committee,
-        title: receiverSummon
+        title: signatureRequest
+          ? 'طلب توقيع مراقب'
+          : receiverSummon
           ? req.status === 'IN_PROGRESS' ? 'استلم المراقب الاستدعاء' : req.status === 'DONE' ? 'استدعاء مغلق' : 'استدعاء مراقب'
           : req.status === 'DONE' ? 'بلاغ مغلق' : 'بلاغ كنترول',
-        text: receiverSummon ? cleanSummonText(req.text) : req.text,
+        text: cleanControlRequestText(req.text),
         source: req.from,
-        tone: receiverSummon ? (req.status === 'DONE' ? 'done' : req.status === 'IN_PROGRESS' ? 'summonAck' : 'summon') : req.status === 'DONE' ? 'done' : 'request',
+        tone: receiverSummon || signatureRequest ? (req.status === 'DONE' ? 'done' : req.status === 'IN_PROGRESS' ? 'summonAck' : 'summon') : req.status === 'DONE' ? 'done' : 'request',
         status: req.status,
       };
     })

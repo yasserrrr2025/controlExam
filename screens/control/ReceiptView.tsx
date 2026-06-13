@@ -12,7 +12,7 @@ import {
   Timer, Inbox, SlidersHorizontal
 } from 'lucide-react';
 import { db } from '../../supabase';
-import { buildSignatureText, SIGNATURE_REQUEST_PREFIX } from '../../services/signatures';
+import { buildSignatureText, isInternalSignatureRecord, isSignatureRequest, SIGNATURE_REQUEST_PREFIX } from '../../services/signatures';
 
 interface Props {
   user: User;
@@ -207,7 +207,7 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
         const isReady = !isReceived && (proctorSubmittedCommittees.has(info.committee) || Boolean(pendingLog));
         const gradeAbsences = absences.filter(a => a.committee_number === info.committee && a.type === 'ABSENT' && matchDate(a.date, todayDate) && students.find(s => s.national_id === a.student_id)?.grade === info.grade);
         const gradeLates = absences.filter(a => a.committee_number === info.committee && a.type === 'LATE' && matchDate(a.date, todayDate) && students.find(s => s.national_id === a.student_id)?.grade === info.grade);
-        const openAlerts = controlRequests.filter(r => r.committee === info.committee && r.status !== 'DONE');
+        const openAlerts = controlRequests.filter(r => r.committee === info.committee && r.status !== 'DONE' && !isInternalSignatureRecord(r) && !isSignatureRequest(r));
         const status = isReceived ? 'RECEIVED' : isReady ? 'READY' : 'WAITING';
         return {
           ...info,
@@ -414,6 +414,7 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
         time: newLog.time,
         status: 'PENDING',
       });
+      await setControlRequests();
       if (receiptNote.trim()) {
         onAlert(`تم حفظ الاستلام مع ملاحظة: ${receiptNote.trim()}`, 'info');
       }
@@ -740,7 +741,7 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
                           )}
                         </div>
 
-                        {controlRequests.some(r => r.committee === activeCommitteeId && r.status !== 'DONE') && (
+                        {controlRequests.some(r => r.committee === activeCommitteeId && r.status !== 'DONE' && !isInternalSignatureRecord(r) && !isSignatureRequest(r)) && (
                           <div className="bg-red-50 border border-red-100 rounded-[2rem] p-5 flex items-start gap-4">
                             <ShieldAlert size={24} className="text-red-600 shrink-0 mt-1" />
                             <div className="text-right">

@@ -53,3 +53,14 @@ export const findStoredSignature = (
 
 export const isSignatureRequest = (request: ControlRequest) => request.text?.startsWith(SIGNATURE_REQUEST_PREFIX);
 export const cleanSignatureRequestText = (text?: string) => String(text || '').replace(SIGNATURE_REQUEST_PREFIX, '').trim();
+
+export const isInternalSignatureRecord = (request: ControlRequest) => request.text?.startsWith(SIGNATURE_PREFIX);
+
+export const cleanControlRequestText = (text?: string) => {
+  const raw = String(text || '').trim();
+  if (raw.startsWith(SIGNATURE_PREFIX)) return 'توقيع محفوظ';
+  return raw
+    .replace('[CALL_RECEIVER]', '')
+    .replace(SIGNATURE_REQUEST_PREFIX, '')
+    .trim();
+};

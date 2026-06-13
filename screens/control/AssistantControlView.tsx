@@ -30,6 +30,7 @@ import { db } from '../../supabase';
 import TeacherBadgeView from '../proctor/TeacherBadgeView';
 import { useNotificationSound } from '../../hooks/useNotificationSound';
 import { getAbsenceKindLabel, getAbsenceReceipt } from '../../services/absenceReceipt';
+import { cleanControlRequestText, isInternalSignatureRecord, isSignatureRequest } from '../../services/signatures';
 
 interface Props {
   user: User;
@@ -85,7 +86,7 @@ const AssistantControlView: React.FC<Props> = ({
   const assignedCommittees = user.assigned_committees || [];
 
   const myRequests = useMemo(
-    () => requests.filter(request => assignedCommittees.includes(request.committee)),
+    () => requests.filter(request => assignedCommittees.includes(request.committee) && !isInternalSignatureRecord(request) && !isSignatureRequest(request)),
     [requests, assignedCommittees],
   );
 
@@ -156,9 +157,10 @@ const AssistantControlView: React.FC<Props> = ({
 
     return fieldStaff.map(member => {
       const memberCommittees = member.assigned_committees || [];
-      const activeTask = requests.find(r => r.assistant_name === member.full_name && r.status === 'IN_PROGRESS');
-      const pendingInScope = requests.filter(r => memberCommittees.includes(r.committee) && r.status === 'PENDING').length;
-      const completedByMember = requests.filter(r => r.assistant_name === member.full_name && r.status === 'DONE').length;
+      const visibleRequests = requests.filter(r => !isInternalSignatureRecord(r) && !isSignatureRequest(r));
+      const activeTask = visibleRequests.find(r => r.assistant_name === member.full_name && r.status === 'IN_PROGRESS');
+      const pendingInScope = visibleRequests.filter(r => memberCommittees.includes(r.committee) && r.status === 'PENDING').length;
+      const completedByMember = visibleRequests.filter(r => r.assistant_name === member.full_name && r.status === 'DONE').length;
       return {
         ...member,
         activeTask,
@@ -175,7 +177,7 @@ const AssistantControlView: React.FC<Props> = ({
       id: `request-${request.id}`,
       tone: isUrgentRequest(request) ? 'red' : request.status === 'PENDING' ? 'amber' : 'blue',
       title: `بلاغ لجنة ${request.committee}`,
-      subtitle: request.text,
+      subtitle: cleanControlRequestText(request.text),
       meta: `${request.from} - منذ ${minutesSince(request.time)} دقيقة`,
       tab: 'MISSION_CONTROL' as AssistantTab,
     }));
@@ -440,7 +442,7 @@ const AssistantControlView: React.FC<Props> = ({
                   {member.isBusy && member.activeTask ? (
                     <>
                       <p className="text-xs font-black text-blue-700">يعالج الآن لجنة {member.activeTask.committee}</p>
-                      <p className="mt-1 line-clamp-2 text-xs font-bold text-slate-500">{member.activeTask.text}</p>
+                      <p className="mt-1 line-clamp-2 text-xs font-bold text-slate-500">{cleanControlRequestText(member.activeTask.text)}</p>
                     </>
                   ) : (
                     <p className="text-xs font-black text-emerald-700">متاح لدعم اللجان ذات البلاغات المتراكمة.</p>
@@ -601,7 +603,7 @@ const RequestCard = ({
             </span>
           </div>
           <p className={`rounded-2xl bg-slate-50 p-4 font-black leading-relaxed text-slate-700 ${compact ? 'text-base' : 'text-lg'}`}>
-            {request.text}
+            {cleanControlRequestText(request.text)}
           </p>
           {request.assistant_name && (
             <p className="mt-3 text-[11px] font-black text-blue-600">المتابع الحالي: {request.assistant_name}</p>

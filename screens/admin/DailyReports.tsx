@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { APP_CONFIG } from '../../constants';
 import { formatActualProctorStart, isPlaceholderProctorStart } from '../../utils/proctorTime';
+import { isInternalSignatureRecord, isSignatureRequest } from '../../services/signatures';
 
 interface Props {
   supervisions?: Supervision[];
@@ -272,7 +273,7 @@ const AdminDailyReports: React.FC<Props> = ({
     ].slice(0, 3);
 
     const alertsByCommittee = controlRequests
-      .filter(r => matchesDate(r.time, reportDate))
+      .filter(r => matchesDate(r.time, reportDate) && !isInternalSignatureRecord(r) && !isSignatureRequest(r))
       .reduce((acc, req) => {
         const key = String(req.committee || 'غير محدد');
         acc[key] = (acc[key] || 0) + 1;

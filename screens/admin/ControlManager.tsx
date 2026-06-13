@@ -22,6 +22,7 @@ import { ROLES_ARABIC } from '../../constants';
 import { supabase, db } from '../../supabase';
 import SmartProctorDistribution, { SmartDistributionItem } from './SmartProctorDistribution';
 import { isPlaceholderProctorStart } from '../../utils/proctorTime';
+import { cleanControlRequestText, isInternalSignatureRecord, isSignatureRequest } from '../../services/signatures';
 
 interface ControlManagerProps {
   users: User[];
@@ -178,7 +179,8 @@ const ControlManager: React.FC<ControlManagerProps> = ({
   };
 
   const todayLogs = useMemo(() => deliveryLogs.filter(l => !systemConfig.active_exam_date || l.time?.startsWith(systemConfig.active_exam_date)), [deliveryLogs, systemConfig.active_exam_date]);
-  const pendingRequests = useMemo(() => requests.filter(r => r.status !== 'DONE'), [requests]);
+  const visibleRequests = useMemo(() => requests.filter(r => !isInternalSignatureRecord(r) && !isSignatureRequest(r)), [requests]);
+  const pendingRequests = useMemo(() => visibleRequests.filter(r => r.status !== 'DONE'), [visibleRequests]);
   const unassignedCommittees = useMemo(() => committeeStatus.filter(c => !c.proctor), [committeeStatus]);
   const closedWaitingReceipt = useMemo(() => {
     return committeeStatus.filter(c => {
@@ -204,13 +206,13 @@ const ControlManager: React.FC<ControlManagerProps> = ({
         .map(s => ({ time: s.date, type: 'دخول مراقب', title: `لجنة ${s.committee_number}`, text: users.find(u => u.id === s.teacher_id)?.full_name || 'مراقب غير معروف' })),
       ...todayLogs.map(l => ({ time: l.time, type: l.status === 'CONFIRMED' ? 'استلام كنترول' : 'إغلاق ميداني', title: `لجنة ${l.committee_number}`, text: `${l.grade} - ${l.teacher_name}` })),
       ...absences.map(a => ({ time: a.date, type: a.type === 'ABSENT' ? 'غياب' : 'تأخر', title: `لجنة ${a.committee_number}`, text: a.student_name })),
-      ...requests.map(r => ({ time: r.time, type: r.status === 'DONE' ? 'إغلاق بلاغ' : 'بلاغ', title: `لجنة ${r.committee}`, text: r.text })),
+      ...visibleRequests.map(r => ({ time: r.time, type: r.status === 'DONE' ? 'إغلاق بلاغ' : 'بلاغ', title: `لجنة ${r.committee}`, text: cleanControlRequestText(r.text) })),
     ];
     return items
       .filter(i => i.time)
       .sort((a, b) => String(b.time).localeCompare(String(a.time)))
       .slice(0, 16);
-  }, [supervisions, todayLogs, absences, requests, users]);
+  }, [supervisions, todayLogs, absences, visibleRequests, users]);
 
   const searchResults = useMemo(() => {
     const q = globalSearch.trim();
@@ -218,7 +220,7 @@ const ControlManager: React.FC<ControlManagerProps> = ({
     return [
       ...students.filter(s => [s.name, s.national_id, s.committee_number, s.seating_number].some(v => String(v || '').includes(q))).slice(0, 6).map(s => ({ type: 'طالب', title: s.name, sub: `هوية ${s.national_id} - لجنة ${s.committee_number}` })),
       ...users.filter(u => [u.full_name, u.national_id, u.role].some(v => String(v || '').includes(q))).slice(0, 6).map(u => ({ type: 'مستخدم', title: u.full_name, sub: ROLES_ARABIC[u.role] || u.role })),
-      ...requests.filter(r => [r.committee, r.text, r.from].some(v => String(v || '').includes(q))).slice(0, 6).map(r => ({ type: 'بلاغ', title: `لجنة ${r.committee}`, sub: r.text })),
+      ...visibleRequests.filter(r => [r.committee, cleanControlRequestText(r.text), r.from].some(v => String(v || '').includes(q))).slice(0, 6).map(r => ({ type: 'بلاغ', title: `لجنة ${r.committee}`, sub: cleanControlRequestText(r.text) })),
     ].slice(0, 12);
   }, [globalSearch, students, users, requests]);
 
@@ -627,13 +629,13 @@ const ControlManager: React.FC<ControlManagerProps> = ({
               <div className="bg-white rounded-[3rem] p-7 border border-slate-100 shadow-xl min-h-[520px]">
                 <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-3"><MessageCircle className="text-red-600" /> مركز البلاغات</h3>
                 <div className="space-y-4 max-h-[430px] overflow-y-auto custom-scrollbar pr-2">
-                  {requests.length ? requests.slice(0, 16).map(req => (
+                  {visibleRequests.length ? visibleRequests.slice(0, 16).map(req => (
                     <div key={req.id} className={`p-5 rounded-2xl border ${req.status === 'DONE' ? 'bg-emerald-50 border-emerald-100' : req.status === 'IN_PROGRESS' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'}`}>
                       <div className="flex items-center justify-between">
                         <span className="bg-slate-950 text-white px-3 py-1 rounded-xl text-xs font-black">لجنة {req.committee}</span>
                         <span className="text-[10px] font-black text-slate-500">{req.status === 'DONE' ? 'مغلق' : req.status === 'IN_PROGRESS' ? 'قيد المتابعة' : 'عاجل'}</span>
                       </div>
-                      <p className="font-black text-slate-900 mt-3 leading-7">{req.text}</p>
+                      <p className="font-black text-slate-900 mt-3 leading-7">{cleanControlRequestText(req.text)}</p>
                       <p className="text-xs font-bold text-slate-500 mt-2">{req.from} - {new Date(req.time).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
                   )) : <p className="text-center text-slate-300 font-black py-20">لا توجد بلاغات مسجلة.</p>}

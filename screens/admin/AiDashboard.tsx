@@ -37,6 +37,7 @@ import {
 import { db } from '../../supabase';
 import { fetchAIAnalysis, AiInsightsResult, fetchAIChat } from '../../services/aiService';
 import { getActualSupervisionStart } from '../../utils/proctorTime';
+import { cleanControlRequestText, isInternalSignatureRecord } from '../../services/signatures';
 
 interface Props {
   systemConfig: SystemConfig;
@@ -353,7 +354,7 @@ const AiDashboard: React.FC<Props> = ({ systemConfig }) => {
         todayAssignments: p.todayAssignments,
         overloadDays: p.overloadDays.length,
       })),
-      requests: analytics.todayRequests.map(r => ({ committee: r.committee, status: r.status, time: r.time, text: r.text })),
+      requests: analytics.todayRequests.filter(r => !isInternalSignatureRecord(r)).map(r => ({ committee: r.committee, status: r.status, time: r.time, text: cleanControlRequestText(r.text) })),
       nextExams: analytics.nextExams.map(e => ({ date: e.exam_date, subject: e.subject, period: e.period, grades: e.grades })),
     };
   }, [data, analytics]);

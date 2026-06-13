@@ -7,6 +7,7 @@ import {
   MessageSquare, Stethoscope, FileText, Pencil, UserSearch, Package,
   TrendingUp, ArrowRight
 } from 'lucide-react';
+import { cleanControlRequestText, isInternalSignatureRecord } from '../../services/signatures';
 
 interface Props {
   requests: ControlRequest[];
@@ -63,7 +64,7 @@ const ProctorAlertsHistory: React.FC<Props> = ({ requests, userFullName, deliver
   /* ── تحديد الحالة الفعلية لكل طلب ── */
   const myHistory = useMemo(() => {
     return requests
-      .filter(r => r.from === userFullName)
+      .filter(r => r.from === userFullName && !isInternalSignatureRecord(r))
       .map(r => {
         // إذا كانت رسالة إنهاء لجنة وتم استلامها من الكنترول → مكتمل
         const isClosureMsg = r.text.includes('متجه') || r.text.includes('إنهاء') || r.text.includes('أنهى رصد');
@@ -236,7 +237,7 @@ const ProctorAlertsHistory: React.FC<Props> = ({ requests, userFullName, deliver
                             </div>
                             {/* نص البلاغ */}
                             <p className="text-sm md:text-base font-black text-slate-800 leading-snug line-clamp-1 group-hover:text-blue-700 transition-colors">
-                              {req.text}
+                              {cleanControlRequestText(req.text)}
                             </p>
                           </div>
                         </div>
@@ -266,7 +267,7 @@ const ProctorAlertsHistory: React.FC<Props> = ({ requests, userFullName, deliver
                           {/* نص البلاغ كاملاً */}
                           <div className="bg-slate-50 rounded-[1.5rem] p-5 border border-slate-100">
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">نص البلاغ الكامل</p>
-                            <p className="text-sm font-bold text-slate-700 leading-relaxed">{req.text}</p>
+                            <p className="text-sm font-bold text-slate-700 leading-relaxed">{cleanControlRequestText(req.text)}</p>
                           </div>
 
                           {/* بطاقات المعلومات */}

@@ -3,6 +3,7 @@ import { BookOpen, Printer, Download, FileText, Link as LinkIcon, Sparkles, Copy
 import { Student, User, Supervision, SystemConfig, Absence, CommitteeReport, ExamSchedule, DeliveryLog, ControlRequest } from '../../types';
 import { APP_CONFIG } from '../../constants';
 import { formatActualProctorStart, getActualSupervisionStart } from '../../utils/proctorTime';
+import { cleanControlRequestText, isInternalSignatureRecord } from '../../services/signatures';
 
 interface Props {
   students: Student[];
@@ -140,13 +141,13 @@ export const MasterPortfolio: React.FC<Props> = ({
       action: rep.resolutions || 'للمتابعة',
       tone: 'report',
     }));
-    const requestRows = controlRequests.map(req => ({
+    const requestRows = controlRequests.filter(req => !isInternalSignatureRecord(req)).map(req => ({
       id: `request-${req.id}`,
       kind: 'بلاغ كنترول',
       committee: req.committee,
       time: req.time,
       person: req.from || getCommitteeProctors(req.committee, req.time).join(' - ') || 'غير محدد',
-      detail: req.text || 'بلاغ بدون نص',
+      detail: cleanControlRequestText(req.text) || 'بلاغ بدون نص',
       action: req.status === 'DONE' ? `منجز${req.assistant_name ? ` - ${req.assistant_name}` : ''}` : req.status === 'IN_PROGRESS' ? `قيد المعالجة${req.assistant_name ? ` - ${req.assistant_name}` : ''}` : req.status === 'REJECTED' ? 'مرفوض' : 'مفتوح',
       tone: req.status === 'DONE' ? 'done' : req.status === 'REJECTED' ? 'danger' : 'warning',
     }));
