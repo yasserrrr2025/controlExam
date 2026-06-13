@@ -50,6 +50,7 @@ import { db, supabase } from "../../supabase";
 import { APP_CONFIG, ROLES_ARABIC } from "../../constants";
 import { getAbsenceKindLabel, getAbsenceReceipt } from "../../services/absenceReceipt";
 import { isPlaceholderProctorStart } from "../../utils/proctorTime";
+import { ALL_GRADES_SIGNATURE, buildSignatureText, cleanSignatureRequestText, findStoredSignature, isSignatureRequest } from "../../services/signatures";
 
 interface Props {
   user: User;
@@ -115,6 +116,8 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
   const [gateNow, setGateNow] = useState(new Date());
 
   const qrScannerRef = useRef<Html5Qrcode | null>(null);
+  const proctorSignatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const proctorSignatureDrawingRef = useRef(false);
   const activeDate = useMemo(
     () =>
       systemConfig?.active_exam_date || new Date().toISOString().split("T")[0],
@@ -265,14 +268,14 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
           (r) =>
             r.committee === activeCommittee &&
             r.status !== "DONE" &&
-            (r.from === user.full_name || r.text?.startsWith('[CALL_RECEIVER]')),
+            (r.from === user.full_name || r.text?.startsWith('[CALL_RECEIVER]') || isSignatureRequest(r)),
         )
         .sort((a, b) => b.time.localeCompare(a.time)),
     [controlRequests, user.full_name, activeCommittee],
   );
 
   const isReceiverSummon = (request: ControlRequest) => request.text?.startsWith('[CALL_RECEIVER]');
-  const cleanRequestText = (text?: string) => String(text || '').replace('[CALL_RECEIVER]', '').trim();
+  const cleanRequestText = (text?: string) => cleanSignatureRequestText(String(text || '').replace('[CALL_RECEIVER]', '').trim());
 
   const acknowledgeReceiverSummon = async (request: ControlRequest) => {
     if (!isReceiverSummon(request) || request.status !== 'PENDING') return;
@@ -282,6 +285,85 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
       onAlert('تم استلام استدعاء المستلم. يرجى مراجعة نقطة الاستلام.', 'success');
     } catch (error: any) {
       onAlert(error.message || 'تعذر استلام الاستدعاء.', 'error');
+    }
+  };
+
+  const getSignaturePoint = (canvas: HTMLCanvasElement, event: React.PointerEvent<HTMLCanvasElement>) => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  };
+
+  const startProctorSignature = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = proctorSignatureCanvasRef.current;
+    if (!canvas) return;
+    proctorSignatureDrawingRef.current = true;
+    canvas.setPointerCapture(event.pointerId);
+    const ctx = canvas.getContext("2d");
+    const point = getSignaturePoint(canvas, event);
+    if (!ctx) return;
+    ctx.beginPath();
+    ctx.moveTo(point.x, point.y);
+  };
+
+  const drawProctorSignature = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = proctorSignatureCanvasRef.current;
+    if (!canvas || !proctorSignatureDrawingRef.current) return;
+    const ctx = canvas.getContext("2d");
+    const point = getSignaturePoint(canvas, event);
+    if (!ctx) return;
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#0f172a";
+    ctx.lineTo(point.x, point.y);
+    ctx.stroke();
+  };
+
+  const finishProctorSignature = () => {
+    proctorSignatureDrawingRef.current = false;
+    const data = proctorSignatureCanvasRef.current?.toDataURL("image/png");
+    if (data) localStorage.setItem(`proctor_signature_${user.id}`, data);
+  };
+
+  const clearProctorSignature = () => {
+    const canvas = proctorSignatureCanvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    localStorage.removeItem(`proctor_signature_${user.id}`);
+  };
+
+  const saveProctorSignature = async () => {
+    if (!activeCommittee) return;
+    const signature = proctorSignatureCanvasRef.current?.toDataURL("image/png");
+    if (!signature) {
+      onAlert("يرجى توقيع المراقب قبل اعتماد الشكر النهائي.", "warning");
+      return;
+    }
+    try {
+      await db.controlRequests.insert({
+        from: user.full_name,
+        committee: activeCommittee,
+        text: buildSignatureText({
+          role: "proctor",
+          committee: activeCommittee,
+          grade: ALL_GRADES_SIGNATURE,
+          name: user.full_name,
+          time: new Date().toISOString(),
+          signature,
+        }),
+        time: new Date().toISOString(),
+        status: "DONE",
+      });
+      const pendingSignatureRequests = controlRequests.filter(
+        request => request.committee === activeCommittee && request.status !== 'DONE' && isSignatureRequest(request)
+      );
+      for (const request of pendingSignatureRequests) {
+        await db.controlRequests.updateStatus(request.id, 'DONE', user.full_name);
+      }
+      await setSupervisions();
+      onAlert("تم حفظ توقيع المراقب واعتماد إتمام التسليم.", "success");
+    } catch (error: any) {
+      onAlert(error.message || "تعذر حفظ توقيع المراقب.", "error");
     }
   };
 
@@ -712,6 +794,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
     }, {} as Record<string, DeliveryLog>)) as DeliveryLog[];
 
     const isFullyConfirmed = myLogs.length > 0 && myLogs.every(l => l.status === 'CONFIRMED');
+    const proctorSignature = findStoredSignature(controlRequests, 'proctor', activeCommittee, ALL_GRADES_SIGNATURE);
 
     return (
       <div className="max-w-4xl mx-auto py-10 px-4 animate-fade-in pb-48 space-y-10">
@@ -719,7 +802,45 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
         {/* ══════════════════════════════════════════════
             بطاقة الإنجاز الملكية
         ══════════════════════════════════════════════ */}
-        {isFullyConfirmed ? (
+        {isFullyConfirmed && !proctorSignature ? (
+          <div className="bg-white rounded-[4rem] border-2 border-blue-100 p-8 shadow-2xl text-center space-y-6">
+            <div className="mx-auto grid h-20 w-20 place-items-center rounded-[2rem] bg-blue-600 text-white shadow-xl shadow-blue-500/20">
+              <Pencil size={34} />
+            </div>
+            <div>
+              <h2 className="text-3xl font-black text-slate-950">توقيع مراقب اللجنة</h2>
+              <p className="mt-2 text-sm font-bold text-slate-500">
+                اكتمل استلام الكنترول. يلزم توقيعك لاعتماد أثر التسليم في التقارير.
+              </p>
+            </div>
+            <div className="rounded-[2rem] border-2 border-dashed border-slate-200 bg-slate-50 p-3">
+              <canvas
+                ref={proctorSignatureCanvasRef}
+                width={760}
+                height={260}
+                onPointerDown={startProctorSignature}
+                onPointerMove={drawProctorSignature}
+                onPointerUp={finishProctorSignature}
+                onPointerCancel={finishProctorSignature}
+                className="h-44 w-full touch-none rounded-[1.5rem] bg-white shadow-inner"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={clearProctorSignature}
+                className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-black text-slate-600"
+              >
+                مسح التوقيع
+              </button>
+              <button
+                onClick={saveProctorSignature}
+                className="rounded-2xl bg-blue-600 py-4 text-sm font-black text-white shadow-lg shadow-blue-500/20"
+              >
+                حفظ التوقيع وإظهار رسالة الشكر
+              </button>
+            </div>
+          </div>
+        ) : isFullyConfirmed ? (
           /* ── حالة مكتملة ومستلمة: بطاقة فاخرة ── */
           <div className="relative">
             {/* توهج خارجي ذهبي */}
@@ -1184,21 +1305,24 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
           <div className="space-y-4">
             {myActiveRequests.map((req) => {
               const receiverSummon = isReceiverSummon(req);
-              const requestText = receiverSummon ? cleanRequestText(req.text) : req.text;
-              const requestStatusText = receiverSummon
+              const signatureRequest = isSignatureRequest(req);
+              const requestText = (receiverSummon || signatureRequest) ? cleanRequestText(req.text) : req.text;
+              const requestStatusText = signatureRequest
+                ? "توقيع المراقب مطلوب"
+                : receiverSummon
                 ? req.status === "PENDING" ? "استدعاء من المستلم" : "بانتظار إغلاق المستلم"
                 : req.status === "PENDING" ? "بانتظار المباشرة" : "المساعد في الطريق إليك";
               return (
               <div
                 key={req.id}
                 className={`flex flex-col md:flex-row justify-between items-center p-4 rounded-2xl border group ${
-                  receiverSummon ? "bg-blue-50 border-blue-100" : "bg-slate-50 border-slate-100"
+                  receiverSummon || signatureRequest ? "bg-blue-50 border-blue-100" : "bg-slate-50 border-slate-100"
                 }`}
               >
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                   <div
                     className={`w-3 h-3 rounded-full shrink-0 ${
-                      receiverSummon
+                      receiverSummon || signatureRequest
                         ? req.status === "PENDING" ? "bg-blue-600 animate-pulse" : "bg-violet-600"
                         : req.status === "PENDING" ? "bg-amber-500 animate-pulse" : "bg-blue-500"
                     }`}
@@ -1207,7 +1331,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
                     <p className="font-black text-slate-700 text-sm truncate">
                       {requestText}
                     </p>
-                    {receiverSummon && (
+                    {(receiverSummon || signatureRequest) && (
                       <p className="mt-1 text-[10px] font-bold text-blue-500 truncate">
                         من: {req.from}
                       </p>
@@ -1225,7 +1349,7 @@ const ProctorDailyAssignmentFlow: React.FC<Props> = ({
                   )}
                   <span
                     className={`px-4 py-1 rounded-full font-black text-[9px] uppercase tracking-widest ${
-                      receiverSummon
+                      receiverSummon || signatureRequest
                         ? req.status === "PENDING" ? "bg-blue-100 text-blue-700" : "bg-violet-600 text-white shadow-lg"
                         : req.status === "PENDING" ? "bg-amber-100 text-amber-600" : "bg-blue-600 text-white shadow-lg"
                     }`}

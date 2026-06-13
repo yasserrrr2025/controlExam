@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
-import { Supervision, User, Student, Absence, DeliveryLog } from '../../types';
+import { Supervision, User, Student, Absence, DeliveryLog, ControlRequest } from '../../types';
 import OfficialHeader from '../../components/OfficialHeader';
 import { Printer, Calendar, BookOpen, CheckCircle2, Clock, FileText } from 'lucide-react';
+import { findStoredSignature } from '../../services/signatures';
 
 interface Props {
   supervisions: Supervision[];
@@ -10,9 +11,10 @@ interface Props {
   students: Student[];
   absences: Absence[];
   deliveryLogs: DeliveryLog[];
+  controlRequests?: ControlRequest[];
 }
 
-const AdminSupervisionMonitor: React.FC<Props> = ({ supervisions, users, students, absences, deliveryLogs }) => {
+const AdminSupervisionMonitor: React.FC<Props> = ({ supervisions, users, students, absences, deliveryLogs, controlRequests = [] }) => {
   const [reportInfo, setReportInfo] = useState({ 
     date: new Date().toISOString().split('T')[0], 
     subject: '' 
@@ -79,11 +81,13 @@ const AdminSupervisionMonitor: React.FC<Props> = ({ supervisions, users, student
           startTime: sv?.date || '',
           closeTime: closeLog?.time || '',
           receiptTime: delivery?.time || '',
+          receiverSignature: findStoredSignature(controlRequests, 'receiver', num, grade)?.signature || '',
+          proctorSignature: findStoredSignature(controlRequests, 'proctor', num, grade)?.signature || '',
           isDone: !!delivery
         };
       });
     });
-  }, [supervisions, users, students, absences, deliveryLogs, reportInfo.date]);
+  }, [supervisions, users, students, absences, deliveryLogs, controlRequests, reportInfo.date]);
 
   return (
     <div className="space-y-10 animate-fade-in text-right pb-32">
@@ -293,7 +297,13 @@ const AdminSupervisionMonitor: React.FC<Props> = ({ supervisions, users, student
                 <td className="cell-border stat-cell" style={{ width: '11mm' }}>{stat.late || '0'}</td>
                 <td className="cell-border text-right px-2 font-bold" style={{ width: '33mm' }}>{stat.isDone ? stat.receiver : ''}</td>
                 <td className="cell-border p-0" style={{ width: '22mm', textAlign: 'center', height: '18pt' }}>
-                   {stat.isDone && stat.receiver && (
+                   {stat.receiverSignature && (
+                     <img src={stat.receiverSignature} alt="توقيع المستلم" style={{ maxWidth: '20mm', maxHeight: '13mm', objectFit: 'contain' }} />
+                   )}
+                   {!stat.receiverSignature && stat.isDone && stat.receiver && (
+                     <span style={{ fontSize: '6pt', fontWeight: 900, color: '#64748b' }}>محفوظ بدون توقيع</span>
+                   )}
+                   {!stat.receiverSignature && !stat.isDone && stat.receiver && (
                      <div className="qr-box">
                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(buildVerificationUrl('receiver', stat))}&color=000000`} alt="QR" crossOrigin="anonymous" style={{ imageRendering: 'pixelated' }} />
                        <span>تحقق</span>
@@ -301,7 +311,13 @@ const AdminSupervisionMonitor: React.FC<Props> = ({ supervisions, users, student
                    )}
                 </td>
                 <td className="cell-border p-0" style={{ width: '22mm', textAlign: 'center', height: '18pt' }}>
-                   {stat.isDone && stat.proctor_name && (
+                   {stat.proctorSignature && (
+                     <img src={stat.proctorSignature} alt="توقيع المراقب" style={{ maxWidth: '20mm', maxHeight: '13mm', objectFit: 'contain' }} />
+                   )}
+                   {!stat.proctorSignature && stat.isDone && (
+                     <span style={{ fontSize: '6pt', fontWeight: 900, color: '#b45309' }}>بانتظار توقيع المراقب</span>
+                   )}
+                   {!stat.proctorSignature && !stat.isDone && stat.proctor_name && (
                      <div className="qr-box">
                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(buildVerificationUrl('proctor', stat))}&color=000000`} alt="QR" crossOrigin="anonymous" style={{ imageRendering: 'pixelated' }} />
                        <span>تحقق</span>

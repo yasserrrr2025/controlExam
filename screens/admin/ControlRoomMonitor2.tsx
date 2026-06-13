@@ -56,6 +56,25 @@ const summonAgeMinutes = (time?: string) => {
   return Math.max(0, Math.round((Date.now() - value) / 60000));
 };
 
+const getRiyadhDateKey = (value: string | Date) => {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value).slice(0, 10);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Riyadh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(d);
+  const get = (type: string) => parts.find(part => part.type === type)?.value || '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+};
+
+const matchesMonitorDate = (value: string | undefined | null, date: string) => {
+  if (!value || !date) return false;
+  const text = String(value);
+  return text.startsWith(date) || getRiyadhDateKey(text) === date;
+};
+
 const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, deliveryLogs, students, requests }) => {
   const [now, setNow] = useState(new Date());
   const [scene, setScene] = useState<Scene>('overview');
@@ -64,7 +83,7 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
   const [showDayComplete, setShowDayComplete] = useState(false);
   const latestSeenRef = useRef({ request: '', absence: '', delivery: '' });
   const wasCompleteRef = useRef(false);
-  const activeDate = new Date().toISOString().slice(0, 10);
+  const activeDate = getRiyadhDateKey(new Date());
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -140,7 +159,7 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
       const grades = Array.from(new Set(committeeStudents.map(s => s.grade)));
       const supervision = supervisions.find(s => s.committee_number === num);
       const proctor = users.find(u => u.id === supervision?.teacher_id);
-      const logs = deliveryLogs.filter(l => l.committee_number === num && l.time.startsWith(activeDate));
+      const logs = deliveryLogs.filter(l => l.committee_number === num && matchesMonitorDate(l.time, activeDate));
       const confirmed = grades.length > 0 && grades.every(g => logs.some(l => l.grade === g && l.status === 'CONFIRMED'));
       const submitted = !confirmed && grades.length > 0 && grades.every(g => logs.some(l => l.grade === g));
       const normalRequests = requests.filter(r => r.committee === num && !isReceiverSummon(r));
@@ -156,9 +175,9 @@ const ControlRoomMonitor2: React.FC<Props> = ({ absences, supervisions, users, d
             ? 'ack'
             : 'new'
         : null;
-      const pendingAlert = normalRequests.some(r => r.status === 'PENDING');
-      const inProgressAlert = normalRequests.some(r => r.status === 'IN_PROGRESS');
-      const committeeAbsences = absences.filter(a => a.committee_number === num);
+      const pendingAlert = !confirmed && normalRequests.some(r => r.status === 'PENDING');
+      const inProgressAlert = !confirmed && normalRequests.some(r => r.status === 'IN_PROGRESS');
+      const committeeAbsences = absences.filter(a => a.committee_number === num && matchesMonitorDate(a.date, activeDate));
       const hasActualJoin = supervision && !isPlaceholderProctorStart(supervision.date);
       const status = confirmed ? 'confirmed' : submitted ? 'submitted' : pendingAlert ? 'alert' : inProgressAlert ? 'progress' : hasActualJoin ? 'active' : 'idle';
       const receiptLog = logs.find(l => l.status === 'CONFIRMED');

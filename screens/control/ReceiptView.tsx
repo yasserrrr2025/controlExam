@@ -12,6 +12,7 @@ import {
   Timer, Inbox, SlidersHorizontal
 } from 'lucide-react';
 import { db } from '../../supabase';
+import { buildSignatureText, SIGNATURE_REQUEST_PREFIX } from '../../services/signatures';
 
 interface Props {
   user: User;
@@ -40,6 +41,10 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
   const [summonReason, setSummonReason] = useState('مراجعة المستلم');
   const [summonNote, setSummonNote] = useState('');
   const [isSummonSaving, setIsSummonSaving] = useState(false);
+  const [receiverSignatureOpen, setReceiverSignatureOpen] = useState(false);
+  const [receiverSignatureData, setReceiverSignatureData] = useState('');
+  const receiverSignatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const receiverSignatureDrawingRef = useRef(false);
   const qrScannerRef = useRef<Html5Qrcode | null>(null);
 
   const todayDate = systemConfig?.active_exam_date || new Date().toISOString().split('T')[0];
@@ -296,9 +301,79 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
     }
   };
 
-  const confirmReceipt = async () => {
+  const getCanvasPoint = (canvas: HTMLCanvasElement, event: React.PointerEvent<HTMLCanvasElement>) => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  };
+
+  const startReceiverSignature = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = receiverSignatureCanvasRef.current;
+    if (!canvas) return;
+    receiverSignatureDrawingRef.current = true;
+    canvas.setPointerCapture(event.pointerId);
+    const ctx = canvas.getContext('2d');
+    const point = getCanvasPoint(canvas, event);
+    if (!ctx) return;
+    ctx.beginPath();
+    ctx.moveTo(point.x, point.y);
+  };
+
+  const drawReceiverSignature = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = receiverSignatureCanvasRef.current;
+    if (!canvas || !receiverSignatureDrawingRef.current) return;
+    const ctx = canvas.getContext('2d');
+    const point = getCanvasPoint(canvas, event);
+    if (!ctx) return;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineTo(point.x, point.y);
+    ctx.stroke();
+  };
+
+  const finishReceiverSignature = () => {
+    receiverSignatureDrawingRef.current = false;
+    const data = receiverSignatureCanvasRef.current?.toDataURL('image/png') || '';
+    if (data) {
+      setReceiverSignatureData(data);
+      localStorage.setItem(`receiver_signature_${user.id}`, data);
+    }
+  };
+
+  const clearReceiverSignature = () => {
+    const canvas = receiverSignatureCanvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setReceiverSignatureData('');
+    localStorage.removeItem(`receiver_signature_${user.id}`);
+  };
+
+  const openReceiverSignature = () => {
+    setReceiverSignatureOpen(true);
+    setTimeout(() => {
+      const canvas = receiverSignatureCanvasRef.current;
+      const saved = localStorage.getItem(`receiver_signature_${user.id}`);
+      if (!canvas || !saved) return;
+      const ctx = canvas.getContext('2d');
+      const image = new Image();
+      image.onload = () => {
+        ctx?.clearRect(0, 0, canvas.width, canvas.height);
+        ctx?.drawImage(image, 0, 0, canvas.width, canvas.height);
+        setReceiverSignatureData(saved);
+      };
+      image.src = saved;
+    }, 50);
+  };
+
+  const confirmReceipt = async (signatureData = receiverSignatureData) => {
     const item = currentQueue[currentQueueIndex];
     if (!item) return;
+    if (!signatureData) {
+      openReceiverSignature();
+      onAlert('يرجى توقيع المستلم قبل اعتماد الاستلام.', 'warning');
+      return;
+    }
 
     const sv = supervisions.find(s => cleanId(s.committee_number) === item.committee && matchDate(s.date, todayDate));
     const proctorObj = users.find(u => u.id === sv?.teacher_id);
@@ -318,10 +393,32 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
     setIsSaving(true);
     try {
       await setDeliveryLogs(newLog);
+      await db.controlRequests.insert({
+        from: user.full_name,
+        committee: item.committee,
+        text: buildSignatureText({
+          role: 'receiver',
+          committee: item.committee,
+          grade: item.grade,
+          name: user.full_name,
+          time: newLog.time,
+          signature: signatureData,
+        }),
+        time: newLog.time,
+        status: 'DONE',
+      });
+      await db.controlRequests.insert({
+        from: `${user.full_name} - المستلم`,
+        committee: item.committee,
+        text: `${SIGNATURE_REQUEST_PREFIX} الرجاء توقيع مراقب اللجنة بعد استلام الكنترول للصف: ${item.grade}`,
+        time: newLog.time,
+        status: 'PENDING',
+      });
       if (receiptNote.trim()) {
         onAlert(`تم حفظ الاستلام مع ملاحظة: ${receiptNote.trim()}`, 'info');
       }
       setReceiptNote('');
+      setReceiverSignatureOpen(false);
       setIsSuccessState(true);
       setTimeout(() => {
         setIsSuccessState(false);
@@ -670,7 +767,7 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
 
                        <div className="pt-4">
                          <button 
-                           onClick={confirmReceipt} 
+                           onClick={() => confirmReceipt()} 
                            disabled={isSaving}
                            className="w-full py-6 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-[2rem] font-black text-xl flex items-center justify-center gap-4 shadow-[0_10px_30px_rgba(16,185,129,0.25)] shadow-emerald-500/25 hover:from-emerald-700 hover:to-emerald-600 transition-all active:scale-[0.97] relative overflow-hidden group"
                          >
@@ -685,6 +782,56 @@ const ControlReceiptView: React.FC<Props> = ({ user, students, absences, deliver
                )}
             </div>
          </div>
+      )}
+
+      {receiverSignatureOpen && activeCommitteeId && currentQueue[currentQueueIndex] && (
+        <div className="fixed inset-0 z-[700] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-xl no-print">
+          <div className="w-full max-w-xl rounded-[2.5rem] bg-white p-6 shadow-2xl border border-slate-100">
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <div className="text-right">
+                <p className="text-xl font-black text-slate-950">توقيع مستلم الكنترول</p>
+                <p className="mt-1 text-xs font-bold text-slate-500">
+                  اللجنة {activeCommitteeId} · {currentQueue[currentQueueIndex].grade}
+                </p>
+              </div>
+              <button
+                onClick={() => setReceiverSignatureOpen(false)}
+                className="grid h-11 w-11 place-items-center rounded-2xl bg-slate-100 text-slate-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="rounded-[2rem] border-2 border-dashed border-slate-200 bg-slate-50 p-3">
+              <canvas
+                ref={receiverSignatureCanvasRef}
+                width={760}
+                height={260}
+                onPointerDown={startReceiverSignature}
+                onPointerMove={drawReceiverSignature}
+                onPointerUp={finishReceiverSignature}
+                onPointerCancel={finishReceiverSignature}
+                className="h-44 w-full touch-none rounded-[1.5rem] bg-white shadow-inner"
+              />
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                onClick={clearReceiverSignature}
+                className="rounded-2xl border border-slate-200 bg-white py-4 text-sm font-black text-slate-600"
+              >
+                مسح التوقيع
+              </button>
+              <button
+                onClick={() => confirmReceipt(receiverSignatureCanvasRef.current?.toDataURL('image/png') || receiverSignatureData)}
+                disabled={isSaving}
+                className="rounded-2xl bg-emerald-600 py-4 text-sm font-black text-white shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+              >
+                حفظ التوقيع واعتماد الاستلام
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="bg-white rounded-[3rem] border border-slate-100 shadow-xl shadow-slate-200/60 overflow-hidden">
