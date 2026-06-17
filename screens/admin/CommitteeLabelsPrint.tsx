@@ -292,6 +292,9 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 position: relative;
                 background: white;
               }
+              .gs-1021-label:nth-child(n + 7) {
+                transform: translateY(15mm);
+              }
               .student-label-content,
               .committee-code-content,
               .committee-info-content {
