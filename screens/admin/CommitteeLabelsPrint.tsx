@@ -260,23 +260,29 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 position: absolute;
                 top: 0;
                 left: 0;
-                width: 100%;
+                width: 210mm;
                 direction: rtl;
               }
               .gs-1021-sheet {
                 width: 210mm;
                 height: 297mm;
                 display: grid;
-                grid-template-columns: repeat(3, 70mm);
-                grid-template-rows: repeat(7, 42.4mm);
+                grid-template-columns: repeat(3, 1fr);
+                grid-template-rows: repeat(7, 1fr);
                 page-break-after: always;
+                break-after: page;
                 box-sizing: border-box;
-                padding: 0;
+                padding: 4mm 3.5mm 5mm;
                 margin: 0;
+                overflow: hidden;
+              }
+              .gs-1021-sheet:last-child {
+                page-break-after: auto;
+                break-after: auto;
               }
               .gs-1021-label {
-                width: 70mm;
-                height: 42.4mm;
+                width: 100%;
+                height: 100%;
                 box-sizing: border-box;
                 border: 0.2pt solid #000;
                 display: flex;
