@@ -88,7 +88,7 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
           imageUrlsToPreload.push(qrUrl(student.parent_phone || student.national_id || student.seating_number || student.id, 150));
         });
       });
-    } else {
+    } else if (printMode === 'COMMITTEE') {
       committeePages.forEach(page => page.forEach(committee => imageUrlsToPreload.push(qrUrl(committee, 220))));
     }
 
@@ -212,7 +212,7 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 </table>
               </div>
 
-              <div className="committee-info-qr">
+              <div className="committee-info-qr" style={{ display: 'none' }}>
                 <img
                   src={qrUrl(committee, 220)}
                   alt="QR"
@@ -311,13 +311,13 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
               }
               .committee-info-content {
                 align-items: stretch;
-                justify-content: space-between;
-                padding: 1.25mm;
-                gap: 1.25mm;
+                justify-content: stretch;
+                padding: 1.15mm 1.35mm;
+                gap: 0;
                 overflow: hidden;
               }
               .committee-info-main {
-                flex: 1;
+                flex: 1 1 100%;
                 min-width: 0;
                 display: flex;
                 flex-direction: column;
@@ -328,14 +328,14 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                gap: 1.5mm;
+                gap: .7mm;
                 border-bottom: .7pt solid #000;
-                padding-bottom: .6mm;
+                padding-bottom: .45mm;
                 flex-shrink: 0;
               }
               .committee-info-logo {
-                width: 9mm;
-                height: 9mm;
+                width: 7mm;
+                height: 7mm;
                 object-fit: contain;
               }
               .committee-title-block {
@@ -346,12 +346,12 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
               }
               .committee-title-block span {
                 display: block;
-                font-size: 6.4pt;
+                font-size: 5.6pt;
               }
               .committee-title-block strong {
                 display: block;
-                font-size: 20pt;
-                margin-top: .35mm;
+                font-size: 16pt;
+                margin-top: .2mm;
                 letter-spacing: 0;
                 color: #000 !important;
               }
@@ -359,35 +359,38 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 width: 100%;
                 border-collapse: collapse;
                 table-layout: fixed;
-                margin-top: .75mm;
+                margin-top: .45mm;
                 flex: 1;
               }
               .committee-mini-table th,
               .committee-mini-table td {
                 border: .65pt solid #000;
-                padding: .35mm .45mm;
+                padding: 0 .35mm;
                 text-align: center;
                 color: #000 !important;
                 font-weight: 900;
-                line-height: 1;
+                line-height: .9;
                 white-space: nowrap;
                 overflow: hidden;
               }
               .committee-mini-table th {
                 font-size: 7pt;
+                height: 3.7mm;
                 background: #f1f5f9 !important;
               }
               .committee-mini-table td {
-                font-size: 7.6pt;
+                font-size: 7pt;
+                height: 7.15mm;
               }
               .committee-mini-table td:first-child {
                 font-size: 6.2pt;
-                line-height: .9;
+                line-height: .82;
+                white-space: normal;
               }
               .committee-info-qr {
-                width: 21mm;
-                height: 100%;
-                display: flex;
+                display: none !important;
+                width: 0;
+                height: 0;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
@@ -576,16 +579,16 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                         </>
                       ) : (
                         <>
-                          <div className="flex-1 min-w-0 flex flex-col justify-between">
-                            <div className="flex items-center justify-between gap-1 border-b border-slate-300 pb-1">
+                          <div className="flex-1 min-w-0 flex flex-col justify-between overflow-hidden">
+                            <div className="flex items-center justify-between gap-1 border-b border-slate-300 pb-0.5">
                               <img src={APP_CONFIG.LOGO_URL} alt="Logo" className="w-4 h-4 object-contain" />
                               <div className="text-left">
                                 <span className="block text-[5px] font-black text-slate-500 leading-none">معلومات اللجنة</span>
                                 <span className="block text-lg font-black text-slate-900 leading-none">{committee}</span>
                               </div>
                             </div>
-                            <div className="mt-1 border border-slate-300 text-[6px] font-black text-slate-800">
-                              {(committeeStats[committee] || []).slice(0, 4).map(row => (
+                            <div className="mt-0.5 border border-slate-300 text-[5.2px] font-black text-slate-900 overflow-hidden">
+                              {(committeeStats[committee] || []).slice(0, 3).map(row => (
                                 <div key={row.grade} className="flex justify-between border-b border-slate-200 last:border-b-0 px-1 py-0.5">
                                   <span>{row.grade}</span>
                                   <span>{row.count}</span>
@@ -593,8 +596,8 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                               ))}
                             </div>
                           </div>
-                          <div className="w-9 border-r border-slate-300 flex flex-col items-center justify-center">
-                            <QrCode size={18} className="text-slate-900" />
+                          <div className="hidden">
+                            <QrCode size={0} className="text-slate-900" />
                             <span className="text-[4px] font-black text-slate-500 mt-0.5">رقم اللجنة</span>
                           </div>
                         </>
