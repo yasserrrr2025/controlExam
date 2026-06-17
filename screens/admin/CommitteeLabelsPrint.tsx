@@ -9,6 +9,89 @@ interface Props {
 }
 
 type PrintMode = 'STUDENT' | 'COMMITTEE' | 'COMMITTEE_INFO';
+type LabelTemplateId = 'KENZ_21_STRAIGHT' | 'KENZ_21_ROUNDED' | 'KENZ_24_STRAIGHT' | 'KENZ_33_STRAIGHT' | 'KENZ_40_STRAIGHT';
+
+interface LabelTemplate {
+  id: LabelTemplateId;
+  name: string;
+  description: string;
+  columns: number;
+  rows: number;
+  widthMm: number;
+  heightMm: number;
+  marginTopMm: number;
+  marginRightMm: number;
+  marginBottomMm: number;
+  marginLeftMm: number;
+}
+
+const LABEL_TEMPLATES: LabelTemplate[] = [
+  {
+    id: 'KENZ_21_STRAIGHT',
+    name: 'Kenz 21 مستقيم',
+    description: 'الأشهر في الصورة: 3 أعمدة × 7 صفوف، مقاس الملصق 70 × 42.4 ملم.',
+    columns: 3,
+    rows: 7,
+    widthMm: 70,
+    heightMm: 42.4,
+    marginTopMm: 0.1,
+    marginRightMm: 0,
+    marginBottomMm: 0.1,
+    marginLeftMm: 0,
+  },
+  {
+    id: 'KENZ_21_ROUNDED',
+    name: 'Kenz 21 دائري الزوايا',
+    description: 'من قسم Rounded: 3 أعمدة × 7 صفوف، مقاس الملصق 63.5 × 38.1 ملم مع فراغات حولية.',
+    columns: 3,
+    rows: 7,
+    widthMm: 63.5,
+    heightMm: 38.1,
+    marginTopMm: 15.15,
+    marginRightMm: 9.75,
+    marginBottomMm: 15.15,
+    marginLeftMm: 9.75,
+  },
+  {
+    id: 'KENZ_24_STRAIGHT',
+    name: 'Kenz 24 مستقيم',
+    description: '3 أعمدة × 8 صفوف، مقاس الملصق 70 × 37 ملم.',
+    columns: 3,
+    rows: 8,
+    widthMm: 70,
+    heightMm: 37,
+    marginTopMm: 0.5,
+    marginRightMm: 0,
+    marginBottomMm: 0.5,
+    marginLeftMm: 0,
+  },
+  {
+    id: 'KENZ_33_STRAIGHT',
+    name: 'Kenz 33 مستقيم',
+    description: '3 أعمدة × 11 صف، مقاس الملصق 70 × 25.4 ملم.',
+    columns: 3,
+    rows: 11,
+    widthMm: 70,
+    heightMm: 25.4,
+    marginTopMm: 8.8,
+    marginRightMm: 0,
+    marginBottomMm: 8.8,
+    marginLeftMm: 0,
+  },
+  {
+    id: 'KENZ_40_STRAIGHT',
+    name: 'Kenz 40 مستقيم',
+    description: '4 أعمدة × 10 صفوف، مقاس الملصق 52.5 × 29.7 ملم.',
+    columns: 4,
+    rows: 10,
+    widthMm: 52.5,
+    heightMm: 29.7,
+    marginTopMm: 0,
+    marginRightMm: 0,
+    marginBottomMm: 0,
+    marginLeftMm: 0,
+  },
+];
 
 const qrUrl = (data: string | number, size = 200) =>
   `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(String(data))}&color=000000`;
@@ -17,6 +100,14 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
   const [isPrinting, setIsPrinting] = useState(false);
   const [printMode, setPrintMode] = useState<PrintMode>('STUDENT');
   const [selectedCommittee, setSelectedCommittee] = useState<string>('ALL');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<LabelTemplateId>('KENZ_21_STRAIGHT');
+
+  const selectedTemplate = useMemo(
+    () => LABEL_TEMPLATES.find(template => template.id === selectedTemplateId) || LABEL_TEMPLATES[0],
+    [selectedTemplateId]
+  );
+
+  const labelsPerPage = selectedTemplate.columns * selectedTemplate.rows;
 
   const uniqueCommittees = useMemo(() => {
     return Array.from(new Set(students.map(student => student.committee_number)))
@@ -34,24 +125,24 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
         .filter(student => String(student.committee_number) === String(committee))
         .sort((a, b) => Number(a.seating_number || 0) - Number(b.seating_number || 0) || a.name.localeCompare(b.name, 'ar'));
 
-      for (let i = 0; i < committeeStudents.length; i += 21) {
-        pages.push({ committee, students: committeeStudents.slice(i, i + 21) });
+      for (let i = 0; i < committeeStudents.length; i += labelsPerPage) {
+        pages.push({ committee, students: committeeStudents.slice(i, i + labelsPerPage) });
       }
     }
 
     return pages;
-  }, [students, uniqueCommittees, selectedCommittee]);
+  }, [students, uniqueCommittees, selectedCommittee, labelsPerPage]);
 
   const committeePages = useMemo(() => {
     const pages: string[][] = [];
     const committeesToProcess = selectedCommittee === 'ALL' ? uniqueCommittees : [selectedCommittee];
 
-    for (let i = 0; i < committeesToProcess.length; i += 21) {
-      pages.push(committeesToProcess.slice(i, i + 21));
+    for (let i = 0; i < committeesToProcess.length; i += labelsPerPage) {
+      pages.push(committeesToProcess.slice(i, i + labelsPerPage));
     }
 
     return pages;
-  }, [uniqueCommittees, selectedCommittee]);
+  }, [uniqueCommittees, selectedCommittee, labelsPerPage]);
 
   const committeeStats = useMemo(() => {
     return uniqueCommittees.reduce<Record<string, Array<{ grade: string; count: number }>>>((acc, committee) => {
@@ -110,8 +201,16 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
     return () => window.removeEventListener('afterprint', handleAfterPrint);
   }, []);
 
+  const sheetStyle = {
+    '--label-cols': selectedTemplate.columns,
+    '--label-rows': selectedTemplate.rows,
+    '--label-width': `${selectedTemplate.widthMm}mm`,
+    '--label-height': `${selectedTemplate.heightMm}mm`,
+    '--sheet-padding': `${selectedTemplate.marginTopMm}mm ${selectedTemplate.marginRightMm}mm ${selectedTemplate.marginBottomMm}mm ${selectedTemplate.marginLeftMm}mm`,
+  } as React.CSSProperties;
+
   const renderStudentPrint = () => pagesByCommittee.map((page, pageIdx) => (
-    <div key={pageIdx} className="gs-1021-sheet">
+    <div key={pageIdx} className="gs-1021-sheet" style={sheetStyle}>
       {page.students.map(student => (
         <div key={student.id} className="gs-1021-label">
           <div className="student-label-content">
@@ -146,7 +245,7 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
   ));
 
   const renderCommitteeCodePrint = () => committeePages.map((pageCommittees, pageIdx) => (
-    <div key={pageIdx} className="gs-1021-sheet">
+    <div key={pageIdx} className="gs-1021-sheet" style={sheetStyle}>
       {pageCommittees.map(committee => (
         <div key={committee} className="gs-1021-label">
           <div className="committee-code-content">
@@ -172,7 +271,7 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
   ));
 
   const renderCommitteeInfoPrint = () => committeePages.map((pageCommittees, pageIdx) => (
-    <div key={pageIdx} className="gs-1021-sheet">
+    <div key={pageIdx} className="gs-1021-sheet" style={sheetStyle}>
       {pageCommittees.map(committee => {
         const stats = committeeStats[committee] || [];
         const displayedStats = stats.length > 3
@@ -267,12 +366,12 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 width: 210mm;
                 height: 297mm;
                 display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                grid-template-rows: repeat(7, 1fr);
+                grid-template-columns: repeat(var(--label-cols), var(--label-width));
+                grid-template-rows: repeat(var(--label-rows), var(--label-height));
                 page-break-after: always;
                 break-after: page;
                 box-sizing: border-box;
-                padding: 4mm 3.5mm 5mm;
+                padding: var(--sheet-padding);
                 margin: 0;
                 overflow: hidden;
               }
@@ -281,8 +380,8 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 break-after: auto;
               }
               .gs-1021-label {
-                width: 100%;
-                height: 100%;
+                width: var(--label-width);
+                height: var(--label-height);
                 box-sizing: border-box;
                 border: 0.2pt solid #000;
                 display: flex;
@@ -291,9 +390,6 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 overflow: hidden;
                 position: relative;
                 background: white;
-              }
-              .gs-1021-label:nth-child(n + 7) {
-                transform: translateY(15mm);
               }
               .student-label-content,
               .committee-code-content,
@@ -470,6 +566,46 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
               </button>
             </div>
 
+            <div className="bg-white/5 p-5 border border-white/10 rounded-2xl grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-5 items-center w-full max-w-3xl backdrop-blur-sm self-stretch lg:self-auto">
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 font-black text-sm">
+                  <Tag size={20} className="text-emerald-400" />
+                  نوع ورق الملصق
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedTemplateId}
+                    onChange={(e) => setSelectedTemplateId(e.target.value as LabelTemplateId)}
+                    className="w-full appearance-none bg-slate-800 border-2 border-slate-700 text-white py-3 px-5 rounded-xl font-bold outline-none focus:border-emerald-500 transition-all cursor-pointer shadow-inner pr-10"
+                  >
+                    {LABEL_TEMPLATES.map(template => (
+                      <option key={template.id} value={template.id}>{template.name}</option>
+                    ))}
+                  </select>
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">▼</div>
+                </div>
+              </div>
+
+              <div className="bg-slate-950/70 border border-emerald-400/20 rounded-2xl p-4 text-sm min-w-[240px]">
+                <div className="font-black text-emerald-300">{selectedTemplate.name}</div>
+                <div className="text-slate-300 font-bold mt-1 leading-relaxed">{selectedTemplate.description}</div>
+                <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+                  <div className="bg-white/5 rounded-xl p-2">
+                    <div className="text-[10px] text-slate-400 font-black">العدد</div>
+                    <div className="text-lg font-black">{labelsPerPage}</div>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-2">
+                    <div className="text-[10px] text-slate-400 font-black">الشبكة</div>
+                    <div className="text-lg font-black">{selectedTemplate.columns}×{selectedTemplate.rows}</div>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-2">
+                    <div className="text-[10px] text-slate-400 font-black">المقاس</div>
+                    <div className="text-xs font-black">{selectedTemplate.widthMm}×{selectedTemplate.heightMm}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-white/5 p-5 border border-white/10 rounded-2xl flex flex-col md:flex-row gap-5 items-center w-full max-w-2xl backdrop-blur-sm self-stretch lg:self-auto">
               <div className="flex items-center gap-3 shrink-0">
                 <Filter size={20} className="text-blue-400" />
@@ -542,9 +678,17 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                   <span className="text-[11px] font-black text-slate-500 bg-slate-100 px-3 py-1 rounded-lg">صفحة رقم #{pageIdx + 1}</span>
                   <span className="text-[13px] font-black text-blue-600 bg-blue-50 px-4 py-1.5 rounded-xl border border-blue-100 shadow-sm">لجنة: {page.committee}</span>
                 </div>
-                <div className="grid grid-cols-3 gap-1 border border-slate-300 bg-slate-50 p-2 shadow-inner w-full max-w-[400px] aspect-[210/297] relative rounded-md overflow-hidden" dir="rtl">
+                <div
+                  className="grid gap-1 border border-slate-300 bg-slate-50 p-2 shadow-inner w-full max-w-[400px] aspect-[210/297] relative rounded-md overflow-hidden"
+                  dir="rtl"
+                  style={{ gridTemplateColumns: `repeat(${selectedTemplate.columns}, minmax(0, 1fr))` }}
+                >
                   {page.students.map(student => (
-                    <div key={student.id} className="bg-white border border-slate-300 flex flex-col items-center justify-center p-1 shadow-sm aspect-[70/42.4] hover:border-blue-500 transition-all relative group/label">
+                    <div
+                      key={student.id}
+                      className="bg-white border border-slate-300 flex flex-col items-center justify-center p-1 shadow-sm hover:border-blue-500 transition-all relative group/label"
+                      style={{ aspectRatio: `${selectedTemplate.widthMm} / ${selectedTemplate.heightMm}` }}
+                    >
                       <div className="w-full h-full flex items-center overflow-hidden gap-1 pl-1">
                         <div className="flex-1 flex flex-col justify-between h-full border-l border-slate-200 py-[2px] pr-1">
                           <div className="text-[5px] font-black text-slate-400">لجنة: {student.committee_number}</div>
@@ -557,8 +701,12 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                       </div>
                     </div>
                   ))}
-                  {Array.from({ length: 21 - page.students.length }).map((_, i) => (
-                    <div key={`empty-${i}`} className="border border-slate-200/50 bg-slate-100/30 flex items-center justify-center shadow-sm aspect-[70/42.4]">
+                  {Array.from({ length: labelsPerPage - page.students.length }).map((_, i) => (
+                    <div
+                      key={`empty-${i}`}
+                      className="border border-slate-200/50 bg-slate-100/30 flex items-center justify-center shadow-sm"
+                      style={{ aspectRatio: `${selectedTemplate.widthMm} / ${selectedTemplate.heightMm}` }}
+                    >
                       <span className="text-[3px] text-slate-300 uppercase">فارغ</span>
                     </div>
                   ))}
@@ -572,9 +720,17 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                   <span className="text-[11px] font-black text-slate-500 bg-slate-100 px-3 py-1 rounded-lg">صفحة رقم #{pageIdx + 1}</span>
                   <span className="text-[13px] font-black text-blue-600 bg-blue-50 px-4 py-1.5 rounded-xl border border-blue-100 shadow-sm">{printMode === 'COMMITTEE' ? 'كود تفعيل اللجان' : 'معلومات اللجان مع QR'}</span>
                 </div>
-                <div className="grid grid-cols-3 gap-1 border border-slate-300 bg-slate-50 p-2 shadow-inner w-full max-w-[400px] aspect-[210/297] rounded-md overflow-hidden" dir="rtl">
+                <div
+                  className="grid gap-1 border border-slate-300 bg-slate-50 p-2 shadow-inner w-full max-w-[400px] aspect-[210/297] rounded-md overflow-hidden"
+                  dir="rtl"
+                  style={{ gridTemplateColumns: `repeat(${selectedTemplate.columns}, minmax(0, 1fr))` }}
+                >
                   {pageCommittees.map(committee => (
-                    <div key={committee} className="bg-white border border-slate-300 flex items-stretch justify-between gap-1 p-1 shadow-sm aspect-[70/42.4]">
+                    <div
+                      key={committee}
+                      className="bg-white border border-slate-300 flex items-stretch justify-between gap-1 p-1 shadow-sm"
+                      style={{ aspectRatio: `${selectedTemplate.widthMm} / ${selectedTemplate.heightMm}` }}
+                    >
                       {printMode === 'COMMITTEE' ? (
                         <>
                           <div className="flex-1 flex flex-col items-center justify-center">
@@ -613,8 +769,12 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                       )}
                     </div>
                   ))}
-                  {Array.from({ length: 21 - pageCommittees.length }).map((_, i) => (
-                    <div key={`empty-com-${i}`} className="border border-slate-200/50 bg-slate-100/30 flex items-center justify-center shadow-sm aspect-[70/42.4]">
+                  {Array.from({ length: labelsPerPage - pageCommittees.length }).map((_, i) => (
+                    <div
+                      key={`empty-com-${i}`}
+                      className="border border-slate-200/50 bg-slate-100/30 flex items-center justify-center shadow-sm"
+                      style={{ aspectRatio: `${selectedTemplate.widthMm} / ${selectedTemplate.heightMm}` }}
+                    >
                       <span className="text-[3px] text-slate-300 uppercase">فارغ</span>
                     </div>
                   ))}
