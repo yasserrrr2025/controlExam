@@ -23,6 +23,8 @@ interface LabelTemplate {
   marginRightMm: number;
   marginBottomMm: number;
   marginLeftMm: number;
+  columnGapMm: number;
+  rowGapMm: number;
 }
 
 const LABEL_TEMPLATES: LabelTemplate[] = [
@@ -38,6 +40,8 @@ const LABEL_TEMPLATES: LabelTemplate[] = [
     marginRightMm: 0,
     marginBottomMm: 0.1,
     marginLeftMm: 0,
+    columnGapMm: 0,
+    rowGapMm: 0,
   },
   {
     id: 'KENZ_21_ROUNDED',
@@ -47,10 +51,12 @@ const LABEL_TEMPLATES: LabelTemplate[] = [
     rows: 7,
     widthMm: 63.5,
     heightMm: 38.1,
-    marginTopMm: 15.15,
-    marginRightMm: 9.75,
-    marginBottomMm: 15.15,
-    marginLeftMm: 9.75,
+    marginTopMm: 6.15,
+    marginRightMm: 6.75,
+    marginBottomMm: 6.15,
+    marginLeftMm: 6.75,
+    columnGapMm: 3,
+    rowGapMm: 3,
   },
   {
     id: 'KENZ_24_STRAIGHT',
@@ -64,6 +70,8 @@ const LABEL_TEMPLATES: LabelTemplate[] = [
     marginRightMm: 0,
     marginBottomMm: 0.5,
     marginLeftMm: 0,
+    columnGapMm: 0,
+    rowGapMm: 0,
   },
   {
     id: 'KENZ_33_STRAIGHT',
@@ -77,6 +85,8 @@ const LABEL_TEMPLATES: LabelTemplate[] = [
     marginRightMm: 0,
     marginBottomMm: 8.8,
     marginLeftMm: 0,
+    columnGapMm: 0,
+    rowGapMm: 0,
   },
   {
     id: 'KENZ_40_STRAIGHT',
@@ -90,6 +100,8 @@ const LABEL_TEMPLATES: LabelTemplate[] = [
     marginRightMm: 0,
     marginBottomMm: 0,
     marginLeftMm: 0,
+    columnGapMm: 0,
+    rowGapMm: 0,
   },
 ];
 
@@ -207,6 +219,8 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
     '--label-width': `${selectedTemplate.widthMm}mm`,
     '--label-height': `${selectedTemplate.heightMm}mm`,
     '--sheet-padding': `${selectedTemplate.marginTopMm}mm ${selectedTemplate.marginRightMm}mm ${selectedTemplate.marginBottomMm}mm ${selectedTemplate.marginLeftMm}mm`,
+    '--label-column-gap': `${selectedTemplate.columnGapMm}mm`,
+    '--label-row-gap': `${selectedTemplate.rowGapMm}mm`,
   } as React.CSSProperties;
 
   const renderStudentPrint = () => pagesByCommittee.map((page, pageIdx) => (
@@ -368,6 +382,8 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 display: grid;
                 grid-template-columns: repeat(var(--label-cols), var(--label-width));
                 grid-template-rows: repeat(var(--label-rows), var(--label-height));
+                column-gap: var(--label-column-gap);
+                row-gap: var(--label-row-gap);
                 page-break-after: always;
                 break-after: page;
                 box-sizing: border-box;
@@ -391,6 +407,10 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 position: relative;
                 background: white;
               }
+              .gs-1021-label,
+              .gs-1021-label * {
+                box-sizing: border-box !important;
+              }
               .student-label-content,
               .committee-code-content,
               .committee-info-content {
@@ -398,26 +418,74 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 height: 100%;
                 display: flex;
                 align-items: stretch;
-                padding: 2mm;
-                gap: 2mm;
+                padding: 2.15mm 2.35mm;
+                gap: 1.35mm;
+                box-sizing: border-box !important;
+                overflow: hidden;
+                max-width: 100%;
+                max-height: 100%;
               }
               .student-label-details {
                 flex: 1;
+                min-width: 0;
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
                 border-left: 1pt solid #000;
-                padding-left: 2mm;
+                padding-left: 1.35mm;
+                overflow: hidden;
+              }
+              .student-label-details > div:first-child img {
+                width: 5.5mm !important;
+                height: 5.5mm !important;
+              }
+              .student-label-details > div:first-child div {
+                font-size: 6pt !important;
+                line-height: 1 !important;
+              }
+              .student-label-details > div:nth-child(2) {
+                font-size: 7.8pt !important;
+                line-height: 1.05 !important;
+                margin-top: .4mm !important;
+                max-height: 16pt !important;
+              }
+              .student-label-details > div:last-child {
+                margin-top: .4mm !important;
+                padding-top: .55mm !important;
+                min-width: 0;
+                gap: .8mm;
+              }
+              .student-label-details > div:last-child div {
+                font-size: 6.2pt !important;
+                line-height: 1 !important;
+                min-width: 0;
+                overflow: hidden;
+                white-space: nowrap;
+              }
+              .student-label-content > div:last-child {
+                width: 14.2mm !important;
+                min-width: 14.2mm !important;
+                max-width: 14.2mm !important;
+                overflow: hidden;
+              }
+              .student-label-content > div:last-child span {
+                font-size: 3.9pt !important;
+                line-height: 1 !important;
               }
               .committee-code-content {
                 align-items: center;
                 justify-content: space-between;
-                padding: 0 5mm;
+                padding: 2mm 4.8mm;
+                overflow: hidden;
+              }
+              .committee-code-content img {
+                max-width: 15.5mm !important;
+                max-height: 15.5mm !important;
               }
               .committee-info-content {
                 align-items: stretch;
                 justify-content: stretch;
-                padding: 1.15mm 1.35mm;
+                padding: 2mm 2.2mm;
                 gap: 0;
                 overflow: hidden;
               }
@@ -603,6 +671,11 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                     <div className="text-xs font-black">{selectedTemplate.widthMm}×{selectedTemplate.heightMm}</div>
                   </div>
                 </div>
+                {(selectedTemplate.columnGapMm > 0 || selectedTemplate.rowGapMm > 0) && (
+                  <div className="mt-3 text-[11px] font-black text-amber-200 bg-amber-500/10 border border-amber-400/20 rounded-xl px-3 py-2">
+                    يحتوي هذا القالب على فراغات بين الملصقات: أفقي {selectedTemplate.columnGapMm}mm، عمودي {selectedTemplate.rowGapMm}mm
+                  </div>
+                )}
               </div>
             </div>
 
@@ -681,7 +754,11 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 <div
                   className="grid gap-1 border border-slate-300 bg-slate-50 p-2 shadow-inner w-full max-w-[400px] aspect-[210/297] relative rounded-md overflow-hidden"
                   dir="rtl"
-                  style={{ gridTemplateColumns: `repeat(${selectedTemplate.columns}, minmax(0, 1fr))` }}
+                  style={{
+                    gridTemplateColumns: `repeat(${selectedTemplate.columns}, minmax(0, 1fr))`,
+                    columnGap: selectedTemplate.columnGapMm ? `${Math.max(1, selectedTemplate.columnGapMm)}px` : undefined,
+                    rowGap: selectedTemplate.rowGapMm ? `${Math.max(1, selectedTemplate.rowGapMm)}px` : undefined,
+                  }}
                 >
                   {page.students.map(student => (
                     <div
@@ -723,7 +800,11 @@ const CommitteeLabelsPrint: React.FC<Props> = ({ students }) => {
                 <div
                   className="grid gap-1 border border-slate-300 bg-slate-50 p-2 shadow-inner w-full max-w-[400px] aspect-[210/297] rounded-md overflow-hidden"
                   dir="rtl"
-                  style={{ gridTemplateColumns: `repeat(${selectedTemplate.columns}, minmax(0, 1fr))` }}
+                  style={{
+                    gridTemplateColumns: `repeat(${selectedTemplate.columns}, minmax(0, 1fr))`,
+                    columnGap: selectedTemplate.columnGapMm ? `${Math.max(1, selectedTemplate.columnGapMm)}px` : undefined,
+                    rowGap: selectedTemplate.rowGapMm ? `${Math.max(1, selectedTemplate.rowGapMm)}px` : undefined,
+                  }}
                 >
                   {pageCommittees.map(committee => (
                     <div
